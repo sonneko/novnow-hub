@@ -9,4 +9,24 @@ export default defineConfig({
     port: 4321,
     strictPort: true,
   },
+  vite: {
+    server: {
+      proxy: {
+        '/api/v1': {
+          target: 'http://127.0.0.1:4010',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/v1(?=\/|$)/, ''),
+        },
+      },
+    },
+    preview: {
+      proxy: {
+        '/api/v1': {
+          target: 'http://127.0.0.1:4010',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/v1(?=\/|$)/, ''),
+        },
+      },
+    },
+  },
 });

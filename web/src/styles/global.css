@@ -136,8 +136,7 @@ textarea {
 
 .page-heading p,
 .meta,
-.site-footer,
-.placeholder-note {
+.site-footer {
   color: var(--color-muted);
 }
 
@@ -196,14 +195,14 @@ textarea {
   gap: 1rem;
 }
 
-.chapter-list {
+.content-list {
   display: grid;
   gap: 0.75rem;
   padding: 0;
   list-style: none;
 }
 
-.chapter-list li {
+.content-list li {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -213,7 +212,7 @@ textarea {
   border-bottom: 1px solid var(--color-border);
 }
 
-.chapter-list li:last-child {
+.content-list li:last-child {
   border-bottom: 0;
 }
 
@@ -233,17 +232,29 @@ textarea {
   line-height: 1.9;
 }
 
-.reader-nav {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-top: 2rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--color-border);
+.reader-body h2 {
+  margin-block: 2rem 1rem;
+  line-height: 1.4;
 }
 
-.reader-nav-disabled {
+.reader-body blockquote {
+  margin: 1.5rem 0;
+  padding-inline-start: 1rem;
+  border-inline-start: 3px solid var(--color-border);
+}
+
+.reader-body cite {
+  display: block;
   color: var(--color-muted);
+  font-style: normal;
+  text-align: end;
+}
+
+.scene-break {
+  margin-block: 2rem;
+  color: var(--color-muted);
+  letter-spacing: 0.35em;
+  text-align: center;
 }
 
 .site-footer {
