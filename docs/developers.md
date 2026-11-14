@@ -53,10 +53,12 @@ docs/
 
 ### 2.1 必要なツールチェーン
 
-<!-- プロジェクトに合わせて適宜書き換える -->
-
-- **言語・ツール**: プロジェクトの依存関係に応じて調整すること
-- **ビルドツール**: 上記に同じ
+- **フロントエンド**: Astro + Svelte + TypeScript（strict）、パッケージマネージャは pnpm。API クライアントは契約（`REF:api/openapi.yaml`）から生成する（`openapi-typescript` + `openapi-fetch` を第一候補）
+- **デスクトップ**: Tauri v2（Web と同一コードベース）
+- **バックエンド**（別リポジトリまたは別 crate）: Rust + Axum + SQLite（候補。Phase 1 は GitHub アダプターを実装）
+- **契約検証**: `python3 -m pip install openapi-spec-validator` で `REF:api/openapi.yaml` を検証する
+- **ランタイム**: Node.js LTS（フロントエンド）、Rust stable（バックエンド）
+- **ビルドツール**: Vite（Astro 内蔵）、Cargo
 
 ### 2.2 Arena サンドボックス環境でのツールチェーン復旧
 
@@ -82,25 +84,31 @@ Arena サンドボックスには初期状態で目的のツールチェーン�
 
 ## 3. ソースコードのディレクトリ構造
 
-<!-- プロジェクトに合わせて適宜書き換える -->
-
 ```text
-project-root/
+novnow-hub/
+├── api/
+│   └── openapi.yaml           # API 契約の唯一の正（OpenAPI 3.1）
+├── apps/
+│   └── web/                   # Astro + Svelte + TypeScript フロントエンド（M2 で導入）
+├── src-tauri/                 # Tauri v2（M6 で導入）
 ├── docs/
 │   ├── developers.md          # 本書（固定の開発者情報・ドキュメント規則）
-│   ├── handoff.md             # セッション引き継ぎ情報（REF:docs/handoff.md）
-│   ├── plans.md               # 計画・進行中マイルストーン（REF:docs/plans.md）
-│   ├── history.md             # 過去の仕様改訂・意思決定・完了履歴（追記専用、REF:docs/history.md）
+│   ├── handoff.md             # セッション引き継ぎ情報
+│   ├── plans.md               # 計画・進行中マイルストーン
+│   ├── history.md             # 過去の仕様改訂・意思決定・完了履歴（追記専用）
 │   ├── script/
 │   │   └── verify-docs.py     # ドキュメント管理規則・重複・REF 検査スクリプト
-│   ├── specifications/        # 純粋な仕様書
-│   └── designs/               # 対応する設計書
+│   ├── specifications/        # 純粋な仕様書（overview.md / api.md）
+│   └── designs/               # 対応する設計書（overview.md / api.md）
 ├── scripts/
 │   ├── bootstrap-toolchain.sh # サンドボックス用ツールチェーン展開
 │   └── verify.sh              # コミット前の一括検証スクリプト
-├── src/                       # ソースコード
+├── mocks/                     # モックのシード・フィクスチャ（M2 で導入）
+├── Cargo.toml / crates/       # バックエンド（別途開発。導入時に追記）
 └── tests/                     # テスト
 ```
+
+`apps/`・`src-tauri/`・`mocks/`・`api/` の新規パスは本 M1 で確定した構成。バックエンドが同一リポジトリに来るか別リポジトリかは M3 の開始時に確定し、確定後に本節を更新する。
 
 ---
 
