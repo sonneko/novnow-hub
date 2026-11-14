@@ -37,7 +37,7 @@
 
 <a id="m2-frontend-mock"></a>
 ### M2: フロントエンド基盤 + モック接続
-- [ ] `apps/web` の雛形（Astro + Svelte + TypeScript strict、パッケージマネージャは pnpm）
+- [ ] `web/` の雛形（Astro + Svelte + TypeScript strict、パッケージマネージャは npm）
 - [ ] 契約からの API クライアント生成（型 + フェッチャ）と CI での生成物差分チェック
 - [ ] 開発用モックサーバー（OpenAPI から起動）とテスト用インメモリモック、シード生成スクリプト
 - [ ] CI 拡張: 契約のスキーマ検証とモックのスモークテストを docs ジョブに追加

@@ -68,7 +68,7 @@ GitHub アクセスは必ずポート（§7 参照）経由に限定し、フロ
 状態: 未実装・実装計画済み（REF:docs/plans.md#m2-frontend-mock, REF:docs/plans.md#m3-thin-slice）
 
 ```text
-apps/web (Astro + Svelte + TypeScript) ─┐
+web/ (Astro + Svelte + TypeScript) ─────┐
                                         ├─ HTTP/JSON (/api/v1) ─ hub API (Rust + Axum, 別リポジトリまたは別 crate)
 src-tauri (Tauri v2) ───────────────────┘                                │
                                                               ┌───────────┴───────────┐
