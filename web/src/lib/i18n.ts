@@ -45,6 +45,7 @@ const ja = {
   },
   reader: {
     title: '読者ビュー',
+    navigation: 'チャプター移動',
     backToProject: 'プロジェクトへ',
     previous: '前へ',
     next: '次へ',
@@ -100,6 +101,7 @@ const en: Messages = {
   },
   reader: {
     title: 'Reader',
+    navigation: 'Chapter navigation',
     backToProject: 'Back to project',
     previous: 'Previous',
     next: 'Next',

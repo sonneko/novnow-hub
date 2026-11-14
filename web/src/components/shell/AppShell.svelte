@@ -7,7 +7,9 @@
     getProject,
     placeholderChapters,
   } from '../../lib/placeholders';
+  import ProjectPage from '../pages/ProjectPage.svelte';
   import ProjectsPage from '../pages/ProjectsPage.svelte';
+  import ReaderPage from '../pages/ReaderPage.svelte';
 
   interface Props {
     page: ShellPage;
@@ -117,42 +119,9 @@
     {#if page.kind === 'projects'}
       <ProjectsPage {locale} m={m} />
     {:else if page.kind === 'project'}
-      <section class="section-stack" aria-labelledby="project-heading">
-        <p class="breadcrumbs"><a href="/">{m.project.back}</a></p>
-        <header class="page-heading">
-          <h1 id="project-heading">
-            {activeProject?.title[locale] ?? m.project.notFound}
-          </h1>
-          <p class="placeholder-note">{m.notice.placeholder} · {m.notice.noApi}</p>
-        </header>
-        <article class="panel">
-          <h2>{m.project.overview}</h2>
-          <p>{activeProject?.summary[locale] ?? m.project.notFound}</p>
-        </article>
-      </section>
+      <ProjectPage projectId={page.projectId} {locale} m={m} />
     {:else}
-      <article class="reader" aria-labelledby="reader-heading">
-        <header class="reader-header">
-          <p class="breadcrumbs">
-            <a href={`/projects/${activeChapter?.projectId ?? ''}`}>
-              {m.reader.backToProject}
-            </a>
-          </p>
-          <h1 id="reader-heading">
-            {activeChapter?.title[locale] ?? m.reader.notFound}
-          </h1>
-          <p class="placeholder-note">{m.reader.placeholderNote}</p>
-        </header>
-        <div class="reader-body">
-          {#if activeChapter}
-            {#each activeChapter.paragraphs as paragraph, index (index)}
-              <p>{paragraph[locale]}</p>
-            {/each}
-          {:else}
-            <p>{m.reader.notFound}</p>
-          {/if}
-        </div>
-      </article>
+      <ReaderPage chapterId={page.chapterId} {locale} m={m} />
     {/if}
   </main>
 
