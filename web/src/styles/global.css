@@ -1,0 +1,263 @@
+:root {
+  color-scheme: light;
+  --color-bg: #f7f8fb;
+  --color-surface: #ffffff;
+  --color-text: #182033;
+  --color-muted: #5c6577;
+  --color-border: #d8deea;
+  --color-accent: #2456c8;
+  --color-accent-soft: #e8eefc;
+  --color-focus: #1d4ed8;
+  --radius: 0.75rem;
+  --shell-width: 70rem;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-bg: #10141c;
+  --color-surface: #181e29;
+  --color-text: #edf1f8;
+  --color-muted: #a8b2c4;
+  --color-border: #303a4c;
+  --color-accent: #9db8ff;
+  --color-accent-soft: #22304a;
+  --color-focus: #bfd0ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.6;
+}
+
+a {
+  color: var(--color-accent);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  z-index: 10;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+.shell {
+  width: min(100% - 2rem, var(--shell-width));
+  margin-inline: auto;
+}
+
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding-block: 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.brand {
+  color: var(--color-text);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.site-nav a {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  color: var(--color-muted);
+  text-decoration: none;
+}
+
+.site-nav a[aria-current='page'] {
+  background: var(--color-accent-soft);
+  color: var(--color-text);
+}
+
+.controls {
+  display: flex;
+  gap: 0.5rem;
+  margin-inline-start: auto;
+}
+
+.control-button {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.content {
+  padding-block: 2rem 3rem;
+}
+
+.page-heading {
+  margin-bottom: 1.5rem;
+}
+
+.page-heading h1,
+.reader-header h1 {
+  margin: 0 0 0.5rem;
+  line-height: 1.25;
+}
+
+.page-heading p,
+.meta,
+.site-footer,
+.placeholder-note {
+  color: var(--color-muted);
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.card,
+.panel {
+  padding: 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.card h2,
+.panel h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+}
+
+.card-top {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.badge {
+  flex: none;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: var(--color-accent-soft);
+  color: var(--color-text);
+  font-size: 0.8125rem;
+}
+
+.meta {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0;
+  font-size: 0.875rem;
+}
+
+.breadcrumbs {
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.section-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.chapter-list {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.chapter-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-block: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.chapter-list li:last-child {
+  border-bottom: 0;
+}
+
+.reader {
+  max-width: 68ch;
+  margin-inline: auto;
+}
+
+.reader-header {
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.reader-body p {
+  margin-block: 0 1.25rem;
+  line-height: 1.9;
+}
+
+.reader-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.reader-nav-disabled {
+  color: var(--color-muted);
+}
+
+.site-footer {
+  padding-block: 1.5rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 40rem) {
+  .controls {
+    margin-inline-start: 0;
+  }
+
+  .content {
+    padding-block: 1.5rem 2rem;
+  }
+}

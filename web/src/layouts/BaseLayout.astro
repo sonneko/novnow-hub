@@ -1,0 +1,45 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title?: string;
+}
+
+const { title = 'novnow-hub' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="ja" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <script is:inline>
+      (() => {
+        const root = document.documentElement;
+        try {
+          const storedTheme = localStorage.getItem('novnow-theme');
+          const prefersDark =
+            window.matchMedia &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches;
+          root.dataset.theme =
+            storedTheme === 'dark' || storedTheme === 'light'
+              ? storedTheme
+              : prefersDark
+                ? 'dark'
+                : 'light';
+
+          const storedLocale = localStorage.getItem('novnow-locale');
+          if (storedLocale === 'ja' || storedLocale === 'en') {
+            root.lang = storedLocale;
+          }
+        } catch {
+          root.dataset.theme = 'light';
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

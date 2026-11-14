@@ -1,17 +1,8 @@
 ---
-import Hello from '../components/Hello.svelte';
+import AppShell from '../components/shell/AppShell.svelte';
+import BaseLayout from '../layouts/BaseLayout.astro';
 ---
 
-<!doctype html>
-<html lang="ja">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>novnow-hub</title>
-  </head>
-  <body>
-    <main>
-      <Hello client:load />
-    </main>
-  </body>
-</html>
+<BaseLayout title="プロジェクト | novnow-hub">
+  <AppShell client:load page={{ kind: 'projects' }} />
+</BaseLayout>
