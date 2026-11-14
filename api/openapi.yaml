@@ -1,0 +1,2164 @@
+openapi: 3.1.0
+info:
+  title: novnow-hub API
+  version: 1.0.0
+  description: |
+    novnow-hub の REST/JSON API 契約。クライアント（Web / Tauri）はこの契約だけに依存する。
+
+    設計上の重要事項:
+    - 本契約には GitHub 等の外部基盤の概念を持ち込まない（認証が GitHub OAuth である点を除く）。
+    - エラーは RFC 9457（Problem Details）形式で返し、機械可読な `code` で分岐する。
+    - 一覧系はカーソル方式のページネーションで、総件数は返さない。
+    - 作成系は `Idempotency-Key` を受け付け、更新系は `If-Match` による楽観ロックを用いる。
+  contact:
+    name: novnow-hub maintainers
+    url: https://github.com/sonneko/novnow-hub
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: https://hub.novnow.example.com/api/v1
+    description: 公開インスタンス（例）
+  - url: http://localhost:4010/api/v1
+    description: ローカルモックサーバー（開発用）
+tags:
+  - name: meta
+    description: 契約の版情報とヘルスチェック
+  - name: auth
+    description: GitHub OAuth によるサインイン・セッション管理
+  - name: users
+    description: 利用者像の取得・更新
+  - name: projects
+    description: 公開プロジェクトの作成・取得・更新・派生
+  - name: contents
+    description: プロジェクト内ファイルのツリーと内容
+  - name: proposals
+    description: 変更提案（親作品への取り込み単位）
+  - name: automerge
+    description: 条件付き自動取り込みの予約
+  - name: issues
+    description: 課題の作成・更新・会話
+  - name: chat
+    description: プロジェクト付随のチャット
+  - name: search
+    description: 公開プロジェクトと利用者の検索
+  - name: notifications
+    description: 通知センターと通知設定
+  - name: novnow
+    description: novnow 形式に特化した検証・診断・エクスポート
+  - name: setup
+    description: novnow アプリ向けのセットアップ解決
+security:
+  - bearerAuth: []
+paths:
+  /meta:
+    get:
+      operationId: getMeta
+      tags: [meta]
+      summary: 契約の版情報とサーバ時刻
+      security: []
+      responses:
+        '200':
+          description: 契約の版情報
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meta'
+  /auth/github/start:
+    get:
+      operationId: authGitHubStart
+      tags: [auth]
+      summary: GitHub OAuth の認可 URL を発行する
+      security: []
+      parameters:
+        - name: redirect
+          in: query
+          required: false
+          description: 認可後に戻すクライアント側 URL（許可リスト検査あり）
+          schema:
+            type: string
+            format: uri
+      responses:
+        '302':
+          description: 認可 URL へのリダイレクト
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+  /auth/github/callback:
+    get:
+      operationId: authGitHubCallback
+      tags: [auth]
+      summary: OAuth コールバックを処理しセッションを発行する
+      security: []
+      parameters:
+        - { name: code, in: query, required: true, schema: { type: string } }
+        - { name: state, in: query, required: true, schema: { type: string } }
+      responses:
+        '302':
+          description: クライアントのコールバック URL へ一時コードを付けてリダイレクト
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+  /auth/refresh:
+    post:
+      operationId: authRefresh
+      tags: [auth]
+      summary: 更新トークンをローテーションしてアクセストークンを更新する
+      security:
+        - refreshTokenAuth: []
+      responses:
+        '200':
+          description: 新しいトークン対
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+        '401':
+          description: セッション期限切れ・失効、または更新トークン再利用検知（再利用時は当該利用者の全セッションを失効）
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              examples:
+                sessionExpired:
+                  value:
+                    type: https://novnow.hub/problems/session_expired
+                    title: セッションの有効期限が切れました
+                    status: 401
+                    code: session_expired
+                    traceId: 01J0000000000000000000000000
+                refreshTokenReused:
+                  value:
+                    type: https://novnow.hub/problems/refresh_token_reused
+                    title: セッションが無効になりました
+                    status: 401
+                    code: refresh_token_reused
+                    traceId: 01J0000000000000000000000000
+  /auth/logout:
+    post:
+      operationId: authLogout
+      tags: [auth]
+      summary: 当該セッションを失効させる
+      responses:
+        '204':
+          description: 失効完了
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /auth/account:
+    delete:
+      operationId: authDeleteAccount
+      tags: [auth]
+      summary: 退会（個人情報の削除と全セッション失効。作品は GitHub 上に残る）
+      responses:
+        '204':
+          description: 退会完了
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /users/me:
+    get:
+      operationId: getMe
+      tags: [users]
+      summary: 自分の利用者像を取得する
+      responses:
+        '200':
+          description: 利用者像
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+    patch:
+      operationId: updateMe
+      tags: [users]
+      summary: 表示名・アイコン・通知設定を更新する
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          description: 更新後の利用者像
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /users/{handle}:
+    get:
+      operationId: getUserByHandle
+      tags: [users]
+      summary: 公開利用者像を取得する
+      security: []
+      parameters:
+        - name: handle
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$'
+      responses:
+        '200':
+          description: 公開利用者像
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicUser'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /users/me/projects:
+    get:
+      operationId: listMyProjects
+      tags: [projects]
+      summary: 自分のプロジェクト一覧（非公開含む）
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: プロジェクト一覧ページ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectPage'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /projects:
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: 公開プロジェクトの一覧
+      security: []
+      parameters:
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [updated, created, derivatives]
+            default: updated
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: プロジェクト一覧ページ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectPage'
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: 新規公開（zip 取込または既存ソース指定）
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [title, license, archive]
+              properties:
+                title: { type: string, minLength: 1, maxLength: 120 }
+                description: { type: string, maxLength: 500 }
+                license:
+                  type: string
+                  enum: [cc0, cc-by, cc-by-sa, cc-by-nc, custom]
+                visibility:
+                  type: string
+                  enum: [public, private]
+                  default: public
+                archive:
+                  type: string
+                  format: binary
+                  description: novnow プロジェクトの zip（50MB まで）
+          application/json:
+            schema:
+              type: object
+              required: [title, license, source]
+              properties:
+                title: { type: string, minLength: 1, maxLength: 120 }
+                description: { type: string, maxLength: 500 }
+                license:
+                  type: string
+                  enum: [cc0, cc-by, cc-by-sa, cc-by-nc, custom]
+                visibility:
+                  type: string
+                  enum: [public, private]
+                  default: public
+                source:
+                  type: object
+                  required: [kind]
+                  properties:
+                    kind: { type: string, enum: [github] }
+                    repository: { type: string, description: 'owner/name 形式' }
+      responses:
+        '201':
+          description: 作成されたプロジェクト
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          description: novnow 形式の検証失敗
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /projects/{projectId}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: プロジェクト詳細（公開ページ用）
+      security: []
+      responses:
+        '200':
+          description: プロジェクト詳細
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateProject
+      tags: [projects]
+      summary: タイトル・説明・タグ・公開範囲・ライセンスを更新する
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectUpdate'
+      responses:
+        '200':
+          description: 更新後のプロジェクト
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      summary: 公開の取り下げ（保管単位は削除しない）
+      responses:
+        '204':
+          description: 取り下げ完了
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /projects/{projectId}/derivatives:
+    get:
+      operationId: listDerivatives
+      tags: [projects]
+      summary: 派生ツリー（子・孫・兄弟）を取得する
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: 派生ツリー
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DerivativeNode'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /projects/{projectId}/derive:
+    post:
+      operationId: deriveProject
+      tags: [projects]
+      summary: 派生作品を作成する（非同期）
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string, minLength: 1, maxLength: 120 }
+                description: { type: string, maxLength: 500 }
+                visibility:
+                  type: string
+                  enum: [public, private]
+                  default: private
+      responses:
+        '202':
+          description: 派生作成を受け付けた
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobAccepted'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /projects/{projectId}/releases:
+    post:
+      operationId: createRelease
+      tags: [projects]
+      summary: リリース（版）を作成する
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tag, name]
+              properties:
+                tag: { type: string, pattern: '^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$' }
+                name: { type: string, minLength: 1, maxLength: 120 }
+                notes: { type: string, maxLength: 10000 }
+      responses:
+        '201':
+          description: 作成されたリリース
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Release'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /projects/{projectId}/tree:
+    get:
+      operationId: getTree
+      tags: [contents]
+      summary: ファイルツリーを取得する
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: ファイルツリー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tree'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /projects/{projectId}/file:
+    get:
+      operationId: getFile
+      tags: [contents]
+      summary: ファイル内容を取得する
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+            maxLength: 1024
+      responses:
+        '200':
+          description: ファイル内容
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileContent'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      operationId: putFile
+      tags: [contents]
+      summary: ファイルを作成・更新する（楽観ロック）
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path, content]
+              properties:
+                path: { type: string, maxLength: 1024 }
+                content: { type: string }
+                message: { type: string, maxLength: 200 }
+      responses:
+        '200':
+          description: 更新後のファイルメタ情報
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileMeta'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /projects/{projectId}/commit:
+    post:
+      operationId: commitFiles
+      tags: [contents]
+      summary: 複数ファイルの原子的コミット
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message, changes]
+              properties:
+                message: { type: string, minLength: 1, maxLength: 200 }
+                changes:
+                  type: array
+                  minItems: 1
+                  maxItems: 200
+                  items:
+                    type: object
+                    required: [path, action]
+                    properties:
+                      path: { type: string, maxLength: 1024 }
+                      action: { type: string, enum: [create, update, delete] }
+                      content: { type: string, description: 'create/update のとき必須' }
+      responses:
+        '200':
+          description: コミット結果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommitResult'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /projects/{projectId}/proposals:
+    get:
+      operationId: listProposals
+      tags: [proposals]
+      summary: 変更提案の一覧
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: state
+          in: query
+          schema:
+            type: string
+            enum: [open, approved, merged, closed]
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 変更提案のページ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalPage'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: openProposal
+      tags: [proposals]
+      summary: 変更提案を作成する
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, headRef, baseRef]
+              properties:
+                title: { type: string, minLength: 1, maxLength: 200 }
+                body: { type: string, maxLength: 10000 }
+                headRef: { type: string, minLength: 1, maxLength: 255 }
+                baseRef: { type: string, minLength: 1, maxLength: 255 }
+      responses:
+        '201':
+          description: 作成された変更提案
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proposal'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /projects/{projectId}/proposals/{number}:
+    get:
+      operationId: getProposal
+      tags: [proposals]
+      summary: 変更提案の詳細
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/NumberParam'
+      responses:
+        '200':
+          description: 変更提案
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proposal'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /projects/{projectId}/proposals/{number}/diff:
+    get:
+      operationId: getProposalDiff
+      tags: [proposals]
+      summary: 変更提案の差分（novnow 診断差分を含む）
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/NumberParam'
+      responses:
+        '200':
+          description: 差分
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalDiff'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /projects/{projectId}/proposals/{number}/comments:
+    post:
+      operationId: commentProposal
+      tags: [proposals]
+      summary: 変更提案へコメントする
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/NumberParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, minLength: 1, maxLength: 10000 }
+                path: { type: string, description: 'インラインコメントの対象ファイル' }
+                line: { type: integer, minimum: 1 }
+      responses:
+        '201':
+          description: 作成されたコメント
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /projects/{projectId}/proposals/{number}/approve:
+    post:
+      operationId: reviewProposal
+      tags: [proposals]
+      summary: 承認／承認取消し／却下を記録する
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/NumberParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [verdict]
+              properties:
+                verdict:
+                  type: string
+                  enum: [approve, dismiss, request_changes]
+                body: { type: string, maxLength: 10000 }
+      responses:
+        '200':
+          description: レビュー記録後の変更提案
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proposal'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /projects/{projectId}/proposals/{number}/merge:
+    post:
+      operationId: mergeProposal
+      tags: [proposals]
+      summary: 変更提案を即時取り込む
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/NumberParam'
+      responses:
+        '200':
+          description: 取り込み結果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MergeResult'
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /projects/{projectId}/proposals/{number}/close:
+    post:
+      operationId: closeProposal
+      tags: [proposals]
+      summary: 変更提案を却下・クローズする
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/NumberParam'
+      responses:
+        '200':
+          description: クローズ後の変更提案
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proposal'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /projects/{projectId}/proposals/{number}/automerge:
+    get:
+      operationId: getAutomergeState
+      tags: [automerge]
+      summary: 自動マージの予約状態と条件を取得する
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/NumberParam'
+      responses:
+        '200':
+          description: 予約状態
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomergeState'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      operationId: reserveAutomerge
+      tags: [automerge]
+      summary: 条件付き自動マージを予約する
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/NumberParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [requiredApprovals]
+              properties:
+                requiredApprovals: { type: integer, minimum: 0, maximum: 10, default: 1 }
+                requiredChecks:
+                  type: array
+                  items: { type: string }
+                  default: []
+                requireNoConflicts: { type: boolean, default: true }
+      responses:
+        '200':
+          description: 予約後の状態
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomergeState'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+    delete:
+      operationId: cancelAutomerge
+      tags: [automerge]
+      summary: 自動マージの予約を取り消す
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/NumberParam'
+      responses:
+        '204':
+          description: 予約取消し完了
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /projects/{projectId}/issues:
+    get:
+      operationId: listIssues
+      tags: [issues]
+      summary: 課題の一覧
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: state
+          in: query
+          schema:
+            type: string
+            enum: [open, closed]
+        - name: label
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 課題のページ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssuePage'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: openIssue
+      tags: [issues]
+      summary: 課題を作成する
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string, minLength: 1, maxLength: 200 }
+                body: { type: string, maxLength: 10000 }
+                labels:
+                  type: array
+                  items: { type: string }
+                  maxItems: 10
+      responses:
+        '201':
+          description: 作成された課題
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /projects/{projectId}/issues/{number}:
+    get:
+      operationId: getIssue
+      tags: [issues]
+      summary: 課題の詳細と会話
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/NumberParam'
+      responses:
+        '200':
+          description: 課題
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateIssue
+      tags: [issues]
+      summary: 課題のタイトル・本文・ラベル・担当・状態を更新する
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/NumberParam'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueUpdate'
+      responses:
+        '200':
+          description: 更新後の課題
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /projects/{projectId}/issues/{number}/comments:
+    post:
+      operationId: commentIssue
+      tags: [issues]
+      summary: 課題へコメントする
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/NumberParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, minLength: 1, maxLength: 10000 }
+      responses:
+        '201':
+          description: 作成されたコメント
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /projects/{projectId}/issues/{number}/close:
+    post:
+      operationId: closeIssue
+      tags: [issues]
+      summary: 課題をクローズ／再オープンする
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/NumberParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [state]
+              properties:
+                state: { type: string, enum: [open, closed] }
+      responses:
+        '200':
+          description: 更新後の課題
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Issue'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /projects/{projectId}/chat/channels:
+    get:
+      operationId: listChatChannels
+      tags: [chat]
+      summary: チャットルームの一覧
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: ルーム一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChatChannel'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createChatChannel
+      tags: [chat]
+      summary: チャットルームを作成する
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 80 }
+                description: { type: string, maxLength: 200 }
+      responses:
+        '201':
+          description: 作成されたルーム
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatChannel'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /projects/{projectId}/chat/channels/{channelId}/messages:
+    get:
+      operationId: listChatMessages
+      tags: [chat]
+      summary: メッセージ履歴（カーソル）
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: channelId
+          in: path
+          required: true
+          schema: { type: string }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: メッセージのページ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessagePage'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: postChatMessage
+      tags: [chat]
+      summary: メッセージを送信する
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: channelId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, minLength: 1, maxLength: 4000 }
+      responses:
+        '201':
+          description: 送信されたメッセージ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessage'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /projects/{projectId}/chat/channels/{channelId}/messages/{messageId}:
+    patch:
+      operationId: editChatMessage
+      tags: [chat]
+      summary: メッセージを編集する（投稿者のみ）
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: channelId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, minLength: 1, maxLength: 4000 }
+      responses:
+        '200':
+          description: 編集後のメッセージ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessage'
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+    delete:
+      operationId: deleteChatMessage
+      tags: [chat]
+      summary: メッセージを論理削除する（投稿者またはプロジェクト所有者）
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: channelId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: 削除完了
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /search/projects:
+    get:
+      operationId: searchProjects
+      tags: [search]
+      summary: 公開プロジェクトの横断検索
+      security: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: license
+          in: query
+          schema: { type: string, enum: [cc0, cc-by, cc-by-sa, cc-by-nc, custom] }
+        - name: tag
+          in: query
+          schema: { type: string, maxLength: 50 }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [relevance, updated], default: relevance }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 検索結果ページ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectPage'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+  /search/users:
+    get:
+      operationId: searchUsers
+      tags: [search]
+      summary: 利用者の検索
+      security: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 100 }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 検索結果ページ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicUserPage'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: 自分の通知一覧
+      parameters:
+        - name: kind
+          in: query
+          schema: { type: string }
+        - name: unreadOnly
+          in: query
+          schema: { type: boolean, default: false }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: 通知のページ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPage'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /notifications/read:
+    post:
+      operationId: markNotificationsRead
+      tags: [notifications]
+      summary: 指定 ID の一括既読化、または全既読化
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items: { type: string }
+                  maxItems: 200
+                all: { type: boolean, default: false }
+      responses:
+        '204':
+          description: 既読化完了
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /notifications/settings:
+    get:
+      operationId: getNotificationSettings
+      tags: [notifications]
+      summary: 通知チャネル・種別ごとの設定を取得する
+      responses:
+        '200':
+          description: 通知設定
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NotificationSetting'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+    patch:
+      operationId: updateNotificationSettings
+      tags: [notifications]
+      summary: 通知設定を更新する
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [settings]
+              properties:
+                settings:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/NotificationSetting'
+      responses:
+        '200':
+          description: 更新後の通知設定
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NotificationSetting'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /projects/{projectId}/verify:
+    post:
+      operationId: verifyProject
+      tags: [novnow]
+      summary: novnow 形式の妥当性検証を実行する
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: 検証結果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResult'
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /projects/{projectId}/verify/latest:
+    get:
+      operationId: getLatestVerification
+      tags: [novnow]
+      summary: 直近の検証結果を取得する
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: 検証結果（未実行の場合は 404）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResult'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /projects/{projectId}/diagnostics:
+    post:
+      operationId: runDiagnostics
+      tags: [novnow]
+      summary: novnow 診断を非同期ジョブとして実行する
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '202':
+          description: ジョブを受け付けた
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobAccepted'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /jobs/{jobId}:
+    get:
+      operationId: getJob
+      tags: [novnow]
+      summary: 非同期ジョブの状態と結果を取得する
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: ジョブ状態
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '404':
+          description: ジョブ不存在
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+  /projects/{projectId}/exports:
+    post:
+      operationId: createExport
+      tags: [novnow]
+      summary: 本文のエクスポートを非同期ジョブとして生成する
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [format]
+              properties:
+                format: { type: string, enum: [txt, markdown] }
+      responses:
+        '202':
+          description: ジョブを受け付けた
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobAccepted'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /projects/{projectId}/reading:
+    get:
+      operationId: getReadingView
+      tags: [novnow]
+      summary: 読者向けの表現済み本文（注釈除去済み）を取得する
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: 読者ビュー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadingDocument'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /setup/resolve:
+    get:
+      operationId: resolveSetupUrl
+      tags: [setup]
+      summary: セットアップ URL を解釈し、取得元と手順情報を返す
+      security: []
+      parameters:
+        - name: u
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uri
+            maxLength: 2048
+      responses:
+        '200':
+          description: セットアップ情報
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetupInfo'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /projects/{projectId}/setup:
+    get:
+      operationId: getSetupInfo
+      tags: [setup]
+      summary: このプロジェクト用のセットアップ情報を発行する
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: セットアップ情報
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetupInfo'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: hub-session
+      description: hub が発行する短期アクセストークン
+    refreshTokenAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: hub-refresh
+      description: hub が発行する更新トークン（ローテーション付き）
+    githubOAuth:
+      type: oauth2
+      description: |
+        認可コード + PKCE。クライアントは認可 URL へリダイレクトされるだけで、
+        トークン交換は hub API 側で行う。スコープは read:user と公開用リポジトリの
+        作成・更新に必要な最小限。
+      flows:
+        authorizationCode:
+          authorizationUrl: https://github.com/login/oauth/authorize
+          tokenUrl: https://github.com/login/oauth/access_token
+          scopes:
+            read:user: 公開プロフィールの読み取り
+            public_repo: 公開リポジトリの作成・更新（公開用の保管単位のため）
+            repo: 非公開リポジトリの作成・更新（非公開公開を選んだ場合のみ）
+  parameters:
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 64
+    NumberParam:
+      name: number
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: 前ページの nextCursor（省略時は先頭）
+      schema: { type: string, maxLength: 512 }
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: false
+      description: 読み取り時の etag。版が進んでいた場合は 409
+      schema: { type: string }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: 作成系の重複防止キー（24 時間有効）
+      schema: { type: string, minLength: 1, maxLength: 128 }
+  responses:
+    ValidationFailed:
+      description: 入力値が契約に違反している
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://novnow.hub/problems/validation_failed
+            title: 入力内容に誤りがあります
+            status: 400
+            detail: ライセンスが指定されていません
+            code: validation_failed
+            traceId: 01J0000000000000000000000000
+    AuthenticationRequired:
+      description: 未認証またはセッション不正
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://novnow.hub/problems/authentication_required
+            title: サインインが必要です
+            status: 401
+            code: authentication_required
+            traceId: 01J0000000000000000000000000
+    SessionExpired:
+      description: セッション期限切れまたは失効
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://novnow.hub/problems/session_expired
+            title: セッションの有効期限が切れました
+            status: 401
+            code: session_expired
+            traceId: 01J0000000000000000000000000
+    PermissionDenied:
+      description: 操作権限がない
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://novnow.hub/problems/permission_denied
+            title: この操作を行う権限がありません
+            status: 403
+            code: permission_denied
+            traceId: 01J0000000000000000000000000
+    NotFound:
+      description: 対象が存在しない、または存在を秘匿すべき場合
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://novnow.hub/problems/not_found
+            title: 見つかりませんでした
+            status: 404
+            code: not_found
+            traceId: 01J0000000000000000000000000
+    Conflict:
+      description: 楽観ロック不一致または状態競合
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://novnow.hub/problems/conflict
+            title: データが更新されています。再読み込みしてください
+            status: 409
+            code: conflict
+            traceId: 01J0000000000000000000000000
+    PayloadTooLarge:
+      description: アップロードサイズ超過
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://novnow.hub/problems/payload_too_large
+            title: アップロードが上限を超えています
+            status: 413
+            code: payload_too_large
+            traceId: 01J0000000000000000000000000
+    RateLimited:
+      description: レートリミット超過
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://novnow.hub/problems/rate_limited
+            title: リクエストが多すぎます
+            status: 429
+            code: rate_limited
+            retryAfterSeconds: 30
+            traceId: 01J0000000000000000000000000
+    UpstreamUnavailable:
+      description: 外部基盤の障害またはタイムアウト
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://novnow.hub/problems/upstream_unavailable
+            title: 外部サービスが一時的に利用できません
+            status: 503
+            code: upstream_unavailable
+            traceId: 01J0000000000000000000000000
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status, code, traceId]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer, minimum: 400, maximum: 599 }
+        detail: { type: string }
+        code:
+          type: string
+          enum:
+            - validation_failed
+            - authentication_required
+            - session_expired
+            - refresh_token_reused
+            - permission_denied
+            - not_found
+            - conflict
+            - idempotency_mismatch
+            - payload_too_large
+            - rate_limited
+            - upstream_unavailable
+            - verification_failed
+            - job_not_found
+            - internal_error
+        retryAfterSeconds: { type: integer, minimum: 1 }
+        traceId: { type: string }
+    Meta:
+      type: object
+      required: [contractVersion, serverTime]
+      properties:
+        contractVersion: { type: string, pattern: '^[0-9]+\.[0-9]+\.[0-9]+$' }
+        serverTime: { type: string, format: date-time }
+        minimumClientVersion: { type: string }
+    TokenPair:
+      type: object
+      required: [accessToken, refreshToken, expiresIn]
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresIn: { type: integer, description: 'アクセストークンの残り秒数' }
+    User:
+      type: object
+      required: [id, handle, displayName, createdAt]
+      properties:
+        id: { type: string }
+        handle: { type: string }
+        displayName: { type: string, minLength: 1, maxLength: 80 }
+        avatarUrl: { type: string, format: uri }
+        bio: { type: string, maxLength: 500 }
+        createdAt: { type: string, format: date-time }
+        etag: { type: string }
+    PublicUser:
+      type: object
+      required: [id, handle, displayName, createdAt]
+      properties:
+        id: { type: string }
+        handle: { type: string }
+        displayName: { type: string }
+        avatarUrl: { type: string, format: uri }
+        bio: { type: string, maxLength: 500 }
+        publishedProjectCount: { type: integer, minimum: 0 }
+        createdAt: { type: string, format: date-time }
+    PublicUserPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/PublicUser' }
+        nextCursor: { type: [string, 'null'] }
+    UserUpdate:
+      type: object
+      properties:
+        displayName: { type: string, minLength: 1, maxLength: 80 }
+        avatarUrl: { type: string, format: uri }
+        bio: { type: string, maxLength: 500 }
+    Project:
+      type: object
+      required: [id, slug, title, ownerHandle, license, visibility, derivativePolicy, derivativeCount, defaultBranchName, etag, createdAt, updatedAt, publishedUrl]
+      properties:
+        id: { type: string }
+        slug: { type: string, pattern: '^[a-z0-9](?:[a-z0-9-]{0,80}[a-z0-9])?$' }
+        title: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 500 }
+        ownerHandle: { type: string }
+        license:
+          type: string
+          enum: [cc0, cc-by, cc-by-sa, cc-by-nc, custom]
+        visibility:
+          type: string
+          enum: [public, private]
+        tags:
+          type: array
+          items: { type: string, maxLength: 50 }
+          maxItems: 10
+        derivativePolicy:
+          type: string
+          enum: [allowed, allowed-with-conditions, disallowed]
+        derivativeCount: { type: integer, minimum: 0 }
+        defaultBranchName: { type: string }
+        etag: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        publishedUrl: { type: string, format: uri }
+    ProjectUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 500 }
+        license: { type: string, enum: [cc0, cc-by, cc-by-sa, cc-by-nc, custom] }
+        visibility: { type: string, enum: [public, private] }
+        tags:
+          type: array
+          items: { type: string, maxLength: 50 }
+          maxItems: 10
+        derivativePolicy:
+          type: string
+          enum: [allowed, allowed-with-conditions, disallowed]
+    ProjectPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Project' }
+        nextCursor: { type: [string, 'null'] }
+    DerivativeNode:
+      type: object
+      required: [id, slug, title, ownerHandle, depth, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        title: { type: string }
+        ownerHandle: { type: string }
+        depth: { type: integer, minimum: 1 }
+        parentId: { type: [string, 'null'] }
+        derivativePolicy:
+          type: string
+          enum: [allowed, allowed-with-conditions, disallowed]
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    Tree:
+      type: object
+      required: [entries, truncated]
+      properties:
+        entries:
+          type: array
+          items:
+            type: object
+            required: [path, kind, size]
+            properties:
+              path: { type: string }
+              kind: { type: string, enum: [file, dir] }
+              size: { type: integer, minimum: 0 }
+              etag: { type: string }
+        truncated: { type: boolean }
+    FileContent:
+      type: object
+      required: [path, etag, encoding]
+      properties:
+        path: { type: string }
+        content: { type: string, description: 'encoding=utf8 のとき必須' }
+        data: { type: string, description: 'encoding=base64 のとき必須' }
+        mime: { type: string, description: 'encoding=base64 のときの MIME 型' }
+        encoding: { type: string, enum: [utf8, base64] }
+        etag: { type: string }
+        size: { type: integer, minimum: 0 }
+    FileMeta:
+      type: object
+      required: [path, etag, size]
+      properties:
+        path: { type: string }
+        etag: { type: string }
+        size: { type: integer, minimum: 0 }
+        commitId: { type: string }
+    CommitResult:
+      type: object
+      required: [commitId, changes]
+      properties:
+        commitId: { type: string }
+        message: { type: string }
+        changes: { type: integer, minimum: 1 }
+        createdAt: { type: string, format: date-time }
+    Release:
+      type: object
+      required: [tag, name, createdAt]
+      properties:
+        tag: { type: string }
+        name: { type: string }
+        notes: { type: string }
+        createdAt: { type: string, format: date-time }
+    Proposal:
+      type: object
+      required: [number, title, body, state, authorHandle, baseRef, headRef, diffStats, checks, approvalCount, requiredApprovals, createdAt, updatedAt]
+      properties:
+        number: { type: integer, minimum: 1 }
+        title: { type: string }
+        body: { type: string }
+        state: { type: string, enum: [open, approved, merged, closed] }
+        authorHandle: { type: string }
+        baseRef: { type: string }
+        headRef: { type: string }
+        diffStats:
+          type: object
+          required: [additions, deletions, changedFiles]
+          properties:
+            additions: { type: integer, minimum: 0 }
+            deletions: { type: integer, minimum: 0 }
+            changedFiles: { type: integer, minimum: 0 }
+        checks:
+          type: array
+          items:
+            type: object
+            required: [name, state]
+            properties:
+              name: { type: string }
+              state: { type: string, enum: [pending, success, failure, neutral, skipped] }
+              detailsUrl: { type: string, format: uri }
+        approvalCount: { type: integer, minimum: 0 }
+        requiredApprovals: { type: integer, minimum: 0 }
+        automerge:
+          $ref: '#/components/schemas/AutomergeState'
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ProposalPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Proposal' }
+        nextCursor: { type: [string, 'null'] }
+    ProposalDiff:
+      type: object
+      required: [number, files]
+      properties:
+        number: { type: integer, minimum: 1 }
+        files:
+          type: array
+          items:
+            type: object
+            required: [path, status, hunks]
+            properties:
+              path: { type: string }
+              status: { type: string, enum: [added, modified, deleted, renamed] }
+              additions: { type: integer, minimum: 0 }
+              deletions: { type: integer, minimum: 0 }
+              hunks:
+                type: array
+                items: { type: string }
+        novnowDiagnosticsDelta:
+          type: object
+          required: [introduced, resolved]
+          properties:
+            introduced: { type: integer, minimum: 0 }
+            resolved: { type: integer, minimum: 0 }
+    Comment:
+      type: object
+      required: [id, authorHandle, body, createdAt]
+      properties:
+        id: { type: string }
+        authorHandle: { type: string }
+        body: { type: string }
+        path: { type: string }
+        line: { type: integer, minimum: 1 }
+        createdAt: { type: string, format: date-time }
+    MergeResult:
+      type: object
+      required: [merged, sha]
+      properties:
+        merged: { type: boolean }
+        sha: { type: string }
+        mergedAt: { type: string, format: date-time }
+    AutomergeState:
+      type: object
+      required: [state]
+      properties:
+        state: { type: string, enum: [none, reserved, armed, merged, failed, canceled] }
+        requiredApprovals: { type: integer, minimum: 0 }
+        requiredChecks:
+          type: array
+          items: { type: string }
+        requireNoConflicts: { type: boolean }
+        reason: { type: string, description: 'failed のときの理由' }
+    Issue:
+      type: object
+      required: [number, title, body, state, authorHandle, createdAt, updatedAt]
+      properties:
+        number: { type: integer, minimum: 1 }
+        title: { type: string }
+        body: { type: string }
+        state: { type: string, enum: [open, closed] }
+        labels:
+          type: array
+          items: { type: string }
+        authorHandle: { type: string }
+        assigneeHandle: { type: [string, 'null'] }
+        linkedProposalNumber: { type: [integer, 'null'] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    IssueUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        body: { type: string, maxLength: 10000 }
+        labels:
+          type: array
+          items: { type: string }
+          maxItems: 10
+        assigneeHandle: { type: [string, 'null'] }
+        state: { type: string, enum: [open, closed] }
+    IssuePage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Issue' }
+        nextCursor: { type: [string, 'null'] }
+    ChatChannel:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id: { type: string }
+        name: { type: string, minLength: 1, maxLength: 80 }
+        description: { type: string, maxLength: 200 }
+        unreadCount: { type: integer, minimum: 0 }
+        createdAt: { type: string, format: date-time }
+    ChatMessage:
+      type: object
+      required: [id, channelId, authorHandle, body, deleted, createdAt]
+      properties:
+        id: { type: string }
+        channelId: { type: string }
+        authorHandle: { type: string }
+        body: { type: string, minLength: 1, maxLength: 4000 }
+        mentions:
+          type: array
+          items: { type: string }
+        editedAt: { type: [string, 'null'], format: date-time }
+        deleted: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    ChatMessagePage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ChatMessage' }
+        nextCursor: { type: [string, 'null'] }
+    Notification:
+      type: object
+      required: [id, kind, title, body, read, createdAt]
+      properties:
+        id: { type: string }
+        kind:
+          type: string
+          enum:
+            - derivative_created
+            - proposal_merged
+            - proposal_automerge_failed
+            - proposal_comment
+            - issue_created
+            - issue_comment
+            - mention
+            - job_finished
+            - publish_rebuilt
+        projectId: { type: [string, 'null'] }
+        projectSlug: { type: [string, 'null'] }
+        title: { type: string }
+        body: { type: string }
+        read: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    NotificationPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Notification' }
+        nextCursor: { type: [string, 'null'] }
+    NotificationSetting:
+      type: object
+      required: [kind, channel, enabled]
+      properties:
+        kind:
+          type: string
+          enum:
+            - derivative_created
+            - proposal_merged
+            - proposal_automerge_failed
+            - proposal_comment
+            - issue_created
+            - issue_comment
+            - mention
+            - job_finished
+            - publish_rebuilt
+        channel: { type: string, enum: [in_app, email, web_push] }
+        enabled: { type: boolean }
+    JobAccepted:
+      type: object
+      required: [jobId, status]
+      properties:
+        jobId: { type: string }
+        status: { type: string, enum: [pending, running] }
+    Job:
+      type: object
+      required: [id, kind, status, createdAt]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [verify, diagnostics, export] }
+        status: { type: string, enum: [pending, running, succeeded, failed] }
+        result: { type: [object, 'null'], description: 'kind ごとの結果（成功時）' }
+        error: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        finishedAt: { type: [string, 'null'], format: date-time }
+    VerificationResult:
+      type: object
+      required: [ok, checkedAt]
+      properties:
+        ok: { type: boolean }
+        errors:
+          type: array
+          items:
+            type: object
+            required: [path, message]
+            properties:
+              path: { type: string }
+              code: { type: string }
+              message: { type: string }
+        warnings:
+          type: array
+          items:
+            type: object
+            required: [path, message]
+            properties:
+              path: { type: string }
+              code: { type: string }
+              message: { type: string }
+        checkedAt: { type: string, format: date-time }
+    ReadingDocument:
+      type: object
+      required: [projectId, title, blocks, etag]
+      properties:
+        projectId: { type: string }
+        title: { type: string }
+        blocks:
+          type: array
+          items:
+            type: object
+            required: [kind, text]
+            properties:
+              kind: { type: string, enum: [heading, paragraph, dialogue, scene_break] }
+              text: { type: string }
+              speaker: { type: [string, 'null'] }
+        etag: { type: string }
+    SetupInfo:
+      type: object
+      required: [projectId, slug, snapshotVersion, acquisition, novnow]
+      properties:
+        projectId: { type: string }
+        slug: { type: string }
+        snapshotVersion: { type: string }
+        acquisition:
+          type: object
+          required: [kind, url]
+          properties:
+            kind: { type: string, enum: [codeload, git] }
+            url: { type: string, format: uri }
+            ref: { type: string }
+        novnow:
+          type: object
+          required: [minVersion]
+          properties:
+            minVersion: { type: string }
+    Derivation:
+      type: object
+      required: [id, parentId, childId, depth, createdAt]
+      properties:
+        id: { type: string }
+        parentId: { type: string }
+        childId: { type: string }
+        depth: { type: integer, minimum: 1 }
+        createdAt: { type: string, format: date-time }
