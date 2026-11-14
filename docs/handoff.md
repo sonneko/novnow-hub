@@ -20,7 +20,7 @@
 ## 2. 現在のブランチ・PR・直近の作業状態
 
 - **現在のブランチ**: `arena/cb204109-novnow-hub`（`main` 分岐点 `a9945a0`）
-- **PR**: `main` 向けに作成予定（M1: 仕様書・設計書・API 契約・計画書）。作成後に本書を更新する
+- **PR**: [#3](https://github.com/sonneko/novnow-hub/pull/3)（`main` 向け、Ready for review）。CI は docs ジョブが緑、Lint/Test/Build は `api/*`・`docs/*` のみの変更のためスキップされる設計（`.github/workflows/ci.yml` の変更フィルタによる意図的な挙動）
 - **現在の状態**: M1 の成果物（仕様書 2 本・設計書 2 本・`api/openapi.yaml`・計画書更新）を実装し、検証を通した。M2 以降の実装には未着手
 - **検証**: `python3 docs/script/verify-docs.py` と `openapi-spec-validator` による契約検証が通過することを確認（所要時間: ドキュメント検証は数秒、契約検証は初回のみ依存取得で約 1 分）
 
