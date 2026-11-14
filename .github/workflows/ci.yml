@@ -50,6 +50,16 @@ jobs:
       - name: Verify documentation rules (verify-docs.py)
         run: python3 docs/script/verify-docs.py
 
+      - name: Validate OpenAPI contract (api/openapi.yaml)
+        run: |
+          python3 -m pip install --quiet openapi-spec-validator pyyaml
+          python3 -c "import yaml; from openapi_spec_validator import validate; validate(yaml.safe_load(open('api/openapi.yaml', encoding='utf-8'))); print('openapi.yaml: OK')"
+          # 契約に GitHub 固有語が混入していないか検査（認証記述は除く）
+          if grep -nE 'octokit|pull_request|pull-request|installation_id|/repos/|repository_dispatch' api/openapi.yaml; then
+            echo "::error::api/openapi.yaml に GitHub 固有語が含まれています（契約は hub 語彙に統一してください）"
+            exit 1
+          fi
+
       - name: Detect whether code inputs changed
         id: filter
         shell: bash
@@ -75,7 +85,7 @@ jobs:
           while IFS= read -r file; do
             [ -z "$file" ] && continue
             case "$file" in
-              docs/developers.md|docs/plans.md|docs/handoff.md|docs/history.md|docs/designs/*|docs/script/*|README.md|LICENSE|.github/workflows/*)
+              docs/developers.md|docs/plans.md|docs/handoff.md|docs/history.md|docs/designs/*|docs/specifications/*|docs/script/*|api/*|README.md|LICENSE|.github/workflows/*)
                 ;;
               *)
                 code_changed=true

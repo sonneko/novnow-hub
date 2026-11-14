@@ -28,7 +28,7 @@
 
 ### 1.4 GitHub を土台としつつ、いつでも完全に剥がせる
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m3-thin-slice, REF:docs/designs/api.md#7-github-アダプターのポート定義）
+状態: 未実装・実装計画済み（REF:docs/plans.md#m3-thin-slice, REF:docs/designs/api.md#api-ports）
 
 GitHub アクセスは必ずポート（§7 参照）経由に限定し、フロントエンド・契約・ユースケース層から GitHub の語彙を排除する（§1.2 の契約側制約と対になる）。CI や lint で GitHub SDK の import を `adapters/github/**` 配下に限定するアーキテクチャテストを導入する。実装の詳細は `REF:docs/designs/api.md#api-ports` を参照。
 

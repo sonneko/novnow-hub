@@ -308,10 +308,11 @@ paths:
                   default: public
                 source:
                   type: object
-                  required: [kind]
+                  required: [kind, url]
+                  description: 外部から取得するアーカイブの場所（保管基盤の種別は指定しない）
                   properties:
-                    kind: { type: string, enum: [github] }
-                    repository: { type: string, description: 'owner/name 形式' }
+                    kind: { type: string, enum: [archive_url] }
+                    url: { type: string, format: uri, description: 'zip のダウンロード URL（hub が取得する）' }
       responses:
         '201':
           description: 作成されたプロジェクト

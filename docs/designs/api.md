@@ -133,7 +133,7 @@ slug 生成はタイトルを NFKC 正規化→小文字化→連続記号の圧
 
 状態: 未実装・実装計画済み（REF:docs/plans.md#m3-thin-slice, REF:api/openapi.yaml）
 
-作成系は zip 取込（`multipart/form-data`、上限 50MB）と `{"source":"github","repository":"owner/name"}` 指定の 2 経路。zip は展開→検証→GitHub 保管単位作成→原子コミット→DB 登録の順で、途中失敗は作成済み保管単位の削除補償を行う。`GET /projects` は表示順 `updated_at DESC, id DESC` でカーソルページネーション。`DELETE /projects/{id}` は hub 側の `visibility='archived'` への論理削除で、GitHub のリポジトリは消さない。
+作成系は zip 取込（`multipart/form-data`、上限 50MB）と `archive_url` 指定（`{"source":{"kind":"archive_url","url":"…"}}`、hub がその URL から zip を取得）の 2 経路とする。外部ソースの指定に保管基盤の種別を含めないことで、契約から GitHub の語彙を排除する。取込時は展開→検証→保管単位作成→原子コミット→DB 登録の順で、途中失敗は作成済み保管単位の削除補償を行う。`GET /projects` は表示順 `updated_at DESC, id DESC` でカーソルページネーション。`DELETE /projects/{id}` は hub 側の `visibility='archived'` への論理削除で、GitHub のリポジトリは消さない。
 
 ### 5.4 ファイル内容（contents）
 
