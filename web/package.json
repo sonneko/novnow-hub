@@ -1,0 +1,22 @@
+{
+  "name": "novnow-hub-web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "check": "astro check",
+    "preview": "astro preview"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "@astrojs/svelte": "^8.1.2",
+    "astro": "^6.4.8",
+    "svelte": "^5.57.3",
+    "typescript": "^5.9.3"
+  }
+}
