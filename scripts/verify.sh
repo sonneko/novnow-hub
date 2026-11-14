@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# ドキュメント検査（verify-docs.py）と CI ジョブ（lint / test / build）を手元で回す。
+# ドキュメント検査（verify-docs.py）と型チェック・ビルドを手元で回す。
+# 初回または依存更新後は、先に web/ で npm ci を実行すること。
 #
 # 使い方:
 #   bash scripts/verify.sh              # 全ステップ（既定）
-#   bash scripts/verify.sh --quick      # lint と test のみ（build を省く）
+#   bash scripts/verify.sh --quick      # docs と型チェックのみ（build を省く）
 #   bash scripts/verify.sh --fix        # 自動フォーマットを先に実行する
 #
 # 終了コード: すべて緑なら 0、1 つでも赤なら 1。
@@ -60,12 +61,12 @@ fi
 
 run docs      python3 "$ROOT/docs/script/verify-docs.py"
 
-# --- プロジェクト固有の lint / test / build をここに追加する ---
-# run lint    <lint コマンド>
-# run test    <test コマンド>
-# if [ "$QUICK" = 0 ]; then
-#     run build <build コマンド>
-# fi
+run check     npm --prefix "$ROOT/web" run check
+
+# スキャフォールド段階ではアプリケーションテストは未配置。
+if [ "$QUICK" = 0 ]; then
+    run build npm --prefix "$ROOT/web" run build
+fi
 
 head_ "まとめ"
 exit_code=0
