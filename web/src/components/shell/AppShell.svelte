@@ -7,6 +7,10 @@
   import ProjectsPage from '../pages/ProjectsPage.svelte';
   import ReaderPage from '../pages/ReaderPage.svelte';
   import PublishWizard from '../pages/PublishWizard.svelte';
+  import ProposalsPage from '../pages/ProposalsPage.svelte';
+  import ProposalDetailPage from '../pages/ProposalDetailPage.svelte';
+  import IssuesPage from '../pages/IssuesPage.svelte';
+  import IssueDetailPage from '../pages/IssueDetailPage.svelte';
 
   interface Props {
     page: ShellPage;
@@ -16,6 +20,7 @@
   let locale = $state<Locale>('ja');
   let theme = $state<'light' | 'dark'>('light');
   let projectId = $state('');
+  let detailNumber = $state(0);
   let routeReady = $state(false);
 
   const m = $derived(messages[locale]);
@@ -25,6 +30,8 @@
     if (page.kind === 'project') return m.project.title;
     if (page.kind === 'reader') return m.reader.title;
     if (page.kind === 'publish') return m.publish.title;
+    if (page.kind === 'proposals' || page.kind === 'proposal') return m.collaboration.proposals.title;
+    if (page.kind === 'issues' || page.kind === 'issue') return m.collaboration.issues.title;
     return m.projects.title;
   }
 
@@ -54,9 +61,18 @@
   }
 
   onMount(() => {
-    if (page.kind === 'project' || page.kind === 'reader') {
-      const queryProjectId = new URLSearchParams(window.location.search).get('projectId');
-      projectId = page.projectId?.trim() || queryProjectId?.trim() || '';
+    if (
+      page.kind === 'project' || page.kind === 'reader' ||
+      page.kind === 'proposals' || page.kind === 'proposal' ||
+      page.kind === 'issues' || page.kind === 'issue'
+    ) {
+      const query = new URLSearchParams(window.location.search);
+      projectId = page.projectId?.trim() || query.get('projectId')?.trim() || '';
+      if (page.kind === 'proposal' || page.kind === 'issue') {
+        const value = page.number?.toString() || query.get('number') || '';
+        const parsed = Number(value);
+        detailNumber = Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 0;
+      }
       routeReady = true;
     }
 
@@ -128,6 +144,14 @@
       {:else}
         <p role="status">{m.api.loading}</p>
       {/if}
+    {:else if page.kind === 'proposals'}
+      {#if routeReady}<ProposalsPage {projectId} {locale} {m} />{:else}<p role="status">{m.api.loading}</p>{/if}
+    {:else if page.kind === 'proposal'}
+      {#if routeReady}<ProposalDetailPage {projectId} number={detailNumber} {locale} {m} />{:else}<p role="status">{m.api.loading}</p>{/if}
+    {:else if page.kind === 'issues'}
+      {#if routeReady}<IssuesPage {projectId} {locale} {m} />{:else}<p role="status">{m.api.loading}</p>{/if}
+    {:else if page.kind === 'issue'}
+      {#if routeReady}<IssueDetailPage {projectId} number={detailNumber} {locale} {m} />{:else}<p role="status">{m.api.loading}</p>{/if}
     {:else}
       <PublishWizard {locale} {m} />
     {/if}

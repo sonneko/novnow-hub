@@ -4,7 +4,12 @@
   import { apiClient } from '../../lib/api/client';
   import { mapApiFailure, type ApiFailure } from '../../lib/api/errors';
   import type { FileContent, Project, SetupInfo, Tree } from '../../lib/api/types';
-  import { projectPageHref, readerPageHref } from '../../lib/links';
+  import {
+    issueListHref,
+    projectPageHref,
+    proposalListHref,
+    readerPageHref,
+  } from '../../lib/links';
 
   interface Props {
     projectId: string;
@@ -169,6 +174,12 @@
         </p>
       {/if}
     </article>
+
+    <section class="panel collaboration-links" aria-labelledby="collaboration-links-heading">
+      <h2 id="collaboration-links-heading">{m.collaboration.projectLinksTitle}</h2>
+      <a class="button" href={proposalListHref(projectId)}>{m.collaboration.openProposals}</a>
+      <a class="button" href={issueListHref(projectId)}>{m.collaboration.openIssues}</a>
+    </section>
 
     <section class="panel" aria-labelledby="project-contents">
       <h2 id="project-contents">{m.project.contents}</h2>

@@ -1,0 +1,54 @@
+import type { Issue, IssuePageData, Proposal, ProposalDiff, ProposalPageData } from '../lib/api/types';
+
+export const proposalFixture = {
+  number: 24,
+  title: '場面描写を追加',
+  body: '第二章の描写を補いました。',
+  state: 'open',
+  authorHandle: 'sora',
+  baseRef: 'main',
+  headRef: 'scene-revision',
+  diffStats: { additions: 8, deletions: 2, changedFiles: 1 },
+  checks: [{ name: 'novnow 形式チェック', state: 'success' }],
+  approvalCount: 0,
+  requiredApprovals: 1,
+  createdAt: '2026-10-12T10:00:00Z',
+  updatedAt: '2026-10-13T12:30:00Z',
+} satisfies Proposal;
+
+export const proposalPageFixture = {
+  items: [proposalFixture],
+  nextCursor: null,
+} satisfies ProposalPageData;
+
+export const proposalDiffFixture = {
+  number: proposalFixture.number,
+  files: [
+    {
+      path: 'novnow/02-chapter.md',
+      status: 'modified',
+      additions: 8,
+      deletions: 2,
+      hunks: ['@@ -12,2 +12,8 @@\n 古い一文\n+新しい一文\n+続きの描写'],
+    },
+  ],
+  novnowDiagnosticsDelta: { introduced: 0, resolved: 1 },
+} satisfies ProposalDiff;
+
+export const issueFixture = {
+  number: 7,
+  title: '目次の順序を確認したい',
+  body: '章の順序が表示と一致しているか確認してください。',
+  state: 'open',
+  labels: ['content', 'question'],
+  authorHandle: 'mizu',
+  assigneeHandle: 'sora',
+  linkedProposalNumber: proposalFixture.number,
+  createdAt: '2026-10-10T08:00:00Z',
+  updatedAt: '2026-10-11T09:00:00Z',
+} satisfies Issue;
+
+export const issuePageFixture = {
+  items: [issueFixture],
+  nextCursor: null,
+} satisfies IssuePageData;

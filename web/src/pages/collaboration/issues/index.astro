@@ -1,0 +1,8 @@
+---
+import AppShell from '../../../components/shell/AppShell.svelte';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="課題 | novnow-hub">
+  <AppShell client:load page={{ kind: 'issues' }} />
+</BaseLayout>
