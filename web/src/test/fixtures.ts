@@ -1,4 +1,4 @@
-import type { ReadingDocument, Project, ProjectPage, Tree } from '../lib/api/types';
+import type { FileContent, ReadingDocument, Project, ProjectPage, SetupInfo, Tree } from '../lib/api/types';
 
 export const projectFixture = {
   id: 'project-1',
@@ -42,3 +42,22 @@ export const readingDocumentFixture = {
   ],
   etag: 'W/"reading-1"',
 } satisfies ReadingDocument;
+
+export const fileContentFixture = {
+  path: 'novnow/01-opening.md',
+  content: '# 第一章\n\nこれは作品ファイルのプレビューです。',
+  encoding: 'utf8',
+  etag: 'W/"file-1"',
+  size: 64,
+} satisfies FileContent;
+
+export const setupInfoFixture = {
+  projectId: projectFixture.id,
+  slug: projectFixture.slug,
+  snapshotVersion: 'v1',
+  acquisition: {
+    kind: 'codeload',
+    url: 'https://hub.example.test/setup/sample-story.zip',
+  },
+  novnow: { minVersion: '1.2.0' },
+} satisfies SetupInfo;
