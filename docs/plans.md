@@ -89,12 +89,12 @@
 完了条件: デスクトップアプリがセットアップ URL 経由で作品を開き、Web と同一の操作体系であること。
 
 <a id="m7-ops"></a>
-### M7: 運用・品質・OSS 公開準備
-- [ ] 本番デプロイ（Workers + D1 を既定、VPS + Docker を代替）と外形監視・バックアップ・鍵ローテーション手順
-- [ ] CI の拡張（契約互換性検査（oasdiff 相当）、`cargo audit`／`npm audit`、カバレッジゲート）
-- [ ] セキュリティレビュー（zip 取込・CSP・トークン暗号化・権限判定）と依存ライセンスの棚卸し
-- [ ] ドキュメント整備（セルフホストガイド・運営ポリシー・CHANGELOG）と初回リリース
-- [ ] 性能目標の実測検証（LCP・API p95・検索）とコスト実測
+### M7: 運用・品質・OSS 公開準備（仕様・設計策定済み）
+- [ ] 本番デプロイ（Workers + D1 を既定、VPS + Docker を代替）と外形監視・バックアップ・鍵ローテーション手順（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）
+- [ ] CI の拡張（契約互換性検査（oasdiff 相当）、`cargo audit`／`npm audit`、カバレッジゲート）（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）
+- [ ] セキュリティレビュー（zip 取込・CSP・トークン暗号化・権限判定）と依存ライセンスの棚卸し（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）
+- [ ] ドキュメント整備（セルフホストガイド・運営ポリシー・CHANGELOG）と初回リリース（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）
+- [ ] 性能目標の実測検証（LCP・API p95・検索）とコスト実測（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）
 
 完了条件: OSS として一般公開できる状態。
 
