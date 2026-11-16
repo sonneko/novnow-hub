@@ -11,8 +11,8 @@
 | 区分 | 状態 | 対象範囲 | 参照 |
 |---|---|---|---|
 | 初期マイルストーン | 完了 | プロジェクトセットアップ・ドキュメント管理規則の策定 | `REF:docs/history.md` |
-| M1 仕様策定 | レビュー中 | 仕様書・API 契約（OpenAPI 3.1）・マイルストーン計画の策定 | `REF:docs/plans.md` |
-| M2 以降 | 未着手 | フロントエンド基盤・モック・薄いスライスの実装 | `REF:docs/plans.md` |
+| M1 仕様策定 | 完了 | 仕様書・API 契約（OpenAPI 3.1）・マイルストーン計画の策定（PR #2/#3 マージ済み） | `REF:docs/plans.md` |
+| M2 以降 | ほぼ完了 | フロントエンド基盤・モック導入済み（薄いスライスは M3 以降） | `REF:docs/plans.md` |
 <!-- SYNC:END project-status -->
 
 ---
@@ -21,7 +21,7 @@
 
 - **現在のブランチ**: `arena/cb204109-novnow-hub`（`main` 分岐点 `a9945a0`）
 - **PR**: [#3](https://github.com/sonneko/novnow-hub/pull/3)（`main` 向け、Ready for review）。CI は docs ジョブが緑、Lint/Test/Build は `api/*`・`docs/*` のみの変更のためスキップされる設計（`.github/workflows/ci.yml` の変更フィルタによる意図的な挙動）
-- **現在の状態**: M1 の成果物（仕様書 2 本・設計書 2 本・`api/openapi.yaml`・計画書更新）を実装し、検証を通した。M2 以降の実装には未着手
+- **現在の状態**: M1（仕様書・設計書・API 契約・計画）は PR #2/#3 のマージで完了。M2（フロントエンド基盤・モック接続）はスキャフォールド・API クライアント生成・モックサーバー・アプリシェル・UI 骨格・Tauri 雛形まで導入済みで、CI 拡張（契約スキーマ検証＋モックスモークテスト）を残すほぼ完了状態
 - **検証**: `python3 docs/script/verify-docs.py` と `openapi-spec-validator` による契約検証が通過することを確認（所要時間: ドキュメント検証は数秒、契約検証は初回のみ依存取得で約 1 分）
 
 ---

@@ -89,7 +89,7 @@ novnow-hub/
 ├── api/
 │   └── openapi.yaml           # API 契約の唯一の正（OpenAPI 3.1）
 ├── web/                       # Astro + Svelte + TypeScript フロントエンド（M2 で導入）
-├── src-tauri/                 # Tauri v2（M6 で導入）
+├── src-tauri/                 # Tauri v2（Web と同一コードベース）（M2 で雛形導入）
 ├── docs/
 │   ├── developers.md          # 本書（固定の開発者情報・ドキュメント規則）
 │   ├── handoff.md             # セッション引き継ぎ情報
