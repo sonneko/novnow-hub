@@ -93,3 +93,10 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
 [HIST-TAG: category=MILESTONE id=M7-SPECS topics=m7,spec,design,docs,pr15,merge]
 - M7（運用・品質・OSS 公開準備）の仕様書 `docs/specifications/m7.md` と設計書 `docs/designs/m7.md` を PR #15 で策定し、マージ済みである。
 - `docs/plans.md` の M7 節は「仕様・設計策定済み」としており、仕様書・設計書との記述の食い違いや不足はなかった。
+
+### [HIST:SPEC-FIX:M4-COMMENT-LIST] 2026-11-16 M4 契約にコメント一覧取得 GET エンドポイントを追補
+[HIST-TAG: category=SPEC-FIX id=M4-COMMENT-LIST topics=m4,openapi,contract,comment,endpoint,additive]
+- PR #16 の実装で判明した契約の不足: 変更提案・課題のコメント作成（POST）は OpenAPI 契約に定義があったが、コメント一覧取得（GET）が未定義で、会話スレッド表示が実装できなかった。
+- 仕様書 `docs/specifications/m4.md` §2.1・§3.1 と設計書 `docs/designs/m4.md` §2.1・§3.1 にコメント一覧取得の振る舞いを追補し、`api/openapi.yaml` に `GET /projects/{projectId}/proposals/{number}/comments` と `GET /projects/{projectId}/issues/{number}/comments` を追加した。
+- コメント一覧はカーソルページネーション（`cursor`・`limit`）に従い時系列順で返し、レスポンスは新規スキーマ `CommentPage` とする。コメント内容は認可を経ずに返さない（仕様書 §8.1）。
+- 契約変更は追加のみ（既存 POST の変更・削除なし、既存スキーマの変更なし）であり、破壊的変更はない。
