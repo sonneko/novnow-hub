@@ -66,3 +66,30 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
 [HIST-TAG: category=DECISION id=M1-AUTH-GITHUB topics=auth,github,oauth,pkce,session]
 - hub 独自のパスワード認証は提供せず、GitHub OAuth のみとした。hub は GitHub のトークンをサーバ側の暗号化ストアに保持し、クライアント（ブラウザ／Tauri）へはセッショントークンのみを返す。
 - セッションは不透明トークン＋ローテーション付き更新トークンとし、更新トークンの再利用を検知した場合は当該利用者の全セッションを失効させる。
+
+## 3. M2 以降のマイルストーン達成（2026-11-16）
+
+### [HIST:MILESTONE:M3-PUBLISH-WIZARD] 2026-11-16 公開ウィザード UI（PR #8）が main にマージ完了
+[HIST-TAG: category=MILESTONE id=M3-PUBLISH-WIZARD topics=m3,publish,wizard,pr8,merge]
+- 公開ウィザード UI（非エンジニア向け 4 ステップ）と公開完了画面（URL 提示）を PR #8 で実装し、main へのマージが完了した。
+- `docs/plans.md` の M3 項「PR #8 で実装済み、main へのマージ待ち」は古い記述だったため、マージ済みの现状に合わせて更新した。
+
+### [HIST:MILESTONE:M3-READER-VIEW] 2026-11-16 読者ビュー（/reading ルート）の実装が完了
+[HIST-TAG: category=MILESTONE id=M3-READER-VIEW topics=m3,reader,reading,ui]
+- 読者ビューは `/reading` 配下のルートで提供され、公開ページの URL を開くだけで本文を通読できる。設計書 `docs/designs/m3.md` §3.2 の実装状態を「実装完了」として確定した。
+- `docs/plans.md` の M3 項は「読者ビューの本実装（`/reading` + 事前描画とキャッシュ）」を未完了のまま記載していたため、設計書と食い違っていた。読者ビュー（`/reading` ルート）を完了とし、公開ページへの事前描画とキャッシュ（設計書 §3.3）は未実装のまま残した。
+
+### [HIST:MILESTONE:M5-SETUP-URL] 2026-11-16 セットアップ URL 発行・解決（PR #12）が実装・マージ完了
+[HIST-TAG: category=MILESTONE id=M5-SETUP-URL topics=m5,setup,url,pr12,merge]
+- セットアップ URL の発行（`GET /projects/{id}/setup`）と解決（`GET /setup/resolve`）を PR #12 で実装し、マージ済みである。設計書 `docs/designs/m5.md` §3.1／§3.2 は「実装完了」としていた。
+- `docs/plans.md` の M5 項は未完了のままだったため、設計書と食い違っていた。発行と解決を完了とし、novnow アプリ側ハンドラ仕様の追補（設計書 §3.3）は未実装のまま残した。
+
+### [HIST:MILESTONE:M4-COLLAB-UI] 2026-11-16 変更提案 UI と課題 UI（PR #16）が実装・マージ完了
+[HIST-TAG: category=MILESTONE id=M4-COLLAB-UI topics=m4,proposal,issue,ui,pr16,merge]
+- 変更提案 UI（一覧・詳細・差分・レビュー）と課題 UI を PR #16 で実装し、マージ済みである。
+- `docs/plans.md` の M4 項「変更提案 UI（一覧・詳細・差分・レビュー）と課題 UI」を「完了」に更新した。
+
+### [HIST:MILESTONE:M7-SPECS] 2026-11-16 M7 の仕様書・設計書が策定・マージ完了（PR #15）
+[HIST-TAG: category=MILESTONE id=M7-SPECS topics=m7,spec,design,docs,pr15,merge]
+- M7（運用・品質・OSS 公開準備）の仕様書 `docs/specifications/m7.md` と設計書 `docs/designs/m7.md` を PR #15 で策定し、マージ済みである。
+- `docs/plans.md` の M7 節は「仕様・設計策定済み」としており、仕様書・設計書との記述の食い違いや不足はなかった。

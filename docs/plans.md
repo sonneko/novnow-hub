@@ -52,16 +52,17 @@
 - [ ] バックエンド骨格（Rust + Axum、API 契約にのみ準拠）: `GET /meta`、認証（GitHub OAuth + PKCE）、セッション、認可ミドルウェア（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
 - [ ] GitHub アダプターの最小実装（保管単位の作成、原子コミット、ツリー／ファイル取得、ETag）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
 - [ ] 公開フロー: zip 取込 → novnow 軽量検証 → 保管単位作成 → hub 登録 → 公開ページ生成（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
-- [ ] 読者ビューの本実装（`/reading` + 公開ページへの事前描画とキャッシュ）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
+- [x] 読者ビューの本実装（`/reading` ルート）（実装済み）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
+- [ ] 公開ページへの事前描画とキャッシュ（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
 - [ ] プロジェクト一覧・検索の最小実装（軽量インデックス、カーソルページネーション）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
-- [ ] 公開ウィザード UI（非エンジニア向け 4 ステップ）と公開完了画面（URL 提示）（PR #8 で実装済み、main へのマージ待ち）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
+- [x] 公開ウィザード UI（非エンジニア向け 4 ステップ）と公開完了画面（URL 提示）（PR #8 で実装・マージ済み）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
 
 完了条件: 非エンジニアが zip をアップロードして公開でき、第三者が URL を開いて本文を読めること（本番相当環境）。
 
 <a id="m4-collaboration"></a>
 ### M4: コラボレーション（変更提案・課題・自動マージ・チャット・通知）（仕様・設計策定済み）
 - [ ] ProposalPort／IssuePort／AutomergePort／CheckStatusPort の GitHub 実装と契約テスト（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
-- [ ] 変更提案 UI（一覧・詳細・差分・レビュー）と課題 UI（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
+- [x] 変更提案 UI（一覧・詳細・差分・レビュー）と課題 UI（PR #16 で実装済み）（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
 - [ ] 自動マージの予約・取消・状態表示（GitHub の auto-merge または cron 評価）（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
 - [ ] ChatPort の hub 管理ストア実装とチャット UI（Phase 1 は短間隔ポーリング）（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
 - [ ] 通知センターと未読バッジ、ドメインイベントからの通知ファンアウト（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
@@ -72,7 +73,8 @@
 <a id="m5-novnow-features"></a>
 ### M5: novnow 特化機能（セットアップ URL・派生ツリー・診断）（仕様・設計策定済み）
 - [ ] DerivationPort（GitHub Fork 連携 + 派生レコード）と派生ツリー UI（`/derivatives`）（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
-- [ ] セットアップ URL 発行と解決（`/projects/{id}/setup`、`/setup/resolve`）と novnow アプリ側ハンドラ仕様の追補（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
+- [x] セットアップ URL 発行と解決（`/projects/{id}/setup`、`/setup/resolve`）（PR #12 で実装済み）（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
+- [ ] novnow アプリ側ハンドラ仕様の追補（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
 - [ ] novnow 診断・エクスポートの非同期ジョブ基盤（JobPort）と実行環境（novnow の WASM 実行、不可なら GitHub Actions 上の novnow CLI）（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
 - [ ] 変更提案差分への novnow 診断差分（新規混入／解消）の付与（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
 - [ ] 公開前検証の本格化（novnow check 相当の診断を必須チェックに連動）（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
