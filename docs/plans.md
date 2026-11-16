@@ -80,11 +80,11 @@
 完了条件: セットアップ URL 一発で novnow アプリが作品を開き、診断結果が変更提案フローに乗ること。
 
 <a id="m6-multiplatform"></a>
-### M6: マルチプラットフォーム（Tauri・PWA）
-- [ ] Tauri v2 によるデスクトップビルド（Windows／macOS／Linux）と配布パイプライン
-- [ ] PWA 化（manifest、オフラインシェル、読者ビューのオフライン閲覧）
-- [ ] Tauri secure storage へのセッション保管とカスタムスキームでのセットアップ URL 受信
-- [ ] インストーラ署名またはストア配布の方式決定と実装
+### M6: マルチプラットフォーム（Tauri・PWA）（仕様・設計策定済み）
+- [ ] Tauri v2 によるデスクトップビルド（Windows／macOS／Linux）と配布パイプライン（仕様: REF:docs/specifications/m6.md、設計: REF:docs/designs/m6.md）
+- [ ] PWA 化（manifest、オフラインシェル、読者ビューのオフライン閲覧）（仕様: REF:docs/specifications/m6.md、設計: REF:docs/designs/m6.md）
+- [ ] Tauri secure storage へのセッション保管とカスタムスキームでのセットアップ URL 受信（仕様: REF:docs/specifications/m6.md、設計: REF:docs/designs/m6.md）
+- [ ] インストーラ署名またはストア配布の方式決定と実装（仕様: REF:docs/specifications/m6.md、設計: REF:docs/designs/m6.md）
 
 完了条件: デスクトップアプリがセットアップ URL 経由で作品を開き、Web と同一の操作体系であること。
 
