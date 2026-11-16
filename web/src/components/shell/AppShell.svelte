@@ -6,6 +6,7 @@
   import ProjectPage from '../pages/ProjectPage.svelte';
   import ProjectsPage from '../pages/ProjectsPage.svelte';
   import ReaderPage from '../pages/ReaderPage.svelte';
+  import PublishWizard from '../pages/PublishWizard.svelte';
 
   interface Props {
     page: ShellPage;
@@ -23,6 +24,7 @@
   function documentTitle(): string {
     if (page.kind === 'project') return m.project.title;
     if (page.kind === 'reader') return m.reader.title;
+    if (page.kind === 'publish') return m.publish.title;
     return m.projects.title;
   }
 
@@ -52,7 +54,7 @@
   }
 
   onMount(() => {
-    if (page.kind !== 'projects') {
+    if (page.kind === 'project' || page.kind === 'reader') {
       const queryProjectId = new URLSearchParams(window.location.search).get('projectId');
       projectId = page.projectId?.trim() || queryProjectId?.trim() || '';
       routeReady = true;
@@ -78,6 +80,9 @@
     <nav class="site-nav" aria-label={m.nav.primary}>
       <a href="/" aria-current={page.kind === 'projects' ? 'page' : undefined}>
         {m.nav.projects}
+      </a>
+      <a href="/publish/" aria-current={page.kind === 'publish' ? 'page' : undefined}>
+        {m.nav.publish}
       </a>
       {#if readerHref}
         <a href={readerHref} aria-current={page.kind === 'reader' ? 'page' : undefined}>
@@ -117,10 +122,14 @@
       {:else}
         <p role="status">{m.api.loading}</p>
       {/if}
-    {:else if routeReady}
-      <ReaderPage {projectId} {m} />
+    {:else if page.kind === 'reader'}
+      {#if routeReady}
+        <ReaderPage {projectId} {m} />
+      {:else}
+        <p role="status">{m.api.loading}</p>
+      {/if}
     {:else}
-      <p role="status">{m.api.loading}</p>
+      <PublishWizard {locale} {m} />
     {/if}
   </main>
 
