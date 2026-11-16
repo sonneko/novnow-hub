@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { messages, type Locale } from '../../lib/i18n';
-  import { readerPageHref } from '../../lib/links';
+  import { derivativesPageHref, readerPageHref } from '../../lib/links';
   import type { ShellPage } from '../../lib/pages';
+  import DerivativesPage from '../pages/DerivativesPage.svelte';
+  import SetupResolvePage from '../pages/SetupResolvePage.svelte';
   import ProjectPage from '../pages/ProjectPage.svelte';
   import ProjectsPage from '../pages/ProjectsPage.svelte';
   import ReaderPage from '../pages/ReaderPage.svelte';
@@ -21,14 +23,18 @@
   let theme = $state<'light' | 'dark'>('light');
   let projectId = $state('');
   let detailNumber = $state(0);
+  let setupUrl = $state('');
   let routeReady = $state(false);
 
   const m = $derived(messages[locale]);
   const readerHref = $derived(projectId ? readerPageHref(projectId) : undefined);
+  const derivativesHref = $derived(projectId ? derivativesPageHref(projectId) : undefined);
 
   function documentTitle(): string {
     if (page.kind === 'project') return m.project.title;
     if (page.kind === 'reader') return m.reader.title;
+    if (page.kind === 'derivatives') return m.derivatives.title;
+    if (page.kind === 'setupResolve') return m.setupResolve.title;
     if (page.kind === 'publish') return m.publish.title;
     if (page.kind === 'proposals' || page.kind === 'proposal') return m.collaboration.proposals.title;
     if (page.kind === 'issues' || page.kind === 'issue') return m.collaboration.issues.title;
@@ -62,7 +68,7 @@
 
   onMount(() => {
     if (
-      page.kind === 'project' || page.kind === 'reader' ||
+      page.kind === 'project' || page.kind === 'reader' || page.kind === 'derivatives' ||
       page.kind === 'proposals' || page.kind === 'proposal' ||
       page.kind === 'issues' || page.kind === 'issue'
     ) {
@@ -73,6 +79,9 @@
         const parsed = Number(value);
         detailNumber = Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 0;
       }
+      routeReady = true;
+    } else if (page.kind === 'setupResolve') {
+      setupUrl = new URLSearchParams(window.location.search).get('u')?.trim() || '';
       routeReady = true;
     }
 
@@ -103,6 +112,11 @@
       {#if readerHref}
         <a href={readerHref} aria-current={page.kind === 'reader' ? 'page' : undefined}>
           {m.nav.reader}
+        </a>
+      {/if}
+      {#if derivativesHref}
+        <a href={derivativesHref} aria-current={page.kind === 'derivatives' ? 'page' : undefined}>
+          {m.nav.derivatives}
         </a>
       {/if}
     </nav>
@@ -141,6 +155,18 @@
     {:else if page.kind === 'reader'}
       {#if routeReady}
         <ReaderPage {projectId} {m} />
+      {:else}
+        <p role="status">{m.api.loading}</p>
+      {/if}
+    {:else if page.kind === 'derivatives'}
+      {#if routeReady}
+        <DerivativesPage {projectId} {locale} {m} />
+      {:else}
+        <p role="status">{m.api.loading}</p>
+      {/if}
+    {:else if page.kind === 'setupResolve'}
+      {#if routeReady}
+        <SetupResolvePage {setupUrl} {m} />
       {:else}
         <p role="status">{m.api.loading}</p>
       {/if}

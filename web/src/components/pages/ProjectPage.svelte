@@ -5,10 +5,12 @@
   import { mapApiFailure, type ApiFailure } from '../../lib/api/errors';
   import type { FileContent, Project, SetupInfo, Tree } from '../../lib/api/types';
   import {
+    derivativesPageHref,
     issueListHref,
     projectPageHref,
     proposalListHref,
     readerPageHref,
+    setupResolveHref,
   } from '../../lib/links';
 
   interface Props {
@@ -26,6 +28,7 @@
   let failure = $state<ApiFailure>('unknown');
   let treeFailure = $state<ApiFailure>();
   let setupFailure = $state<ApiFailure>();
+  let browserSetupUrl = $state('');
   let selectedPath = $state('');
   let fileContent = $state<FileContent>();
   let fileState = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
@@ -60,6 +63,10 @@
       }
 
       project = projectResult.data;
+      browserSetupUrl = new URL(
+        setupResolveHref(project.publishedUrl),
+        window.location.origin,
+      ).toString();
       const [treeResult, setupResult] = await Promise.allSettled([
         apiClient.GET('/projects/{projectId}/tree', { params: { path: { projectId } } }),
         apiClient.GET('/projects/{projectId}/setup', { params: { path: { projectId } } }),
@@ -120,9 +127,9 @@
   }
 
   async function copySetupUrl() {
-    if (!setupInfo) return;
+    if (!browserSetupUrl) return;
     try {
-      await navigator.clipboard.writeText(setupInfo.acquisition.url);
+      await navigator.clipboard.writeText(browserSetupUrl);
       copyState = 'copied';
     } catch {
       copyState = 'failed';
@@ -165,6 +172,11 @@
       </dl>
       <p><a class="button button-primary" href={readerPageHref(projectId)}>{m.project.openReader}</a></p>
     </header>
+
+    <nav class="project-tabs" aria-label={m.project.sectionsLabel}>
+      <a href={projectPageHref(projectId)} aria-current="page">{m.project.overviewTab}</a>
+      <a href={derivativesPageHref(projectId)}>{m.project.derivativesTab}</a>
+    </nav>
 
     <article class="panel" aria-labelledby="project-overview">
       <h2 id="project-overview">{m.project.overview}</h2>
@@ -234,10 +246,13 @@
       {:else if setupInfo}
         <p>{m.project.setupLead}</p>
         <p class="setup-url-label">{m.project.setupUrl}</p>
-        <a class="setup-url" href={setupInfo.acquisition.url}>{setupInfo.acquisition.url}</a>
-        <button class="button" type="button" onclick={copySetupUrl}>
-          {copyState === 'copied' ? m.project.copied : m.project.copySetupUrl}
-        </button>
+        <a class="setup-url" href={browserSetupUrl}>{browserSetupUrl}</a>
+        <div class="setup-actions">
+          <a class="button button-primary" href={browserSetupUrl}>{m.project.openSetupUrl}</a>
+          <button class="button" type="button" onclick={copySetupUrl}>
+            {copyState === 'copied' ? m.project.copied : m.project.copySetupUrl}
+          </button>
+        </div>
         {#if copyState === 'failed'}
           <p role="status">{m.project.copyFailed}</p>
         {/if}
@@ -245,6 +260,10 @@
           <div><dt>{m.project.setupSnapshot}</dt><dd>{setupInfo.snapshotVersion}</dd></div>
           <div><dt>{m.project.setupMinVersion}</dt><dd>{setupInfo.novnow.minVersion}</dd></div>
         </dl>
+        <div class="setup-manual">
+          <p class="setup-url-label">{m.project.manualSetup}</p>
+          <a class="setup-url" href={setupInfo.acquisition.url}>{setupInfo.acquisition.url}</a>
+        </div>
       {/if}
     </section>
   {/if}

@@ -1007,3 +1007,246 @@ textarea {
 .linked-proposal {
   margin-top: 1.5rem;
 }
+
+.project-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.3rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.7rem;
+  background: var(--color-surface);
+}
+
+.project-tabs a {
+  padding: 0.45rem 0.85rem;
+  border-radius: 0.45rem;
+  color: var(--color-muted);
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.project-tabs a[aria-current='page'] {
+  background: var(--color-accent-soft);
+  color: var(--color-text);
+}
+
+.derivatives-page,
+.setup-resolve-page {
+  max-width: 72rem;
+  margin-inline: auto;
+}
+
+.derivative-tree-panel {
+  overflow: hidden;
+}
+
+.derivative-tree-intro,
+.setup-result-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.derivative-tree-intro h2,
+.setup-result-heading h2 {
+  margin-bottom: 0.25rem;
+}
+
+.derivative-tree-intro p {
+  margin-top: 0;
+  color: var(--color-muted);
+}
+
+.derivative-empty {
+  margin-block: 1rem;
+  padding: 0.8rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--color-accent-soft);
+}
+
+.derivative-tree,
+.derivative-tree ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.derivative-tree {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.derivative-tree li {
+  min-width: 0;
+}
+
+.derivative-tree ul {
+  margin: 0.75rem 0 0 0.85rem;
+  padding-inline-start: 1rem;
+  border-inline-start: 2px solid var(--color-border);
+}
+
+.derivative-tree ul > li {
+  position: relative;
+  margin-block: 0.75rem;
+}
+
+.derivative-tree ul > li::before {
+  position: absolute;
+  top: 1.3rem;
+  left: -1rem;
+  width: 0.8rem;
+  border-top: 2px solid var(--color-border);
+  content: '';
+}
+
+.derivative-node-card {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.6rem;
+  background: var(--color-bg);
+}
+
+.derivative-current > .derivative-node-card {
+  border-color: var(--color-accent);
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.derivative-node-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+}
+
+.derivative-node-heading a {
+  min-width: 8rem;
+  color: var(--color-text);
+  font-size: 1.05rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.derivative-node-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 1rem;
+  margin-top: 0.6rem;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+.derivative-node-id {
+  margin: 0.55rem 0 0;
+  color: var(--color-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.setup-actions,
+.setup-resolve-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.setup-manual {
+  display: grid;
+  width: 100%;
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.setup-manual p {
+  margin-block: 0;
+}
+
+.setup-resolve-form {
+  display: grid;
+  justify-items: start;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+}
+
+.setup-resolve-form label {
+  font-weight: 650;
+}
+
+.setup-resolve-form input {
+  width: min(100%, 48rem);
+  min-height: 2.75rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.setup-resolve-form .field-hint {
+  margin: 0 0 0.4rem;
+}
+
+.setup-resolve-result {
+  display: grid;
+  gap: 1rem;
+}
+
+.setup-result-heading .publish-eyebrow {
+  margin-top: 0;
+}
+
+.setup-result-meta {
+  margin: 0;
+}
+
+.setup-steps {
+  padding: 1rem 1.1rem;
+  border-radius: 0.6rem;
+  background: var(--color-accent-soft);
+}
+
+.setup-steps h3 {
+  margin: 0 0 0.4rem;
+}
+
+.setup-steps ol {
+  margin-block: 0.5rem 0;
+  padding-inline-start: 1.4rem;
+}
+
+.setup-steps li + li {
+  margin-top: 0.35rem;
+}
+
+.setup-resolve-error .setup-failure-stage {
+  padding: 0.8rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--color-accent-soft);
+}
+
+.setup-resolve-error .button {
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 40rem) {
+  .derivative-tree ul {
+    margin-inline-start: 0.4rem;
+    padding-inline-start: 0.7rem;
+  }
+
+  .derivative-node-card {
+    padding: 0.8rem;
+  }
+}
