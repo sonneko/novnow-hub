@@ -48,13 +48,13 @@
 完了条件: モックに接続した読者ビューとプロジェクトページがローカルで動くこと。
 
 <a id="m3-thin-slice"></a>
-### M3: 薄いスライス — 公開と閲覧（Phase 1 最小）
-- [ ] バックエンド骨格（Rust + Axum、API 契約にのみ準拠）: `GET /meta`、認証（GitHub OAuth + PKCE）、セッション、認可ミドルウェア
-- [ ] GitHub アダプターの最小実装（保管単位の作成、原子コミット、ツリー／ファイル取得、ETag）
-- [ ] 公開フロー: zip 取込 → novnow 軽量検証 → 保管単位作成 → hub 登録 → 公開ページ生成
-- [ ] 読者ビューの本実装（`/reading` + 公開ページへの事前描画とキャッシュ）
-- [ ] プロジェクト一覧・検索の最小実装（軽量インデックス、カーソルページネーション）
-- [ ] 公開ウィザード UI（非エンジニア向け 4 ステップ）と公開完了画面（URL 提示）（PR #8 で実装済み、main へのマージ待ち）
+### M3: 薄いスライス — 公開と閲覧（Phase 1 最小）（仕様・設計策定済み）
+- [ ] バックエンド骨格（Rust + Axum、API 契約にのみ準拠）: `GET /meta`、認証（GitHub OAuth + PKCE）、セッション、認可ミドルウェア（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
+- [ ] GitHub アダプターの最小実装（保管単位の作成、原子コミット、ツリー／ファイル取得、ETag）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
+- [ ] 公開フロー: zip 取込 → novnow 軽量検証 → 保管単位作成 → hub 登録 → 公開ページ生成（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
+- [ ] 読者ビューの本実装（`/reading` + 公開ページへの事前描画とキャッシュ）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
+- [ ] プロジェクト一覧・検索の最小実装（軽量インデックス、カーソルページネーション）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
+- [ ] 公開ウィザード UI（非エンジニア向け 4 ステップ）と公開完了画面（URL 提示）（PR #8 で実装済み、main へのマージ待ち）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
 
 完了条件: 非エンジニアが zip をアップロードして公開でき、第三者が URL を開いて本文を読めること（本番相当環境）。
 
