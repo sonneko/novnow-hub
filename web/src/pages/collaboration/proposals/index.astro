@@ -1,0 +1,8 @@
+---
+import AppShell from '../../../components/shell/AppShell.svelte';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="変更提案 | novnow-hub">
+  <AppShell client:load page={{ kind: 'proposals' }} />
+</BaseLayout>
