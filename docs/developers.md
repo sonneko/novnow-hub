@@ -53,7 +53,7 @@ docs/
 
 ### 2.1 必要なツールチェーン
 
-- **フロントエンド**: Astro + Svelte + TypeScript（strict）、パッケージマネージャは pnpm。API クライアントは契約（`REF:api/openapi.yaml`）から生成する（`openapi-typescript` + `openapi-fetch` を第一候補）
+- **フロントエンド**: Astro + Svelte + TypeScript（strict）、パッケージマネージャは npm。API クライアントは契約（`REF:api/openapi.yaml`）から生成する（`openapi-typescript` + `openapi-fetch` を第一候補）
 - **デスクトップ**: Tauri v2（Web と同一コードベース）
 - **バックエンド**（別リポジトリまたは別 crate）: Rust + Axum + SQLite（候補。Phase 1 は GitHub アダプターを実装）
 - **契約検証**: `python3 -m pip install openapi-spec-validator` で `REF:api/openapi.yaml` を検証する
@@ -88,8 +88,7 @@ Arena サンドボックスには初期状態で目的のツールチェーン�
 novnow-hub/
 ├── api/
 │   └── openapi.yaml           # API 契約の唯一の正（OpenAPI 3.1）
-├── apps/
-│   └── web/                   # Astro + Svelte + TypeScript フロントエンド（M2 で導入）
+├── web/                       # Astro + Svelte + TypeScript フロントエンド（M2 で導入）
 ├── src-tauri/                 # Tauri v2（M6 で導入）
 ├── docs/
 │   ├── developers.md          # 本書（固定の開発者情報・ドキュメント規則）
@@ -108,7 +107,7 @@ novnow-hub/
 └── tests/                     # テスト
 ```
 
-`apps/`・`src-tauri/`・`mocks/`・`api/` の新規パスは本 M1 で確定した構成。バックエンドが同一リポジトリに来るか別リポジトリかは M3 の開始時に確定し、確定後に本節を更新する。
+`web/`・`src-tauri/`・`mocks/`・`api/` の新規パスは本 M1 で確定した構成。バックエンドが同一リポジトリに来るか別リポジトリかは M3 の開始時に確定し、確定後に本節を更新する。
 
 ---
 
