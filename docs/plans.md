@@ -70,12 +70,12 @@
 完了条件: 派生 → 変更提案 → 承認 → 自動マージ → 通知、の一連の流れが本番環境で確認できること。
 
 <a id="m5-novnow-features"></a>
-### M5: novnow 特化機能（セットアップ URL・派生ツリー・診断）
-- [ ] DerivationPort（GitHub Fork 連携 + 派生レコード）と派生ツリー UI（`/derivatives`）
-- [ ] セットアップ URL 発行と解決（`/projects/{id}/setup`、`/setup/resolve`）と novnow アプリ側ハンドラ仕様の追補
-- [ ] novnow 診断・エクスポートの非同期ジョブ基盤（JobPort）と実行環境（novnow の WASM 実行、不可なら GitHub Actions 上の novnow CLI）
-- [ ] 変更提案差分への novnow 診断差分（新規混入／解消）の付与
-- [ ] 公開前検証の本格化（novnow check 相当の診断を必須チェックに連動）
+### M5: novnow 特化機能（セットアップ URL・派生ツリー・診断）（仕様・設計策定済み）
+- [ ] DerivationPort（GitHub Fork 連携 + 派生レコード）と派生ツリー UI（`/derivatives`）（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
+- [ ] セットアップ URL 発行と解決（`/projects/{id}/setup`、`/setup/resolve`）と novnow アプリ側ハンドラ仕様の追補（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
+- [ ] novnow 診断・エクスポートの非同期ジョブ基盤（JobPort）と実行環境（novnow の WASM 実行、不可なら GitHub Actions 上の novnow CLI）（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
+- [ ] 変更提案差分への novnow 診断差分（新規混入／解消）の付与（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
+- [ ] 公開前検証の本格化（novnow check 相当の診断を必須チェックに連動）（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
 
 完了条件: セットアップ URL 一発で novnow アプリが作品を開き、診断結果が変更提案フローに乗ること。
 
