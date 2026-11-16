@@ -1,77 +1,97 @@
 <script lang="ts">
-  import type { Locale, Messages } from '../../lib/i18n';
-  import {
-    getChapter,
-    getProject,
-    getProjectChapters,
-  } from '../../lib/placeholders';
+  import { onMount } from 'svelte';
+  import type { Messages } from '../../lib/i18n';
+  import { apiClient } from '../../lib/api/client';
+  import { mapApiFailure, type ApiFailure } from '../../lib/api/errors';
+  import type { ReadingDocument } from '../../lib/api/types';
+  import { projectPageHref } from '../../lib/links';
 
   interface Props {
-    chapterId: string;
-    locale: Locale;
+    projectId: string;
     m: Messages;
   }
 
-  let { chapterId, locale, m }: Props = $props();
+  let { projectId, m }: Props = $props();
+  let document = $state<ReadingDocument | undefined>(undefined);
+  let state = $state<'loading' | 'ready' | 'error'>('loading');
+  let failure = $state<ApiFailure>('unknown');
 
-  const chapter = $derived(getChapter(chapterId));
-  const project = $derived(chapter ? getProject(chapter.projectId) : undefined);
-  const siblings = $derived(chapter ? getProjectChapters(chapter.projectId) : []);
-  const chapterIndex = $derived(
-    chapter ? siblings.findIndex((item) => item.id === chapter.id) : -1,
-  );
-  const previous = $derived(chapterIndex > 0 ? siblings[chapterIndex - 1] : undefined);
-  const next = $derived(
-    chapterIndex >= 0 && chapterIndex < siblings.length - 1
-      ? siblings[chapterIndex + 1]
-      : undefined,
-  );
+  async function loadReadingDocument() {
+    if (!projectId) {
+      failure = 'not-found';
+      state = 'error';
+      return;
+    }
+
+    try {
+      const result = await apiClient.GET('/projects/{projectId}/reading', {
+        params: { path: { projectId } },
+      });
+
+      if (result.error) {
+        failure = mapApiFailure(result.error, result.response.status);
+        state = 'error';
+        return;
+      }
+
+      document = result.data;
+      state = 'ready';
+    } catch {
+      failure = 'upstream-unavailable';
+      state = 'error';
+    }
+  }
+
+  onMount(() => {
+    void loadReadingDocument();
+  });
 </script>
 
 <article class="reader" aria-labelledby="reader-heading">
-  {#if chapter}
+  {#if state === 'loading'}
+    <header class="reader-header">
+      <h1 id="reader-heading">{m.reader.title}</h1>
+    </header>
+    <p role="status">{m.api.loading}</p>
+  {:else if state === 'error'}
+    <header class="reader-header">
+      <h1 id="reader-heading">
+        {failure === 'not-found' ? m.api.errors['not-found'] : m.reader.title}
+      </h1>
+    </header>
+    <p role="alert">{m.api.errors[failure]}</p>
+    <p><a href={projectPageHref(projectId)}>{m.reader.backToProject}</a></p>
+  {:else if document}
     <header class="reader-header">
       <p class="breadcrumbs">
-        {#if project}
-          <a href={`/projects/${project.id}`}>{m.reader.backToProject}</a>
-        {:else}
-          <a href="/">{m.reader.backToProject}</a>
-        {/if}
+        <a href={projectPageHref(projectId)}>{m.reader.backToProject}</a>
       </p>
-      <h1 id="reader-heading">{chapter.title[locale]}</h1>
-      {#if project}
-        <p class="meta">{project.title[locale]}</p>
-      {/if}
-      <p class="placeholder-note">{m.reader.placeholderNote}</p>
+      <h1 id="reader-heading">{document.title}</h1>
     </header>
 
     <div class="reader-body">
-      {#each chapter.paragraphs as paragraph, index (index)}
-        <p>{paragraph[locale]}</p>
-      {/each}
+      {#if document.blocks.length === 0}
+        <p>{m.reader.empty}</p>
+      {:else}
+        {#each document.blocks as block, index (`${index}-${block.kind}`)}
+          {#if block.kind === 'heading'}
+            <h2>{block.text}</h2>
+          {:else if block.kind === 'dialogue'}
+            <blockquote>
+              <p>{block.text}</p>
+              {#if block.speaker}
+                <cite>{block.speaker}</cite>
+              {/if}
+            </blockquote>
+          {:else if block.kind === 'scene_break'}
+            <div class="scene-break" role="separator" aria-label={m.reader.sceneBreak}>
+              {block.text}
+            </div>
+          {:else}
+            <p>{block.text}</p>
+          {/if}
+        {/each}
+      {/if}
     </div>
-
-    <nav class="reader-nav" aria-label={m.reader.navigation}>
-      {#if previous}
-        <a rel="prev" href={`/read/${previous.id}`}>← {m.reader.previous}</a>
-      {:else}
-        <span class="reader-nav-disabled" aria-disabled="true">
-          ← {m.reader.previous}
-        </span>
-      {/if}
-
-      {#if next}
-        <a rel="next" href={`/read/${next.id}`}>{m.reader.next} →</a>
-      {:else}
-        <span class="reader-nav-disabled" aria-disabled="true">
-          {m.reader.next} →
-        </span>
-      {/if}
-    </nav>
-  {:else}
-    <header class="reader-header">
-      <h1 id="reader-heading">{m.reader.notFound}</h1>
-    </header>
-    <p><a href="/">{m.project.back}</a></p>
   {/if}
 </article>
