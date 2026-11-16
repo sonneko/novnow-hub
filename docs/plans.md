@@ -59,13 +59,13 @@
 完了条件: 非エンジニアが zip をアップロードして公開でき、第三者が URL を開いて本文を読めること（本番相当環境）。
 
 <a id="m4-collaboration"></a>
-### M4: コラボレーション（変更提案・課題・自動マージ・チャット・通知）
-- [ ] ProposalPort／IssuePort／AutomergePort／CheckStatusPort の GitHub 実装と契約テスト
-- [ ] 変更提案 UI（一覧・詳細・差分・レビュー）と課題 UI
-- [ ] 自動マージの予約・取消・状態表示（GitHub の auto-merge または cron 評価）
-- [ ] ChatPort の hub 管理ストア実装とチャット UI（Phase 1 は短間隔ポーリング）
-- [ ] 通知センターと未読バッジ、ドメインイベントからの通知ファンアウト
-- [ ] GitHub Webhook 受信（署名検証）による公開ページ再生成とキャッシュ失効
+### M4: コラボレーション（変更提案・課題・自動マージ・チャット・通知）（仕様・設計策定済み）
+- [ ] ProposalPort／IssuePort／AutomergePort／CheckStatusPort の GitHub 実装と契約テスト（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
+- [ ] 変更提案 UI（一覧・詳細・差分・レビュー）と課題 UI（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
+- [ ] 自動マージの予約・取消・状態表示（GitHub の auto-merge または cron 評価）（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
+- [ ] ChatPort の hub 管理ストア実装とチャット UI（Phase 1 は短間隔ポーリング）（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
+- [ ] 通知センターと未読バッジ、ドメインイベントからの通知ファンアウト（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
+- [ ] GitHub Webhook 受信（署名検証）による公開ページ再生成とキャッシュ失効（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
 
 完了条件: 派生 → 変更提案 → 承認 → 自動マージ → 通知、の一連の流れが本番環境で確認できること。
 
