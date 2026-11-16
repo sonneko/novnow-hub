@@ -3,5 +3,5 @@ export function projectPageHref(projectId: string): string {
 }
 
 export function readerPageHref(projectId: string): string {
-  return `/read/?projectId=${encodeURIComponent(projectId)}`;
+  return `/reading/?projectId=${encodeURIComponent(projectId)}`;
 }
