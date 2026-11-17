@@ -6,6 +6,14 @@ export function readerPageHref(projectId: string): string {
   return `/reading/?projectId=${encodeURIComponent(projectId)}`;
 }
 
+export function derivativesPageHref(projectId: string): string {
+  return `/derivatives/?projectId=${encodeURIComponent(projectId)}`;
+}
+
+export function setupResolveHref(setupUrl: string): string {
+  return `/setup/resolve/?u=${encodeURIComponent(setupUrl)}`;
+}
+
 export function proposalListHref(projectId: string): string {
   return `/collaboration/proposals/?projectId=${encodeURIComponent(projectId)}`;
 }

@@ -1,4 +1,12 @@
-import type { FileContent, ReadingDocument, Project, ProjectPage, SetupInfo, Tree } from '../lib/api/types';
+import type {
+  DerivativeNode,
+  FileContent,
+  ReadingDocument,
+  Project,
+  ProjectPage,
+  SetupInfo,
+  Tree,
+} from '../lib/api/types';
 
 export const projectFixture = {
   id: 'project-1',
@@ -22,6 +30,64 @@ export const projectPageFixture = {
   items: [projectFixture],
   nextCursor: null,
 } satisfies ProjectPage;
+
+export const derivativeNodesFixture = [
+  {
+    id: 'source-1',
+    slug: 'original-story',
+    title: '原作・星を渡る',
+    ownerHandle: 'hoshi',
+    depth: 1,
+    parentId: null,
+    derivativePolicy: 'allowed',
+    createdAt: '2025-11-01T00:00:00Z',
+    updatedAt: '2025-12-18T10:00:00Z',
+  },
+  {
+    id: projectFixture.id,
+    slug: projectFixture.slug,
+    title: projectFixture.title,
+    ownerHandle: projectFixture.ownerHandle,
+    depth: 2,
+    parentId: 'source-1',
+    derivativePolicy: projectFixture.derivativePolicy,
+    createdAt: projectFixture.createdAt,
+    updatedAt: projectFixture.updatedAt,
+  },
+  {
+    id: 'sibling-1',
+    slug: 'original-story-another-view',
+    title: 'もうひとつの星',
+    ownerHandle: 'tsuki',
+    depth: 2,
+    parentId: 'source-1',
+    derivativePolicy: 'disallowed',
+    createdAt: '2026-01-12T00:00:00Z',
+    updatedAt: '2026-02-03T11:00:00Z',
+  },
+  {
+    id: 'derivative-1',
+    slug: 'sample-story-afterglow',
+    title: 'サンプル小説・その後',
+    ownerHandle: 'mizu',
+    depth: 3,
+    parentId: projectFixture.id,
+    derivativePolicy: 'allowed-with-conditions',
+    createdAt: '2026-02-01T00:00:00Z',
+    updatedAt: '2026-02-15T12:00:00Z',
+  },
+  {
+    id: 'derivative-1-1',
+    slug: 'sample-story-afterglow-side-story',
+    title: '灯りの向こう側',
+    ownerHandle: 'nagi',
+    depth: 4,
+    parentId: 'derivative-1',
+    derivativePolicy: 'allowed',
+    createdAt: '2026-02-20T00:00:00Z',
+    updatedAt: '2026-03-02T08:30:00Z',
+  },
+] satisfies DerivativeNode[];
 
 export const treeFixture = {
   entries: [

@@ -3,7 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import ProjectPage from './ProjectPage.svelte';
 import { messages } from '../../lib/i18n';
-import { readerPageHref } from '../../lib/links';
+import { derivativesPageHref, readerPageHref, setupResolveHref } from '../../lib/links';
 import {
   fileContentFixture,
   projectFixture,
@@ -50,6 +50,19 @@ describe('ProjectPage', () => {
     expect(screen.getByText('novnow/01-opening.md')).toBeTruthy();
     expect(screen.getByRole('link', { name: '読者ビューで読む' }).getAttribute('href')).toBe(
       readerPageHref(projectFixture.id),
+    );
+    expect(
+      screen.getByRole('link', { name: '派生' }).getAttribute('href'),
+    ).toBe(derivativesPageHref(projectFixture.id));
+
+    const browserSetupLink = screen.getByRole('link', {
+      name: messages.ja.project.openSetupUrl,
+    });
+    const resolvedBrowserSetupUrl = new URL(browserSetupLink.getAttribute('href')!);
+    expect(resolvedBrowserSetupUrl.pathname).toBe('/setup/resolve/');
+    expect(resolvedBrowserSetupUrl.searchParams.get('u')).toBe(projectFixture.publishedUrl);
+    expect(browserSetupLink.getAttribute('href')).toBe(
+      new URL(setupResolveHref(projectFixture.publishedUrl), window.location.origin).toString(),
     );
     expect(screen.getByRole('link', { name: setupInfoFixture.acquisition.url }).getAttribute('href')).toBe(
       setupInfoFixture.acquisition.url,
