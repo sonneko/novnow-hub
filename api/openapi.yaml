@@ -694,6 +694,26 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
   /projects/{projectId}/proposals/{number}/comments:
+    get:
+      operationId: listProposalComments
+      tags: [proposals]
+      summary: 変更提案のコメント一覧
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/NumberParam'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: コメントのページ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentPage'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
     post:
       operationId: commentProposal
       tags: [proposals]
@@ -974,6 +994,26 @@ paths:
         '401':
           $ref: '#/components/responses/AuthenticationRequired'
   /projects/{projectId}/issues/{number}/comments:
+    get:
+      operationId: listIssueComments
+      tags: [issues]
+      summary: 課題のコメント一覧
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/NumberParam'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: コメントのページ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentPage'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
     post:
       operationId: commentIssue
       tags: [issues]
@@ -1945,6 +1985,14 @@ components:
         path: { type: string }
         line: { type: integer, minimum: 1 }
         createdAt: { type: string, format: date-time }
+    CommentPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Comment' }
+        nextCursor: { type: [string, 'null'] }
     MergeResult:
       type: object
       required: [merged, sha]
