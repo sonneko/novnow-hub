@@ -359,7 +359,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** 変更提案のコメント一覧 */
+        get: operations["listProposalComments"];
         put?: never;
         /** 変更提案へコメントする */
         post: operations["commentProposal"];
@@ -482,7 +483,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** 課題のコメント一覧 */
+        get: operations["listIssueComments"];
         put?: never;
         /** 課題へコメントする */
         post: operations["commentIssue"];
@@ -995,6 +997,10 @@ export interface components {
             line?: number;
             /** Format: date-time */
             createdAt: string;
+        };
+        CommentPage: {
+            items: components["schemas"]["Comment"][];
+            nextCursor: string | null;
         };
         MergeResult: {
             merged: boolean;
@@ -2089,6 +2095,35 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listProposalComments: {
+        parameters: {
+            query?: {
+                /** @description 前ページの nextCursor（省略時は先頭） */
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                number: components["parameters"]["NumberParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description コメントのページ */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentPage"];
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     commentProposal: {
         parameters: {
             query?: never;
@@ -2414,6 +2449,35 @@ export interface operations {
             401: components["responses"]["AuthenticationRequired"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    listIssueComments: {
+        parameters: {
+            query?: {
+                /** @description 前ページの nextCursor（省略時は先頭） */
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                number: components["parameters"]["NumberParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description コメントのページ */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentPage"];
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            404: components["responses"]["NotFound"];
         };
     };
     commentIssue: {
