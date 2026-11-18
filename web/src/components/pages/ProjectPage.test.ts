@@ -1,12 +1,14 @@
-import { fireEvent, render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import ProjectPage from './ProjectPage.svelte';
 import { messages } from '../../lib/i18n';
 import { derivativesPageHref, readerPageHref, setupResolveHref } from '../../lib/links';
+import { clearCachedReadingDocument, getCachedReadingDocument } from '../../lib/reader-cache';
 import {
   fileContentFixture,
   projectFixture,
+  readingDocumentFixture,
   setupInfoFixture,
   treeFixture,
 } from '../../test/fixtures';
@@ -71,5 +73,31 @@ describe('ProjectPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '内容を見る' }));
     expect(await screen.findByText(/これは作品ファイルのプレビューです/)).toBeTruthy();
     expect(fileRequest?.searchParams.get('path')).toBe(fileContentFixture.path);
+  });
+
+  it('preloads the reader-ready document when the reader link receives focus', async () => {
+    await clearCachedReadingDocument(projectFixture.id);
+    server.use(
+      http.get('http://hub.test/api/v1/projects/:projectId', () => HttpResponse.json(projectFixture)),
+      http.get('http://hub.test/api/v1/projects/:projectId/tree', () => HttpResponse.json(treeFixture)),
+      http.get('http://hub.test/api/v1/projects/:projectId/setup', () =>
+        HttpResponse.json(setupInfoFixture),
+      ),
+      http.get('http://hub.test/api/v1/projects/:projectId/reading', () =>
+        HttpResponse.json(readingDocumentFixture),
+      ),
+    );
+
+    render(ProjectPage, {
+      projectId: projectFixture.id,
+      locale: 'en',
+      m: messages.en,
+    });
+
+    fireEvent.focus(await screen.findByRole('link', { name: messages.en.project.openReader }));
+    await waitFor(async () => {
+      expect(await getCachedReadingDocument(projectFixture.id)).toEqual(readingDocumentFixture);
+    });
+    await clearCachedReadingDocument(projectFixture.id);
   });
 });

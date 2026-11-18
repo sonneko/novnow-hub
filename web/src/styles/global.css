@@ -221,6 +221,15 @@ textarea {
   margin-inline: auto;
 }
 
+.reader-cache-notice {
+  margin-block: 0 1.25rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.5rem;
+  background: var(--color-accent-soft);
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
 .reader-header {
   margin-bottom: 2rem;
   padding-bottom: 1rem;
