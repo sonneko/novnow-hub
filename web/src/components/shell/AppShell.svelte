@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { messages, type Locale } from '../../lib/i18n';
-  import { derivativesPageHref, readerPageHref } from '../../lib/links';
+  import { chatPageHref, derivativesPageHref, readerPageHref } from '../../lib/links';
   import type { ShellPage } from '../../lib/pages';
   import DerivativesPage from '../pages/DerivativesPage.svelte';
   import SetupResolvePage from '../pages/SetupResolvePage.svelte';
@@ -13,6 +13,7 @@
   import ProposalDetailPage from '../pages/ProposalDetailPage.svelte';
   import IssuesPage from '../pages/IssuesPage.svelte';
   import IssueDetailPage from '../pages/IssueDetailPage.svelte';
+  import ChatPage from '../pages/ChatPage.svelte';
 
   interface Props {
     page: ShellPage;
@@ -29,6 +30,7 @@
   const m = $derived(messages[locale]);
   const readerHref = $derived(projectId ? readerPageHref(projectId) : undefined);
   const derivativesHref = $derived(projectId ? derivativesPageHref(projectId) : undefined);
+  const chatHref = $derived(projectId ? chatPageHref(projectId) : undefined);
 
   function documentTitle(): string {
     if (page.kind === 'project') return m.project.title;
@@ -38,6 +40,7 @@
     if (page.kind === 'publish') return m.publish.title;
     if (page.kind === 'proposals' || page.kind === 'proposal') return m.collaboration.proposals.title;
     if (page.kind === 'issues' || page.kind === 'issue') return m.collaboration.issues.title;
+    if (page.kind === 'chat') return m.collaboration.chat.title;
     return m.projects.title;
   }
 
@@ -70,7 +73,7 @@
     if (
       page.kind === 'project' || page.kind === 'reader' || page.kind === 'derivatives' ||
       page.kind === 'proposals' || page.kind === 'proposal' ||
-      page.kind === 'issues' || page.kind === 'issue'
+      page.kind === 'issues' || page.kind === 'issue' || page.kind === 'chat'
     ) {
       const query = new URLSearchParams(window.location.search);
       projectId = page.projectId?.trim() || query.get('projectId')?.trim() || '';
@@ -117,6 +120,11 @@
       {#if derivativesHref}
         <a href={derivativesHref} aria-current={page.kind === 'derivatives' ? 'page' : undefined}>
           {m.nav.derivatives}
+        </a>
+      {/if}
+      {#if chatHref}
+        <a href={chatHref} aria-current={page.kind === 'chat' ? 'page' : undefined}>
+          {m.collaboration.chat.title}
         </a>
       {/if}
     </nav>
@@ -178,6 +186,8 @@
       {#if routeReady}<IssuesPage {projectId} {locale} {m} />{:else}<p role="status">{m.api.loading}</p>{/if}
     {:else if page.kind === 'issue'}
       {#if routeReady}<IssueDetailPage {projectId} number={detailNumber} {locale} {m} />{:else}<p role="status">{m.api.loading}</p>{/if}
+    {:else if page.kind === 'chat'}
+      {#if routeReady}<ChatPage {projectId} {locale} {m} />{:else}<p role="status">{m.api.loading}</p>{/if}
     {:else}
       <PublishWizard {locale} {m} />
     {/if}

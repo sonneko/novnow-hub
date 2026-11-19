@@ -3,7 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import ProjectPage from './ProjectPage.svelte';
 import { messages } from '../../lib/i18n';
-import { derivativesPageHref, readerPageHref, setupResolveHref } from '../../lib/links';
+import { chatPageHref, derivativesPageHref, readerPageHref, setupResolveHref } from '../../lib/links';
 import { clearCachedReadingDocument, getCachedReadingDocument } from '../../lib/reader-cache';
 import {
   fileContentFixture,
@@ -56,6 +56,9 @@ describe('ProjectPage', () => {
     expect(
       screen.getByRole('link', { name: '派生' }).getAttribute('href'),
     ).toBe(derivativesPageHref(projectFixture.id));
+    expect(screen.getByRole('link', { name: 'チャットを開く' }).getAttribute('href')).toBe(
+      chatPageHref(projectFixture.id),
+    );
 
     const browserSetupLink = screen.getByRole('link', {
       name: messages.ja.project.openSetupUrl,

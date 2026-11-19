@@ -12,3 +12,6 @@ export type ProposalPageData = components['schemas']['ProposalPage'];
 export type ProposalDiff = components['schemas']['ProposalDiff'];
 export type Issue = components['schemas']['Issue'];
 export type IssuePageData = components['schemas']['IssuePage'];
+export type ChatChannel = components['schemas']['ChatChannel'];
+export type ChatMessage = components['schemas']['ChatMessage'];
+export type ChatMessagePage = components['schemas']['ChatMessagePage'];

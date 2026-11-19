@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "astro dev",
     "mock": "prism mock ../api/openapi.yaml --host 0.0.0.0 --port 4010",
+    "chat:dev": "node server/chat-api.mjs --seed-demo --demo-auth",
     "generate:api": "openapi-typescript ../api/openapi.yaml -o src/lib/api/generated/schema.d.ts",
     "check:api": "openapi-typescript ../api/openapi.yaml -o src/lib/api/generated/schema.d.ts --check",
     "check": "npm run check:api && npm test && astro check",

@@ -10,8 +10,11 @@
 | 区分 | 状態 | 対象範囲 | 参照 |
 |---|---|---|---|
 | 初期マイルストーン | 完了 | プロジェクトセットアップ・ドキュメント管理規則の策定 | `REF:docs/history.md` |
-| M1 仕様策定 | 完了 | 仕様書・API 契約（OpenAPI 3.1）・マイルストーン計画の策定（PR #2/#3 マージ済み） | `REF:docs/plans.md` |
-| M2 以降 | ほぼ完了 | フロントエンド基盤・モック導入済み（薄いスライスは M3 以降） | `REF:docs/plans.md` |
+| M1 仕様策定 | 完了 | 仕様書・API 契約（OpenAPI 3.1）・マイルストーン計画の策定 | `REF:docs/plans.md#m1-specs` |
+| M2 フロントエンド基盤 | ほぼ完了 | Astro／Svelte、API 型生成、OpenAPI モック、アプリシェル（CI 拡張は未完了） | `REF:docs/plans.md#m2-frontend-mock` |
+| M3 公開と閲覧 | 進行中 | 読者ビュー・公開ページの静的シェル事前描画・ETag キャッシュを実装。バックエンド・公開フロー・検索は未完了 | `REF:docs/plans.md#m3-thin-slice` |
+| M4 コラボレーション | 進行中 | Proposal／Issue UI と SQLite ChatPort 参照実装・チャット UI を実装。自動マージ・通知等は未完了 | `REF:docs/plans.md#m4-collaboration` |
+| M5 novnow 特化機能 | 進行中 | セットアップ URL 発行・解決を実装。派生・診断等は未完了 | `REF:docs/plans.md#m5-novnow-features` |
 <!-- SYNC:END project-status -->
 
 ---
@@ -64,7 +67,7 @@
 - [ ] ProposalPort／IssuePort／AutomergePort／CheckStatusPort の GitHub 実装と契約テスト（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
 - [x] 変更提案 UI（一覧・詳細・差分・レビュー）と課題 UI（PR #16 で実装済み）（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
 - [ ] 自動マージの予約・取消・状態表示（GitHub の auto-merge または cron 評価）（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
-- [ ] ChatPort の hub 管理ストア実装とチャット UI（Phase 1 は短間隔ポーリング）（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
+- [x] ChatPort の hub 管理ストア実装とチャット UI（Phase 1 は 5 秒間隔の短間隔ポーリング）（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
 - [ ] 通知センターと未読バッジ、ドメインイベントからの通知ファンアウト（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
 - [ ] GitHub Webhook 受信（署名検証）による公開ページ再生成とキャッシュ失効（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
 
