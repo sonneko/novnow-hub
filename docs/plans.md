@@ -52,8 +52,8 @@
 - [ ] バックエンド骨格（Rust + Axum、API 契約にのみ準拠）: `GET /meta`、認証（GitHub OAuth + PKCE）、セッション、認可ミドルウェア（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
 - [ ] GitHub アダプターの最小実装（保管単位の作成、原子コミット、ツリー／ファイル取得、ETag）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
 - [ ] 公開フロー: zip 取込 → novnow 軽量検証 → 保管単位作成 → hub 登録 → 公開ページ生成（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
-- [x] 読者ビューの本実装（`/reading` ルート）（実装済み）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
-- [ ] 公開ページへの事前描画とキャッシュ（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
+- [x] 読者ビュー本体（`/reading` の API 接続・本文表示、設計 §3.2）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
+- [x] 公開ページへの事前描画と ETag キャッシュ（設計 §3.3）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
 - [ ] プロジェクト一覧・検索の最小実装（軽量インデックス、カーソルページネーション）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
 - [x] 公開ウィザード UI（非エンジニア向け 4 ステップ）と公開完了画面（URL 提示）（PR #8 で実装・マージ済み）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
 

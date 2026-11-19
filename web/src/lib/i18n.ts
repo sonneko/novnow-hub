@@ -168,6 +168,8 @@ const ja = {
     backToProject: 'プロジェクトへ戻る',
     empty: '本文はまだありません。',
     sceneBreak: '場面の区切り',
+    cacheRefreshing: '保存済みの本文を表示しながら最新版を確認しています。',
+    cacheOffline: '最新版を取得できないため、保存済みの本文を表示しています。',
   },
   publish: {
     eyebrow: 'はじめての公開もかんたん',
@@ -478,6 +480,8 @@ const en: Messages = {
     backToProject: 'Back to project',
     empty: 'There is no reading content yet.',
     sceneBreak: 'Scene break',
+    cacheRefreshing: 'Showing the cached work while checking for an update.',
+    cacheOffline: 'The latest version is unavailable; showing the cached work.',
   },
   publish: {
     eyebrow: 'Publishing made simple',

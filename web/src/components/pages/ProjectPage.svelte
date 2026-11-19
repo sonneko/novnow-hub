@@ -3,7 +3,8 @@
   import type { Locale, Messages } from '../../lib/i18n';
   import { apiClient } from '../../lib/api/client';
   import { mapApiFailure, type ApiFailure } from '../../lib/api/errors';
-  import type { FileContent, Project, SetupInfo, Tree } from '../../lib/api/types';
+  import type { FileContent, Project, ReadingDocument, SetupInfo, Tree } from '../../lib/api/types';
+  import { cacheReadingDocument, getCachedReadingDocument } from '../../lib/reader-cache';
   import {
     derivativesPageHref,
     issueListHref,
@@ -29,6 +30,7 @@
   let treeFailure = $state<ApiFailure>();
   let setupFailure = $state<ApiFailure>();
   let browserSetupUrl = $state('');
+  let readerPrefetchInFlight = false;
   let selectedPath = $state('');
   let fileContent = $state<FileContent>();
   let fileState = $state<'idle' | 'loading' | 'ready' | 'error'>('idle');
@@ -96,6 +98,25 @@
     } catch {
       failure = 'upstream-unavailable';
       state = 'error';
+    }
+  }
+
+  async function prefetchReaderDocument() {
+    if (!projectId || readerPrefetchInFlight) return;
+    readerPrefetchInFlight = true;
+    try {
+      if (await getCachedReadingDocument(projectId)) return;
+      const result = await apiClient.GET('/projects/{projectId}/reading', {
+        params: { path: { projectId } },
+      });
+      if (!result.error && result.data.projectId === projectId) {
+        const readingDocument: ReadingDocument = result.data;
+        await cacheReadingDocument(readingDocument);
+      }
+    } catch {
+      // Prefetch is best-effort; the reader route owns visible error handling.
+    } finally {
+      readerPrefetchInFlight = false;
     }
   }
 
@@ -170,7 +191,16 @@
         <div><dt>{m.project.updated}</dt><dd><time datetime={project.updatedAt}>{formatDate(project.updatedAt)}</time></dd></div>
         <div><dt>{m.project.derivativeCount}</dt><dd>{project.derivativeCount}</dd></div>
       </dl>
-      <p><a class="button button-primary" href={readerPageHref(projectId)}>{m.project.openReader}</a></p>
+      <p>
+        <a
+          class="button button-primary"
+          href={readerPageHref(projectId)}
+          onpointerenter={() => void prefetchReaderDocument()}
+          onfocus={() => void prefetchReaderDocument()}
+        >
+          {m.project.openReader}
+        </a>
+      </p>
     </header>
 
     <nav class="project-tabs" aria-label={m.project.sectionsLabel}>

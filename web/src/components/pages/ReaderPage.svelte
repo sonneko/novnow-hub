@@ -5,6 +5,11 @@
   import { mapApiFailure, type ApiFailure } from '../../lib/api/errors';
   import type { ReadingDocument } from '../../lib/api/types';
   import { projectPageHref } from '../../lib/links';
+  import {
+    cacheReadingDocument,
+    clearCachedReadingDocument,
+    getCachedReadingDocument,
+  } from '../../lib/reader-cache';
 
   interface Props {
     projectId: string;
@@ -15,6 +20,7 @@
   let document = $state<ReadingDocument | undefined>(undefined);
   let state = $state<'loading' | 'ready' | 'error'>('loading');
   let failure = $state<ApiFailure>('unknown');
+  let cacheState = $state<'refreshing' | 'offline' | undefined>(undefined);
 
   async function loadReadingDocument() {
     if (!projectId) {
@@ -23,20 +29,59 @@
       return;
     }
 
+    let cached: ReadingDocument | undefined;
+    try {
+      cached = await getCachedReadingDocument(projectId);
+    } catch {
+      cached = undefined;
+    }
+    if (cached) {
+      document = cached;
+      state = 'ready';
+      cacheState = 'refreshing';
+    }
+
     try {
       const result = await apiClient.GET('/projects/{projectId}/reading', {
         params: { path: { projectId } },
       });
 
       if (result.error) {
-        failure = mapApiFailure(result.error, result.response.status);
+        const nextFailure = mapApiFailure(result.error, result.response.status);
+        if (nextFailure === 'not-found') {
+          // A 404 can mean a public work was unpublished; never keep serving its old body.
+          await clearCachedReadingDocument(projectId);
+        }
+        if (cached && nextFailure !== 'not-found' && nextFailure !== 'auth-required') {
+          cacheState = 'offline';
+          state = 'ready';
+          return;
+        }
+        failure = nextFailure;
+        state = 'error';
+        return;
+      }
+      if (result.data.projectId !== projectId) {
+        await clearCachedReadingDocument(projectId);
+        failure = 'verification-failed';
         state = 'error';
         return;
       }
 
       document = result.data;
       state = 'ready';
+      cacheState = undefined;
+      try {
+        await cacheReadingDocument(result.data);
+      } catch {
+        // A cache write failure does not affect the live reading experience.
+      }
     } catch {
+      if (cached) {
+        cacheState = 'offline';
+        state = 'ready';
+        return;
+      }
       failure = 'upstream-unavailable';
       state = 'error';
     }
@@ -62,12 +107,18 @@
     <p role="alert">{m.api.errors[failure]}</p>
     <p><a href={projectPageHref(projectId)}>{m.reader.backToProject}</a></p>
   {:else if document}
-    <header class="reader-header">
+    <header class="reader-header" data-project-id={document.projectId} data-etag={document.etag}>
       <p class="breadcrumbs">
         <a href={projectPageHref(projectId)}>{m.reader.backToProject}</a>
       </p>
       <h1 id="reader-heading">{document.title}</h1>
     </header>
+
+    {#if cacheState}
+      <p class="reader-cache-notice" role="status" aria-live="polite">
+        {cacheState === 'refreshing' ? m.reader.cacheRefreshing : m.reader.cacheOffline}
+      </p>
+    {/if}
 
     <div class="reader-body">
       {#if document.blocks.length === 0}
