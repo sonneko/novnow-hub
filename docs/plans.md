@@ -87,7 +87,7 @@
 <a id="m6-multiplatform"></a>
 ### M6: マルチプラットフォーム（Tauri・PWA）（仕様・設計策定済み）
 - [ ] Tauri v2 によるデスクトップビルド（Windows／macOS／Linux）と配布パイプライン（仕様: REF:docs/specifications/m6.md、設計: REF:docs/designs/m6.md）
-- [ ] PWA 化（manifest、オフラインシェル、読者ビューのオフライン閲覧）（仕様: REF:docs/specifications/m6.md、設計: REF:docs/designs/m6.md）
+- [ ] PWA 化（manifest、オフラインシェル、読者ビューのオフライン閲覧）（読者ビュー本文のキャッシュ自体は M3 で先行実装済み、PR #19）（仕様: REF:docs/specifications/m6.md、設計: REF:docs/designs/m6.md）
 - [ ] Tauri secure storage へのセッション保管とカスタムスキームでのセットアップ URL 受信（仕様: REF:docs/specifications/m6.md、設計: REF:docs/designs/m6.md）
 - [ ] インストーラ署名またはストア配布の方式決定と実装（仕様: REF:docs/specifications/m6.md、設計: REF:docs/designs/m6.md）
 

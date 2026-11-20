@@ -100,3 +100,9 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
 - 仕様書 `docs/specifications/m4.md` §2.1・§3.1 と設計書 `docs/designs/m4.md` §2.1・§3.1 にコメント一覧取得の振る舞いを追補し、`api/openapi.yaml` に `GET /projects/{projectId}/proposals/{number}/comments` と `GET /projects/{projectId}/issues/{number}/comments` を追加した。
 - コメント一覧はカーソルページネーション（`cursor`・`limit`）に従い時系列順で返し、レスポンスは新規スキーマ `CommentPage` とする。コメント内容は認可を経ずに返さない（仕様書 §8.1）。
 - 契約変更は追加のみ（既存 POST の変更・削除なし、既存スキーマの変更なし）であり、破壊的変更はない。
+
+### [HIST:SPEC-FIX:M6-OFFLINE-CACHE] 2026-11-19 M6 設計書の読者ビューオフライン閲覧記述を PR #19 実装に合わせて是正
+[HIST-TAG: category=SPEC-FIX id=M6-OFFLINE-CACHE topics=m6,pwa,offline,cache,etag,pr19,docs]
+- PR #19（M3 読者ビュー事前描画と ETag キャッシュ）は、読者ビュー本文をプロジェクト識別子と更新 ETag をキーに CacheStorage に保存し、オフライン時にも既読の公開ページ本文を表示できる仕組みを実装済みとした（M3 設計書 §3.3 を「実装完了」に更新）。
+- しかし M6 設計書 §3.2 は同一のキャッシュ戦略（キャッシュキー: プロジェクト識別子と更新 ETag）を「未実装・実装計画済み」としており、ソース実装と齟齬があった。
+- M6 設計書 §3.2 に「キャッシュ戦略は M3 で先行実装済み（PR #19）であり、M6 は PWA のマニフェスト・オフラインシェルで残余を完成させる」と明記して是正。plans.md の M6 項目に同様の注記を追った。M6 の残り範囲（PWA マニフェスト・オフラインシェル等）は未実装のまま。
