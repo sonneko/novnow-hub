@@ -29,3 +29,7 @@ export function issueListHref(projectId: string): string {
 export function issueDetailHref(projectId: string, number: number): string {
   return `/collaboration/issues/detail/?projectId=${encodeURIComponent(projectId)}&number=${number}`;
 }
+
+export function chatPageHref(projectId: string): string {
+  return `/collaboration/chat/?projectId=${encodeURIComponent(projectId)}`;
+}

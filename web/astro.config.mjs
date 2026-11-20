@@ -12,6 +12,11 @@ export default defineConfig({
   vite: {
     server: {
       proxy: {
+        '^/api/v1/projects/[^/]+/chat/channels': {
+          target: 'http://127.0.0.1:4011',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/v1(?=\/|$)/, ''),
+        },
         '/api/v1': {
           target: 'http://127.0.0.1:4010',
           changeOrigin: true,
@@ -21,6 +26,11 @@ export default defineConfig({
     },
     preview: {
       proxy: {
+        '^/api/v1/projects/[^/]+/chat/channels': {
+          target: 'http://127.0.0.1:4011',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/v1(?=\/|$)/, ''),
+        },
         '/api/v1': {
           target: 'http://127.0.0.1:4010',
           changeOrigin: true,

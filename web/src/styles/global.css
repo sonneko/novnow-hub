@@ -1249,6 +1249,233 @@ textarea {
   margin-top: 0.5rem;
 }
 
+.chat-layout {
+  display: grid;
+  grid-template-columns: minmax(13rem, 0.3fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+}
+
+.chat-sidebar,
+.chat-conversation {
+  min-width: 0;
+}
+
+.chat-sidebar-heading,
+.chat-conversation-heading,
+.chat-message-heading,
+.chat-compose-footer,
+.chat-message-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+}
+
+.chat-sidebar-heading h2,
+.chat-conversation-heading h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.chat-conversation-heading {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.chat-conversation-heading p {
+  margin: 0;
+}
+
+.chat-create-room,
+.chat-compose,
+.chat-edit-form {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.chat-create-room {
+  margin-top: 1rem;
+  padding: 0.8rem;
+  border-radius: 0.6rem;
+  background: var(--color-bg);
+}
+
+.chat-create-room label,
+.chat-compose label {
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+
+.chat-create-room input,
+.chat-compose textarea,
+.chat-edit-form textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.chat-room-list {
+  display: grid;
+  gap: 0.35rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-room-button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  text-align: start;
+}
+
+.chat-room-button:hover,
+.chat-room-button.active {
+  border-color: var(--color-border);
+  background: var(--color-accent-soft);
+}
+
+.chat-unread-badge {
+  min-width: 1.5rem;
+  text-align: center;
+}
+
+.chat-message-list {
+  display: grid;
+  max-height: min(58vh, 42rem);
+  gap: 0.25rem;
+  overflow-y: auto;
+  margin: 0.5rem 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-message {
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.chat-message-heading {
+  justify-content: flex-start;
+  color: var(--color-muted);
+  font-size: 0.825rem;
+}
+
+.chat-message-heading strong {
+  color: var(--color-text);
+}
+
+.chat-message-body {
+  margin: 0.45rem 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.chat-mentions {
+  margin: 0.35rem 0;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+}
+
+.chat-message-deleted .chat-message-body {
+  color: var(--color-muted);
+  font-style: italic;
+}
+
+.chat-message-actions {
+  justify-content: flex-start;
+  margin-top: 0.4rem;
+}
+
+.button-danger {
+  border-color: #a23d3d;
+  color: #a23d3d;
+}
+
+:root[data-theme='dark'] .button-danger {
+  border-color: #ff9e9e;
+  color: #ffb5b5;
+}
+
+.chat-compose {
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.chat-compose textarea,
+.chat-edit-form textarea {
+  min-height: 5.5rem;
+  resize: vertical;
+}
+
+.chat-compose > .meta {
+  margin: -0.35rem 0 0;
+}
+
+.chat-compose-footer {
+  justify-content: flex-end;
+}
+
+.chat-compose-footer .meta {
+  margin-inline-end: auto;
+}
+
+.chat-load-older {
+  display: flex;
+  justify-content: center;
+  margin-block: 0.75rem;
+}
+
+.chat-action-error {
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.5rem;
+  background: #fdeaea;
+  color: #811f1f;
+}
+
+:root[data-theme='dark'] .chat-action-error {
+  background: #49292b;
+  color: #ffb5b5;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+@media (max-width: 48rem) {
+  .chat-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .chat-sidebar {
+    order: 0;
+  }
+
+  .chat-conversation {
+    order: 1;
+  }
+}
+
 @media (max-width: 40rem) {
   .derivative-tree ul {
     margin-inline-start: 0.4rem;

@@ -1086,6 +1086,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ChatChannel'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
         '404':
           $ref: '#/components/responses/NotFound'
     post:
@@ -1111,6 +1113,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ChatChannel'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
         '401':
           $ref: '#/components/responses/AuthenticationRequired'
         '404':
@@ -1136,6 +1140,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ChatMessagePage'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
         '404':
           $ref: '#/components/responses/NotFound'
     post:
@@ -1164,6 +1170,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ChatMessage'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
         '401':
           $ref: '#/components/responses/AuthenticationRequired'
         '404':
@@ -1199,6 +1207,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ChatMessage'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
         '403':
           $ref: '#/components/responses/PermissionDenied'
         '404':
@@ -1222,6 +1232,8 @@ paths:
       responses:
         '204':
           description: 削除完了
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
         '403':
           $ref: '#/components/responses/PermissionDenied'
         '404':

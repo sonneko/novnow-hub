@@ -11,32 +11,33 @@
 | 区分 | 状態 | 対象範囲 | 参照 |
 |---|---|---|---|
 | 初期マイルストーン | 完了 | プロジェクトセットアップ・ドキュメント管理規則の策定 | `REF:docs/history.md` |
-| M1 仕様策定 | 完了 | 仕様書・API 契約（OpenAPI 3.1）・マイルストーン計画の策定（PR #2/#3 マージ済み） | `REF:docs/plans.md` |
-| M2 以降 | ほぼ完了 | フロントエンド基盤・モック導入済み（薄いスライスは M3 以降） | `REF:docs/plans.md` |
+| M1 仕様策定 | 完了 | 仕様書・API 契約（OpenAPI 3.1）・マイルストーン計画の策定 | `REF:docs/plans.md#m1-specs` |
+| M2 フロントエンド基盤 | ほぼ完了 | Astro／Svelte、API 型生成、OpenAPI モック、アプリシェル（CI 拡張は未完了） | `REF:docs/plans.md#m2-frontend-mock` |
+| M3 公開と閲覧 | 進行中 | 読者ビュー・公開ページの静的シェル事前描画・ETag キャッシュを実装。バックエンド・公開フロー・検索は未完了 | `REF:docs/plans.md#m3-thin-slice` |
+| M4 コラボレーション | 進行中 | Proposal／Issue UI と SQLite ChatPort 参照実装・チャット UI を実装。自動マージ・通知等は未完了 | `REF:docs/plans.md#m4-collaboration` |
+| M5 novnow 特化機能 | 進行中 | セットアップ URL 発行・解決を実装。派生・診断等は未完了 | `REF:docs/plans.md#m5-novnow-features` |
 <!-- SYNC:END project-status -->
 
 ---
 
 ## 2. 現在のブランチ・PR・直近の作業状態
 
-- **現在のブランチ**: `arena/b69fbab8-novnow-hub`（`main` 分岐点 `ffc1bdbbdff557f0062aab920f7f7b55fde17103`）
-- **PR**: [#17](https://github.com/sonneko/novnow-hub/pull/17)（`main` 向け、オープン・マージ待ち）。plans.md / history.md の進捗反映と M4 コメント一覧取得 GET の契約追補の 2 タスクを 1 PR に集約。CI は docs ジョブが緑、Lint/Test/Build は `api/*`・`docs/*` のみの変更のためスキップされる設計（`.github/workflows/ci.yml` の変更フィルタによる意図的な挙動）
-- **現在の状態**: M3 は公開ウィザード UI（PR #8）と読者ビュー（`/reading` ルート）が実装済み。M4 は変更提案 UI・課題 UI（PR #16）が実装済みで、会話スレッド表示のため API 契約にコメント一覧取得 GET エンドポイントを追補した。M5 はセットアップ URL 発行・解決（PR #12）が実装済み。M7 の仕様書・設計書は策定済み（PR #15）。M2 の残りは CI 拡張（契約スキーマ検証＋モックスモークテスト）
-- **検証**: `python3 docs/script/verify-docs.py` と `openapi-spec-validator` による契約検証が通過することを確認（所要時間: ドキュメント検証は数秒、契約検証は初回のみ依存取得で約 1 分。今回は `/home/user/build/venv` に pyyaml と openapi-spec-validator を入れた venv で実行）
+- **現在のブランチ**: `arena/35aca776-novnow-hub`（`main` 分岐点 `01b84879ceccb30fee5dcb4586b0bf0dbcae328c`、PR #19 のマージコミット）
+- **PR**: M4 会話スレッド UI の実装を検証後、`main` 向け PR を作成する（作成後に URL と CI 状態を記録）。マージはユーザーの指示を待つ。
+- **現在の状態**: M3 は `/reading`・公開ページの静的シェル事前描画と ETag キャッシュを実装済み。M4 は Proposal／Issue UI に加え、この作業で SQLite-backed ChatPort 参照実装とチャット UI を実装。自動マージ・通知センター等は未完了。M5 はセットアップ URL 発行・解決 UI を実装済み。M2 の CI 拡張は未完了。
+- **検証**: `cd web && npm run check && npm run build`、`python3 docs/script/verify-docs.py`、`openapi-spec-validator` による `api/openapi.yaml` 検証を確認済み。チャット用の API 検証・UI を含む 35 テストが成功。
 
 ---
 
 ## 3. 次セッション開始時の手順
 
-1. `/home/user/build/env.sh` が存在しない場合（コンテナ再起動後）は次を実行する（詳細は `REF:docs/developers.md` §2.2）:
+1. コンテナ再起動後は現在のブランチを fetch して追随する:
    ```bash
-   bash scripts/bootstrap-toolchain.sh
-   git fetch origin arena/b69fbab8-novnow-hub
+   git fetch origin arena/35aca776-novnow-hub
    git reset --mixed FETCH_HEAD
    ```
-2. ドキュメント規則を確認する:
-   ```bash
-   python3 docs/script/verify-docs.py
-   ```
-3. `REF:docs/plans.md` の M3 の残り項目（バックエンド骨格・GitHub アダプター・公開フロー・プロジェクト一覧・検索・事前描画とキャッシュ）から作業を開始する。PR #17 のマージ状況を確認し、マージ済みの場合はマージ後の `main` を基点とすること。
-4. 契約ファイル `REF:api/openapi.yaml` を変更する場合は、`openapi-spec-validator` を通し、`REF:docs/specifications/api.md` と `REF:docs/designs/api.md` の対応節も同時に更新すること（仕様を先、設計を後、コードは最後）。
+   Rust ツールチェーン復旧が必要な場合は `REF:docs/developers.md` §2.2 を参照する。
+2. `REF:docs/script/verify-docs.py` でドキュメント規則を確認する。
+3. PR のレビュー・CI 状態を確認する。PR はユーザーの明示指示があるまでマージしない。
+4. 次の実装範囲はユーザーの指示を待つ。M4 の残項目は Proposal／Issue／Automerge 等の adapter と契約テスト、自動マージ、通知センター／ファンアウト、Webhook。
+5. `REF:api/openapi.yaml` を変更する場合は追加のみとし、OpenAPI validator と生成 API 型チェックを通す。API 仕様書／設計書の対応箇所も同期する。
