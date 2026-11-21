@@ -31,6 +31,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: toolchain-export-${{ github.ref }}
