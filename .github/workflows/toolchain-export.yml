@@ -133,6 +133,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # GitHub Actions の既定 shell は `bash -eo pipefail` のため、
+          # push 失敗で即座に終了し後続のデバッグ記録が実行されない。
+          # 明示的に -e を無効化し、失敗後もデバッグ情報を退避できるようにする。
+          set +e
           cd /tmp/export
 
           # Push ブロック全体の出力をログに退避（失敗原因の特定用）
