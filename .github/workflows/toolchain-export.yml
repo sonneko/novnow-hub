@@ -155,21 +155,13 @@ jobs:
           echo "push rc=$rc"
           cat /tmp/push.log
 
-          # デバッグログを debug ブランチに退避（サブシェルで必ず実行）
-          (
-            cd /tmp
-            rm -rf diag
-            git init -q diag
-            cd diag
-            git config user.email "actions@github.com"
-            git config user.name "GitHub Actions"
-            git checkout -qb debug/toolchain-push
-            cp /tmp/push.log push.log
-            git add -A
-            git commit -qm "push debug log"
-            git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-            git push --force origin debug/toolchain-push
-          ) || echo "debug push failed"
+          # デバッグログを Issue として記録（読み取り可能な形で）
+          if [ "$rc" != "0" ]; then
+            gh issue create \
+              --repo "${GITHUB_REPOSITORY}" \
+              --title "toolchain-export: push 失敗 (run $GITHUB_RUN_ID)" \
+              --body "```\n$(cat /tmp/push.log)\n```" || echo "issue create failed"
+          fi
 
           if [ "$rc" != "0" ]; then
             exit "$rc"
