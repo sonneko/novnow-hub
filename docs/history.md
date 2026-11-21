@@ -119,3 +119,19 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
 - 読者ルートの用語を `/reading` に統一: `web/README.md` の `/read/` を `/reading` に修正し、`docs/designs/m3.md` §3.2 の REF を実体の `web/src/pages/reading/index.astro` に是正（#33）。
 - `.github/workflows/ci.yml`: 「スキャフォールド段階では未配置」等の古いコメントを除去。テストは lint ジョブの `npm run check`（Vitest を含む）で実行されている実態に合わせ、`test` ジョブの位置付けを更新（#33）。
 - `README.md`: 「試し方」セクションを追加（前提条件・インストール・モック API と開発サーバーの起動手順・試せることの一覧）。手順は実際の起動と各ルートの HTTP 検証（200 応答確認）により検証済み。公開済みデプロイ URL は存在しないためローカル限定の手順とした。
+
+### [HIST:REFACTOR:DOCS-SOURCE-SYNC] 2026-11-21 ドキュメントとソースのリファクタリング（同期修正・整理）
+[HIST-TAG: category=REFACTOR id=DOCS-SOURCE-SYNC topics=refactor,docs,source,sync,cleanup]
+- コンテキストを断ち切ってドキュメントの主張とソース（`api/openapi.yaml`、`web/`、`scripts/`、`.github/workflows/`）を全件照合し、食い違いを是正した。
+- 仕様書 `docs/specifications/api.md`: §5.5／§5.7 にコメント一覧取得 GET（`GET /projects/{projectId}/proposals/{number}/comments`、`GET /projects/{projectId}/issues/{number}/comments`）を追補（契約・実装には既に存在、PR #36 で CommentThread 表示も実装済み）。§6.2 の `Project.visibility` 列挙に `archived` を追加（契約は #31 で 3 値化済み）。§6.6 の `ChatMessage` に `etag`（`If-Match` 用の版識別子）を追補（契約・実装は #23 で対応済み）。
+- 設計書 `docs/designs/api.md`: §9.3 の内部表現名を実装（`web/src/lib/api/errors.ts` の kebab-case 表現）と整合させ、状態行を「実装完了」に更新。§6.6 に `etag` の導出方法（`messageVersion`）を追記。§5.8 に実装済みの `If-Match` 照合・5 秒ポーリング・デモ種子を反映。§4.5／§4.7 に契約側で既に定義済みのヘッダ（`RateLimit-*`／`X-Unread-Count`／`Idempotency-Key`）への準拠を明記。§11.4 のシード運用記述を §11.2 の裁定（対象は `mocks/seed` のみ）と整合させた。
+- 設計書 `docs/designs/m4.md`: ChatPort メソッド名を実装（`createChannel`／`listChannels`／`postMessage`、#28 改名）と一致させ、`etag` 照合を追記。ProposalPort／IssuePort／AutomergePort のメソッド名を仕様 §7.2 と統一（`openProposal` 等）。§2.1 の状態行を実装範囲（UI・コメント一覧表示は実装済み）に合わせて更新。
+- 設計書 `docs/designs/m3.md`: §4.1／§4.2 の状態行を実装範囲（一覧画面・ソート・タグ・ライセンス絞り込みは実装済み、インデックス検索は未実装）に合わせて更新。
+- 設計書 `docs/designs/m5.md`: §3.2 の状態行に実装ソース（`SetupResolvePage.svelte` 等）の REF を追補。
+- 設計書 `docs/designs/overview.md`: §6.2 の状態行を実装範囲に合わせて更新。§8.4 のチャットテーブル列名を実装（`author_handle`／`deleted` フラグ）と一致させた。
+- `docs/developers.md` §7.1: 「テストフィクスチャは手書き禁止」を「モック用シード（`mocks/seed/`）のみ対象、ユニットテストフィクスチャは手書き可」に是正（`docs/designs/api.md#mock-seed` の裁定と整合）。
+- `docs/plans.md` M2: 「シード生成スクリプト」を未導入の现状に是正（モックは Prism の example 応答と手書きフィクスチャで代替中）。
+- `docs/handoff.md`: テスト数を 40 テスト・16 ファイルに更新（旧「35 テスト」）。ブランチ情報（`arena/a75439b7-novnow-hub`、`main` 最新 `4aeae8d`）とマージ済み PR #34／#35／#36 の記録に更新。
+- `README.md`／`web/README.md`: チャット API（`npm run chat:dev`、:4011）の起動・プロキシ経路を明記。`web/README.md` のルート一覧を実装ルートと一致させた。
+- ソース: `web/src/pages/read/index.astro`（`/read` ルート）は `/reading` の完全重複で参照元が一切ないため削除（振る舞い・契約は不変。ビルド出力は 12 ページ → 11 ページ）。`api/openapi.yaml` は変更なし（契約の正として不変）。
+- 検証: `python3 docs/script/verify-docs.py` 通過。`npm run check`（生成物チェック含む）0 errors、Vitest 40 テスト・16 ファイル成功、`npm run build` 成功。

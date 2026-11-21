@@ -22,9 +22,16 @@ npm run dev
 
 ブラウザーからは同一オリジンの `/api/v1` を呼び出すため、フロントエンドに localhost の API URL は埋め込みません。Prism は `api/openapi.yaml` を直接読み込み、契約に記載された example とスキーマに基づく応答・リクエスト検証を提供します。バックエンドへ接続するときは `PUBLIC_API_BASE_URL` で API の base URL を指定できます。
 
+チャットの API は SQLite ベースの参照実装（`server/chat-api.mjs`）で提供し、`:4011` で起動します。Astro のプロキシ設定が `/api/v1/projects/{projectId}/chat/channels` 系をこのポートへ转发するため、チャット画面を使う場合はモック API に加えて別ターミナルで `npm run chat:dev` を起動します。
+
 - `/`: プロジェクト一覧
 - `/projects/?projectId=<id>`: プロジェクト詳細
 - `/reading/?projectId=<id>`: 読者ビュー
+- `/collaboration/proposals/?projectId=<id>`: 変更提案一覧
+- `/collaboration/issues/?projectId=<id>`: 課題一覧
+- `/collaboration/chat/?projectId=<id>`: チャット（`npm run chat:dev` 必須）
+- `/derivatives/?projectId=<id>`: 派生ツリー
+- `/setup/resolve/?u=<URL>`: セットアップ URL 解決
 
 詳細・読者ページはクエリの `projectId` を使い、API が返す任意の project ID に対応します。
 

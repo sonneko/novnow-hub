@@ -154,9 +154,9 @@ Astro の動的ルート + Svelte アイランド（インタラクション部�
 
 ### 6.2 一覧と検索
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m3-thin-slice, REF:docs/plans.md#m5-novnow-features）
+状態: 実装中（一覧画面の表示・ソート・タグ・ライセンス絞り込みは実装済み。軽量インデックス検索は未実装、REF:docs/plans.md#m3-thin-slice, REF:docs/plans.md#m5-novnow-features）
 
-一覧は hub 側の軽量インデックステーブル（`search_index`: title／description／tags／author／updated_at）への SQL 検索。並び替えは新着・更新・派生数の 3 種のみ。検索 API は `/search/projects` に集約し、全文検索は `LIKE` 相当の部分一致 + 正規化（NFKC・小文字化）までとする。ページネーションはカーソル（`updatedAt + id` の複合キーを Base64URL 化）で、総件数は返さない。
+一覧は hub 側の軽量インデックステーブル（`search_index`: title／description／tags／author／updated_at）への SQL 検索。並び替えは新着・更新・派生数の 3 種のみ。検索 API は `/search/projects` に集約し、全文検索は `LIKE` 相当の部分一致 + 正規化（NFKC・小文字化）までとする。ページネーションはカーソル（`updatedAt + id` の複合キーを Base64URL 化）で、総件数は返さない。現時点で実装済みなのはフロントエンドの一覧表示（`REF:web/src/components/pages/ProjectsPage.svelte`）のみで、検索インデックス自体は未実装である。
 
 ### 6.3 ブラウザでそのまま読む
 
@@ -224,7 +224,7 @@ IssuePort を介して GitHub Issues を操作する。ラベルの正は GitHub
 
 状態: 実装完了（SQLite ChatPort 参照実装とチャット UI は PR #21 で実装済み、REF:docs/plans.md#m4-collaboration）
 
-ChatPort は hub 管理ストアに実装する（Phase 1 から GitHub を使わない）。メッセージは `chat_messages` テーブル（id／channel_id／author_id／body／mentions JSON／created_at／edited_at／deleted_at）に保存し、表示はカーソルページネーション。未読は `last_read_message_id` を利用者ごとに保持して算出する。WebSocket は Phase 1 では導入せず、短間隔ポーリング（5 秒）または表示時再取得とする（コスト制約）。
+ChatPort は hub 管理ストアに実装する（Phase 1 から GitHub を使わない）。メッセージは `chat_messages` テーブル（id／project_id／channel_id／author_handle／body／mentions JSON／created_at／edited_at／deleted フラグ）に保存し、表示はカーソルページネーション。未読は `chat_room_reads`（reader_handle／last_read_at／last_read_message_id）を利用者ごとに保持して算出する。WebSocket は Phase 1 では導入せず、短間隔ポーリング（5 秒）または表示時再取得とする（コスト制約）。
 
 ### 8.5 CI（マージ前検証）
 
