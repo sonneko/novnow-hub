@@ -15,3 +15,5 @@ export type IssuePageData = components['schemas']['IssuePage'];
 export type ChatChannel = components['schemas']['ChatChannel'];
 export type ChatMessage = components['schemas']['ChatMessage'];
 export type ChatMessagePage = components['schemas']['ChatMessagePage'];
+export type ApiComment = components['schemas']['Comment'];
+export type CommentPageData = components['schemas']['CommentPage'];

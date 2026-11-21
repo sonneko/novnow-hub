@@ -67,6 +67,7 @@ const ja = {
     visibility: {
       public: '公開',
       private: '非公開',
+      archived: 'アーカイブ済み',
     },
   },
   project: {
@@ -145,7 +146,7 @@ const ja = {
     snapshot: '作品の版',
     acquisition: '取得元',
     acquisitionKinds: {
-      codeload: 'アーカイブ',
+      archive: 'アーカイブ',
       git: 'Git リポジトリ',
     },
     ref: '参照先',
@@ -170,6 +171,13 @@ const ja = {
     sceneBreak: '場面の区切り',
     cacheRefreshing: '保存済みの本文を表示しながら最新版を確認しています。',
     cacheOffline: '最新版を取得できないため、保存済みの本文を表示しています。',
+    fontSize: {
+      label: '文字サイズ',
+      small: '小',
+      medium: '中',
+      large: '大',
+      xlarge: '特大',
+    },
   },
   publish: {
     eyebrow: 'はじめての公開もかんたん',
@@ -337,6 +345,12 @@ const ja = {
       noLinkedProposal: '関連する変更提案はありません。',
       unavailable: '課題を読み込めませんでした。',
     },
+    comments: {
+      title: 'コメント',
+      empty: 'コメントはまだありません。',
+      unavailable: 'コメントを読み込めませんでした。',
+      lineRef: (line: number) => `${line} 行目`,
+    },
   },
 };
 
@@ -409,6 +423,7 @@ const en: Messages = {
     visibility: {
       public: 'Public',
       private: 'Private',
+      archived: 'Archived',
     },
   },
   project: {
@@ -487,7 +502,7 @@ const en: Messages = {
     snapshot: 'Work version',
     acquisition: 'Source',
     acquisitionKinds: {
-      codeload: 'Archive',
+      archive: 'Archive',
       git: 'Git repository',
     },
     ref: 'Reference',
@@ -512,6 +527,13 @@ const en: Messages = {
     sceneBreak: 'Scene break',
     cacheRefreshing: 'Showing the cached work while checking for an update.',
     cacheOffline: 'The latest version is unavailable; showing the cached work.',
+    fontSize: {
+      label: 'Text size',
+      small: 'Small',
+      medium: 'Medium',
+      large: 'Large',
+      xlarge: 'Extra large',
+    },
   },
   publish: {
     eyebrow: 'Publishing made simple',
@@ -678,6 +700,12 @@ const en: Messages = {
       linkedProposal: 'Related proposal',
       noLinkedProposal: 'No related proposal.',
       unavailable: 'Could not load this issue.',
+    },
+    comments: {
+      title: 'Comments',
+      empty: 'No comments yet.',
+      unavailable: 'Could not load comments.',
+      lineRef: (line: number) => `Line ${line}`,
     },
   },
 };

@@ -5,6 +5,7 @@
   import { mapApiFailure, type ApiFailure } from '../../lib/api/errors';
   import type { Proposal, ProposalDiff } from '../../lib/api/types';
   import { proposalListHref, projectPageHref } from '../../lib/links';
+  import CommentThread from './CommentThread.svelte';
 
   interface Props {
     projectId: string;
@@ -191,6 +192,8 @@
         {/if}
       {/if}
     </section>
+
+    <CommentThread projectId={projectId} number={number} kind="proposal" {locale} {m} />
 
     {#if proposal.state === 'open'}
       <form class="panel review-form" onsubmit={submitReview} aria-labelledby="review-form-heading">

@@ -21,17 +21,17 @@ afterEach(() => {
 describe('SQLite ChatPort', () => {
   it('creates project-scoped rooms and counts unread messages until the reader opens them', () => {
     const port = makeStore();
-    const room = port.createRoom('project-1', { name: '雑談', description: '気軽に話す' });
-    port.createRoom('project-2', { name: '雑談' });
-    port.sendMessage('project-1', room.id, { authorHandle: 'mizu', body: 'こんにちは @sora' });
+    const room = port.createChannel('project-1', { name: '雑談', description: '気軽に話す' });
+    port.createChannel('project-2', { name: '雑談' });
+    port.postMessage('project-1', room.id, { authorHandle: 'mizu', body: 'こんにちは @sora' });
 
-    expect(port.listRooms('project-1', { actorHandle: 'sora' })).toMatchObject([
+    expect(port.listChannels('project-1', { actorHandle: 'sora' })).toMatchObject([
       { id: room.id, name: '雑談', description: '気軽に話す', unreadCount: 1 },
     ]);
-    expect(port.listRooms('project-2', { actorHandle: 'sora' })).toHaveLength(1);
+    expect(port.listChannels('project-2', { actorHandle: 'sora' })).toHaveLength(1);
     expect(port.listMessages('project-1', room.id, { actorHandle: 'sora' }).items[0].body)
       .toBe('こんにちは @sora');
-    expect(port.listRooms('project-1', { actorHandle: 'sora' })[0].unreadCount).toBe(0);
+    expect(port.listChannels('project-1', { actorHandle: 'sora' })[0].unreadCount).toBe(0);
   });
 
   it('extracts unique mentions and emits durable mention-notification events', () => {
@@ -39,9 +39,9 @@ describe('SQLite ChatPort', () => {
     const received: unknown[] = [];
     eventBus.on('notification', (event) => received.push(event));
     const port = makeStore({ eventBus });
-    const room = port.createRoom('project-1', { name: '全体' });
+    const room = port.createChannel('project-1', { name: '全体' });
 
-    const message = port.sendMessage('project-1', room.id, {
+    const message = port.postMessage('project-1', room.id, {
       authorHandle: 'mizu',
       body: '確認お願いします @sora！もう一度 @SORA。mail@example.test',
     });
@@ -53,15 +53,46 @@ describe('SQLite ChatPort', () => {
     expect(port.listPendingNotificationEvents()).toEqual([]);
 
     eventBus.removeAllListeners();
-    const pendingRoom = port.createRoom('project-1', { name: '制作' });
-    port.sendMessage('project-1', pendingRoom.id, { authorHandle: 'mizu', body: '@sora 見てもらえますか' });
+    const pendingRoom = port.createChannel('project-1', { name: '制作' });
+    port.postMessage('project-1', pendingRoom.id, { authorHandle: 'mizu', body: '@sora 見てもらえますか' });
     expect(port.listPendingNotificationEvents()).toHaveLength(1);
+  });
+
+  it('versions messages with an etag and rejects an edit made against a stale version', () => {
+    const port = makeStore();
+    const room = port.createChannel('project-1', { name: '制作' });
+    const message = port.postMessage('project-1', room.id, { authorHandle: 'sora', body: '初稿です' });
+    const [listed] = port.listMessages('project-1', room.id).items;
+    expect(message.etag).toEqual(expect.any(String));
+    expect(listed.etag).toBe(message.etag);
+
+    const edited = port.editMessage('project-1', room.id, message.id, {
+      actorHandle: 'sora', body: '別の端末からの修正', ifMatch: message.etag,
+    });
+    expect(edited.etag).not.toBe(message.etag);
+
+    // The first editor still holds the original version; the server must refuse the overwrite.
+    let conflict: unknown;
+    try {
+      port.editMessage('project-1', room.id, message.id, {
+        actorHandle: 'sora', body: '古い版からの上書き', ifMatch: message.etag,
+      });
+    } catch (error) {
+      conflict = error;
+    }
+    expect(conflict).toBeInstanceOf(ChatPortError);
+    expect(conflict).toMatchObject({ status: 409, code: 'conflict' });
+    expect(port.listMessages('project-1', room.id).items[0].body).toBe('別の端末からの修正');
+
+    // Without If-Match the edit stays unconditional, as the contract allows.
+    expect(port.editMessage('project-1', room.id, message.id, { actorHandle: 'sora', body: '無条件の編集' }).body)
+      .toBe('無条件の編集');
   });
 
   it('edits with a revision and soft-deletes while preserving a tombstone in the timeline', () => {
     const port = makeStore();
-    const room = port.createRoom('project-1', { name: '制作' });
-    const message = port.sendMessage('project-1', room.id, { authorHandle: 'sora', body: '初稿です' });
+    const room = port.createChannel('project-1', { name: '制作' });
+    const message = port.postMessage('project-1', room.id, { authorHandle: 'sora', body: '初稿です' });
 
     expect(() => port.editMessage('project-1', room.id, message.id, {
       actorHandle: 'mizu', body: '第三者からの編集',
@@ -81,7 +112,7 @@ describe('SQLite ChatPort', () => {
       deleted: true,
     });
 
-    const otherAuthorMessage = port.sendMessage('project-1', room.id, {
+    const otherAuthorMessage = port.postMessage('project-1', room.id, {
       authorHandle: 'mizu', body: '所有者なら削除できます',
     });
     port.deleteMessage('project-1', room.id, otherAuthorMessage.id, {
@@ -100,9 +131,9 @@ describe('SQLite ChatPort', () => {
         return () => `message-${String(++id).padStart(4, '0')}`;
       })(),
     });
-    const room = port.createRoom('project-1', { name: '全体' });
+    const room = port.createChannel('project-1', { name: '全体' });
     for (const body of ['one', 'two', 'three']) {
-      port.sendMessage('project-1', room.id, { authorHandle: 'sora', body });
+      port.postMessage('project-1', room.id, { authorHandle: 'sora', body });
     }
 
     const latest = port.listMessages('project-1', room.id, { limit: 2 });
@@ -118,8 +149,8 @@ describe('SQLite ChatPort', () => {
     port.seedDemoProject('chat-demo');
     port.seedDemoProject('chat-demo');
 
-    expect(port.listRooms('chat-demo').map((room) => room.name)).toEqual(['全体', '制作', '雑談']);
-    expect(port.listRooms('chat-demo', { actorHandle: 'sora' }).map((room) => room.unreadCount)).toEqual([0, 0, 1]);
+    expect(port.listChannels('chat-demo').map((room) => room.name)).toEqual(['全体', '制作', '雑談']);
+    expect(port.listChannels('chat-demo', { actorHandle: 'sora' }).map((room) => room.unreadCount)).toEqual([0, 0, 1]);
     expect(port.listPendingNotificationEvents()).toMatchObject([
       { kind: 'mention', recipientHandle: 'sora', projectId: 'chat-demo' },
     ]);
@@ -129,14 +160,14 @@ describe('SQLite ChatPort', () => {
     const directory = mkdtempSync(join(tmpdir(), 'novnow-chat-'));
     const databasePath = join(directory, 'chat.sqlite');
     const first = new SqliteChatPort({ databasePath });
-    const room = first.createRoom('project-1', { name: '保管されるルーム' });
-    first.sendMessage('project-1', room.id, { authorHandle: 'sora', body: '再起動後も読めます' });
+    const room = first.createChannel('project-1', { name: '保管されるルーム' });
+    first.postMessage('project-1', room.id, { authorHandle: 'sora', body: '再起動後も読めます' });
     first.close();
     store = undefined;
 
     const reopened = new SqliteChatPort({ databasePath });
     store = reopened;
-    expect(reopened.listRooms('project-1')[0].name).toBe('保管されるルーム');
+    expect(reopened.listChannels('project-1')[0].name).toBe('保管されるルーム');
     expect(reopened.listMessages('project-1', room.id).items[0].body).toBe('再起動後も読めます');
     reopened.close();
     store = undefined;

@@ -3,9 +3,9 @@ import type { DatabaseSync } from 'node:sqlite';
 import type { EventEmitter } from 'node:events';
 
 export interface ChatPort {
-  createRoom(projectId: string, input: { name: string; description?: string }): ChatChannel;
-  listRooms(projectId: string, options?: { actorHandle?: string }): ChatChannel[];
-  sendMessage(projectId: string, channelId: string, input: { body: string; authorHandle: string }): ChatMessage;
+  createChannel(projectId: string, input: { name: string; description?: string }): ChatChannel;
+  listChannels(projectId: string, options?: { actorHandle?: string }): ChatChannel[];
+  postMessage(projectId: string, channelId: string, input: { body: string; authorHandle: string }): ChatMessage;
   listMessages(projectId: string, channelId: string, options?: {
     cursor?: string;
     limit?: number;
@@ -14,6 +14,7 @@ export interface ChatPort {
   editMessage(projectId: string, channelId: string, messageId: string, input: {
     body: string;
     actorHandle: string;
+    ifMatch?: string;
   }): ChatMessage;
   deleteMessage(projectId: string, channelId: string, messageId: string, input: {
     actorHandle: string;
@@ -51,9 +52,9 @@ export class SqliteChatPort implements ChatPort {
   database: DatabaseSync;
   eventBus: EventEmitter;
   constructor(options?: SqliteChatPortOptions);
-  createRoom(projectId: string, input: { name: string; description?: string }): ChatChannel;
-  listRooms(projectId: string, options?: { actorHandle?: string }): ChatChannel[];
-  sendMessage(projectId: string, channelId: string, input: { body: string; authorHandle: string }): ChatMessage;
+  createChannel(projectId: string, input: { name: string; description?: string }): ChatChannel;
+  listChannels(projectId: string, options?: { actorHandle?: string }): ChatChannel[];
+  postMessage(projectId: string, channelId: string, input: { body: string; authorHandle: string }): ChatMessage;
   listMessages(projectId: string, channelId: string, options?: {
     cursor?: string;
     limit?: number;
@@ -62,6 +63,7 @@ export class SqliteChatPort implements ChatPort {
   editMessage(projectId: string, channelId: string, messageId: string, input: {
     body: string;
     actorHandle: string;
+    ifMatch?: string;
   }): ChatMessage;
   deleteMessage(projectId: string, channelId: string, messageId: string, input: {
     actorHandle: string;

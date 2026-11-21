@@ -59,9 +59,21 @@ paths:
       security: []
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 契約の版情報
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExMeta'
               schema:
                 $ref: '#/components/schemas/Meta'
   /auth/github/start:
@@ -82,6 +94,14 @@ paths:
         '302':
           description: 認可 URL へのリダイレクト
           headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
             Location:
               schema:
                 type: string
@@ -101,6 +121,14 @@ paths:
         '302':
           description: クライアントのコールバック URL へ一時コードを付けてリダイレクト
           headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
             Location:
               schema:
                 type: string
@@ -118,12 +146,33 @@ paths:
         - refreshTokenAuth: []
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 新しいトークン対
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExTokenPair'
               schema:
                 $ref: '#/components/schemas/TokenPair'
         '401':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: セッション期限切れ・失効、または更新トークン再利用検知（再利用時は当該利用者の全セッションを失効）
           content:
             application/problem+json:
@@ -151,6 +200,15 @@ paths:
       summary: 当該セッションを失効させる
       responses:
         '204':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 失効完了
         '401':
           $ref: '#/components/responses/AuthenticationRequired'
@@ -161,6 +219,15 @@ paths:
       summary: 退会（個人情報の削除と全セッション失効。作品は GitHub 上に残る）
       responses:
         '204':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 退会完了
         '401':
           $ref: '#/components/responses/AuthenticationRequired'
@@ -171,9 +238,21 @@ paths:
       summary: 自分の利用者像を取得する
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 利用者像
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExUser'
               schema:
                 $ref: '#/components/schemas/User'
         '401':
@@ -192,9 +271,21 @@ paths:
               $ref: '#/components/schemas/UserUpdate'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 更新後の利用者像
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExUser'
               schema:
                 $ref: '#/components/schemas/User'
         '400':
@@ -218,9 +309,21 @@ paths:
             pattern: '^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 公開利用者像
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExPublicUser'
               schema:
                 $ref: '#/components/schemas/PublicUser'
         '404':
@@ -235,9 +338,21 @@ paths:
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: プロジェクト一覧ページ
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExProjectPage'
               schema:
                 $ref: '#/components/schemas/ProjectPage'
         '401':
@@ -260,9 +375,21 @@ paths:
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: プロジェクト一覧ページ
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExProjectPage'
               schema:
                 $ref: '#/components/schemas/ProjectPage'
     post:
@@ -280,7 +407,7 @@ paths:
               required: [title, license, archive]
               properties:
                 title: { type: string, minLength: 1, maxLength: 120 }
-                description: { type: string, maxLength: 500 }
+                description: { type: string, minLength: 1, maxLength: 500 }
                 license:
                   type: string
                   enum: [cc0, cc-by, cc-by-sa, cc-by-nc, custom]
@@ -298,7 +425,7 @@ paths:
               required: [title, license, source]
               properties:
                 title: { type: string, minLength: 1, maxLength: 120 }
-                description: { type: string, maxLength: 500 }
+                description: { type: string, minLength: 1, maxLength: 500 }
                 license:
                   type: string
                   enum: [cc0, cc-by, cc-by-sa, cc-by-nc, custom]
@@ -315,9 +442,21 @@ paths:
                     url: { type: string, format: uri, description: 'zip のダウンロード URL（hub が取得する）' }
       responses:
         '201':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 作成されたプロジェクト
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExProject'
               schema:
                 $ref: '#/components/schemas/Project'
         '400':
@@ -327,6 +466,15 @@ paths:
         '413':
           $ref: '#/components/responses/PayloadTooLarge'
         '422':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: novnow 形式の検証失敗
           content:
             application/problem+json:
@@ -344,9 +492,21 @@ paths:
       security: []
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: プロジェクト詳細
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExProject'
               schema:
                 $ref: '#/components/schemas/Project'
         '404':
@@ -365,9 +525,21 @@ paths:
               $ref: '#/components/schemas/ProjectUpdate'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 更新後のプロジェクト
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExProject'
               schema:
                 $ref: '#/components/schemas/Project'
         '400':
@@ -386,6 +558,15 @@ paths:
       summary: 公開の取り下げ（保管単位は削除しない）
       responses:
         '204':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 取り下げ完了
         '403':
           $ref: '#/components/responses/PermissionDenied'
@@ -403,9 +584,21 @@ paths:
         - $ref: '#/components/parameters/ProjectId'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 派生ツリー
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExDerivativeNodes'
               schema:
                 type: array
                 items:
@@ -429,16 +622,28 @@ paths:
               required: [title]
               properties:
                 title: { type: string, minLength: 1, maxLength: 120 }
-                description: { type: string, maxLength: 500 }
+                description: { type: string, minLength: 1, maxLength: 500 }
                 visibility:
                   type: string
                   enum: [public, private]
                   default: private
       responses:
         '202':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 派生作成を受け付けた
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExJobAccepted'
               schema:
                 $ref: '#/components/schemas/JobAccepted'
         '401':
@@ -454,6 +659,7 @@ paths:
       summary: リリース（版）を作成する
       parameters:
         - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -467,9 +673,21 @@ paths:
                 notes: { type: string, maxLength: 10000 }
       responses:
         '201':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 作成されたリリース
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExRelease'
               schema:
                 $ref: '#/components/schemas/Release'
         '400':
@@ -490,9 +708,21 @@ paths:
         - $ref: '#/components/parameters/ProjectId'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: ファイルツリー
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExTree'
               schema:
                 $ref: '#/components/schemas/Tree'
         '404':
@@ -513,9 +743,21 @@ paths:
             maxLength: 1024
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: ファイル内容
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExFileContent'
               schema:
                 $ref: '#/components/schemas/FileContent'
         '404':
@@ -540,9 +782,21 @@ paths:
                 message: { type: string, maxLength: 200 }
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 更新後のファイルメタ情報
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExFileMeta'
               schema:
                 $ref: '#/components/schemas/FileMeta'
         '400':
@@ -562,6 +816,7 @@ paths:
       summary: 複数ファイルの原子的コミット
       parameters:
         - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -584,9 +839,21 @@ paths:
                       content: { type: string, description: 'create/update のとき必須' }
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: コミット結果
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExCommitResult'
               schema:
                 $ref: '#/components/schemas/CommitResult'
         '400':
@@ -616,9 +883,21 @@ paths:
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 変更提案のページ
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExProposalPage'
               schema:
                 $ref: '#/components/schemas/ProposalPage'
         '404':
@@ -644,9 +923,21 @@ paths:
                 baseRef: { type: string, minLength: 1, maxLength: 255 }
       responses:
         '201':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 作成された変更提案
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExProposal'
               schema:
                 $ref: '#/components/schemas/Proposal'
         '400':
@@ -668,9 +959,21 @@ paths:
         - $ref: '#/components/parameters/NumberParam'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 変更提案
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExProposal'
               schema:
                 $ref: '#/components/schemas/Proposal'
         '404':
@@ -686,9 +989,21 @@ paths:
         - $ref: '#/components/parameters/NumberParam'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 差分
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExProposalDiff'
               schema:
                 $ref: '#/components/schemas/ProposalDiff'
         '404':
@@ -705,9 +1020,21 @@ paths:
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: コメントのページ
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExCommentPage'
               schema:
                 $ref: '#/components/schemas/CommentPage'
         '401':
@@ -721,6 +1048,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/NumberParam'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -734,9 +1062,21 @@ paths:
                 line: { type: integer, minimum: 1 }
       responses:
         '201':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 作成されたコメント
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExComment'
               schema:
                 $ref: '#/components/schemas/Comment'
         '401':
@@ -765,9 +1105,21 @@ paths:
                 body: { type: string, maxLength: 10000 }
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: レビュー記録後の変更提案
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExProposal'
               schema:
                 $ref: '#/components/schemas/Proposal'
         '401':
@@ -784,9 +1136,21 @@ paths:
         - $ref: '#/components/parameters/NumberParam'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 取り込み結果
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExMergeResult'
               schema:
                 $ref: '#/components/schemas/MergeResult'
         '403':
@@ -807,9 +1171,21 @@ paths:
         - $ref: '#/components/parameters/NumberParam'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: クローズ後の変更提案
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExProposal'
               schema:
                 $ref: '#/components/schemas/Proposal'
         '401':
@@ -827,9 +1203,21 @@ paths:
         - $ref: '#/components/parameters/NumberParam'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 予約状態
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExAutomergeState'
               schema:
                 $ref: '#/components/schemas/AutomergeState'
         '404':
@@ -841,6 +1229,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/NumberParam'
+        - $ref: '#/components/parameters/IfMatch'
       requestBody:
         required: true
         content:
@@ -857,9 +1246,21 @@ paths:
                 requireNoConflicts: { type: boolean, default: true }
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 予約後の状態
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExAutomergeState'
               schema:
                 $ref: '#/components/schemas/AutomergeState'
         '400':
@@ -879,6 +1280,15 @@ paths:
         - $ref: '#/components/parameters/NumberParam'
       responses:
         '204':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 予約取消し完了
         '404':
           $ref: '#/components/responses/NotFound'
@@ -905,9 +1315,21 @@ paths:
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 課題のページ
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExIssuePage'
               schema:
                 $ref: '#/components/schemas/IssuePage'
         '404':
@@ -935,9 +1357,21 @@ paths:
                   maxItems: 10
       responses:
         '201':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 作成された課題
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExIssue'
               schema:
                 $ref: '#/components/schemas/Issue'
         '400':
@@ -957,9 +1391,21 @@ paths:
         - $ref: '#/components/parameters/NumberParam'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 課題
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExIssue'
               schema:
                 $ref: '#/components/schemas/Issue'
         '404':
@@ -980,9 +1426,21 @@ paths:
               $ref: '#/components/schemas/IssueUpdate'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 更新後の課題
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExIssue'
               schema:
                 $ref: '#/components/schemas/Issue'
         '400':
@@ -1005,9 +1463,21 @@ paths:
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: コメントのページ
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExCommentPage'
               schema:
                 $ref: '#/components/schemas/CommentPage'
         '401':
@@ -1021,6 +1491,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/ProjectId'
         - $ref: '#/components/parameters/NumberParam'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -1032,9 +1503,21 @@ paths:
                 body: { type: string, minLength: 1, maxLength: 10000 }
       responses:
         '201':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 作成されたコメント
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExComment'
               schema:
                 $ref: '#/components/schemas/Comment'
         '401':
@@ -1060,9 +1543,21 @@ paths:
                 state: { type: string, enum: [open, closed] }
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 更新後の課題
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExIssue'
               schema:
                 $ref: '#/components/schemas/Issue'
         '401':
@@ -1079,9 +1574,21 @@ paths:
         - $ref: '#/components/parameters/ProjectId'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: ルーム一覧
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExChatChannels'
               schema:
                 type: array
                 items:
@@ -1096,6 +1603,7 @@ paths:
       summary: チャットルームを作成する
       parameters:
         - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -1108,9 +1616,21 @@ paths:
                 description: { type: string, maxLength: 200 }
       responses:
         '201':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 作成されたルーム
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExChatChannel'
               schema:
                 $ref: '#/components/schemas/ChatChannel'
         '400':
@@ -1135,9 +1655,21 @@ paths:
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: メッセージのページ
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExChatMessagePage'
               schema:
                 $ref: '#/components/schemas/ChatMessagePage'
         '400':
@@ -1154,6 +1686,7 @@ paths:
           in: path
           required: true
           schema: { type: string }
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -1165,9 +1698,21 @@ paths:
                 body: { type: string, minLength: 1, maxLength: 4000 }
       responses:
         '201':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 送信されたメッセージ
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExChatMessage'
               schema:
                 $ref: '#/components/schemas/ChatMessage'
         '400':
@@ -1191,6 +1736,7 @@ paths:
           in: path
           required: true
           schema: { type: string }
+        - $ref: '#/components/parameters/IfMatch'
       requestBody:
         required: true
         content:
@@ -1201,10 +1747,24 @@ paths:
               properties:
                 body: { type: string, minLength: 1, maxLength: 4000 }
       responses:
+        '409':
+          $ref: '#/components/responses/Conflict'
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 編集後のメッセージ
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExChatMessage'
               schema:
                 $ref: '#/components/schemas/ChatMessage'
         '400':
@@ -1231,6 +1791,15 @@ paths:
           schema: { type: string }
       responses:
         '204':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 削除完了
         '400':
           $ref: '#/components/responses/ValidationFailed'
@@ -1264,9 +1833,21 @@ paths:
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 検索結果ページ
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExProjectPage'
               schema:
                 $ref: '#/components/schemas/ProjectPage'
         '400':
@@ -1286,9 +1867,21 @@ paths:
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 検索結果ページ
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExPublicUserPage'
               schema:
                 $ref: '#/components/schemas/PublicUserPage'
         '400':
@@ -1309,9 +1902,21 @@ paths:
         - $ref: '#/components/parameters/Limit'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 通知のページ
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExNotificationPage'
               schema:
                 $ref: '#/components/schemas/NotificationPage'
         '401':
@@ -1335,6 +1940,15 @@ paths:
                 all: { type: boolean, default: false }
       responses:
         '204':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 既読化完了
         '400':
           $ref: '#/components/responses/ValidationFailed'
@@ -1347,9 +1961,24 @@ paths:
       summary: 通知チャネル・種別ごとの設定を取得する
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
+            ETag:
+              description: 通知設定の版識別子（If-Match に指定する）
+              schema: { type: string }
           description: 通知設定
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExNotificationSettings'
               schema:
                 type: array
                 items:
@@ -1360,6 +1989,8 @@ paths:
       operationId: updateNotificationSettings
       tags: [notifications]
       summary: 通知設定を更新する
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
       requestBody:
         required: true
         content:
@@ -1373,10 +2004,27 @@ paths:
                   items:
                     $ref: '#/components/schemas/NotificationSetting'
       responses:
+        '409':
+          $ref: '#/components/responses/Conflict'
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
+            ETag:
+              description: 通知設定の版識別子（If-Match に指定する）
+              schema: { type: string }
           description: 更新後の通知設定
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExNotificationSettings'
               schema:
                 type: array
                 items:
@@ -1394,9 +2042,21 @@ paths:
         - $ref: '#/components/parameters/ProjectId'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 検証結果
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExVerificationResult'
               schema:
                 $ref: '#/components/schemas/VerificationResult'
         '403':
@@ -1415,9 +2075,21 @@ paths:
         - $ref: '#/components/parameters/ProjectId'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 検証結果（未実行の場合は 404）
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExVerificationResult'
               schema:
                 $ref: '#/components/schemas/VerificationResult'
         '404':
@@ -1429,11 +2101,24 @@ paths:
       summary: novnow 診断を非同期ジョブとして実行する
       parameters:
         - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/IdempotencyKey'
       responses:
         '202':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: ジョブを受け付けた
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExJobAccepted'
               schema:
                 $ref: '#/components/schemas/JobAccepted'
         '404':
@@ -1452,12 +2137,33 @@ paths:
           schema: { type: string }
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: ジョブ状態
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExJob'
               schema:
                 $ref: '#/components/schemas/Job'
         '404':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: ジョブ不存在
           content:
             application/problem+json:
@@ -1473,6 +2179,7 @@ paths:
       security: []
       parameters:
         - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -1484,9 +2191,21 @@ paths:
                 format: { type: string, enum: [txt, markdown] }
       responses:
         '202':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: ジョブを受け付けた
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExJobAccepted'
               schema:
                 $ref: '#/components/schemas/JobAccepted'
         '404':
@@ -1501,9 +2220,21 @@ paths:
         - $ref: '#/components/parameters/ProjectId'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: 読者ビュー
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExReadingDocument'
               schema:
                 $ref: '#/components/schemas/ReadingDocument'
         '404':
@@ -1524,9 +2255,21 @@ paths:
             maxLength: 2048
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: セットアップ情報
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExSetupInfo'
               schema:
                 $ref: '#/components/schemas/SetupInfo'
         '400':
@@ -1543,9 +2286,21 @@ paths:
         - $ref: '#/components/parameters/ProjectId'
       responses:
         '200':
+          headers:
+            RateLimit-Limit:
+              $ref: '#/components/headers/RateLimit-Limit'
+            RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimit-Remaining'
+            RateLimit-Reset:
+              $ref: '#/components/headers/RateLimit-Reset'
+            X-Unread-Count:
+              $ref: '#/components/headers/X-Unread-Count'
           description: セットアップ情報
           content:
             application/json:
+              examples:
+                default:
+                  $ref: '#/components/examples/ExSetupInfo'
               schema:
                 $ref: '#/components/schemas/SetupInfo'
         '404':
@@ -1607,7 +2362,7 @@ components:
       name: If-Match
       in: header
       required: false
-      description: 読み取り時の etag。版が進んでいた場合は 409
+      description: 読み取り時の etag（Project・ChatMessage・AutomergeState の etag、通知設定は ETag ヘッダ）。版が進んでいた場合は 409
       schema: { type: string }
     IdempotencyKey:
       name: Idempotency-Key
@@ -1617,6 +2372,15 @@ components:
       schema: { type: string, minLength: 1, maxLength: 128 }
   responses:
     ValidationFailed:
+      headers:
+        RateLimit-Limit:
+          $ref: '#/components/headers/RateLimit-Limit'
+        RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimit-Remaining'
+        RateLimit-Reset:
+          $ref: '#/components/headers/RateLimit-Reset'
+        X-Unread-Count:
+          $ref: '#/components/headers/X-Unread-Count'
       description: 入力値が契約に違反している
       content:
         application/problem+json:
@@ -1630,6 +2394,15 @@ components:
             code: validation_failed
             traceId: 01J0000000000000000000000000
     AuthenticationRequired:
+      headers:
+        RateLimit-Limit:
+          $ref: '#/components/headers/RateLimit-Limit'
+        RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimit-Remaining'
+        RateLimit-Reset:
+          $ref: '#/components/headers/RateLimit-Reset'
+        X-Unread-Count:
+          $ref: '#/components/headers/X-Unread-Count'
       description: 未認証またはセッション不正
       content:
         application/problem+json:
@@ -1642,6 +2415,15 @@ components:
             code: authentication_required
             traceId: 01J0000000000000000000000000
     SessionExpired:
+      headers:
+        RateLimit-Limit:
+          $ref: '#/components/headers/RateLimit-Limit'
+        RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimit-Remaining'
+        RateLimit-Reset:
+          $ref: '#/components/headers/RateLimit-Reset'
+        X-Unread-Count:
+          $ref: '#/components/headers/X-Unread-Count'
       description: セッション期限切れまたは失効
       content:
         application/problem+json:
@@ -1654,6 +2436,15 @@ components:
             code: session_expired
             traceId: 01J0000000000000000000000000
     PermissionDenied:
+      headers:
+        RateLimit-Limit:
+          $ref: '#/components/headers/RateLimit-Limit'
+        RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimit-Remaining'
+        RateLimit-Reset:
+          $ref: '#/components/headers/RateLimit-Reset'
+        X-Unread-Count:
+          $ref: '#/components/headers/X-Unread-Count'
       description: 操作権限がない
       content:
         application/problem+json:
@@ -1666,6 +2457,15 @@ components:
             code: permission_denied
             traceId: 01J0000000000000000000000000
     NotFound:
+      headers:
+        RateLimit-Limit:
+          $ref: '#/components/headers/RateLimit-Limit'
+        RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimit-Remaining'
+        RateLimit-Reset:
+          $ref: '#/components/headers/RateLimit-Reset'
+        X-Unread-Count:
+          $ref: '#/components/headers/X-Unread-Count'
       description: 対象が存在しない、または存在を秘匿すべき場合
       content:
         application/problem+json:
@@ -1678,6 +2478,15 @@ components:
             code: not_found
             traceId: 01J0000000000000000000000000
     Conflict:
+      headers:
+        RateLimit-Limit:
+          $ref: '#/components/headers/RateLimit-Limit'
+        RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimit-Remaining'
+        RateLimit-Reset:
+          $ref: '#/components/headers/RateLimit-Reset'
+        X-Unread-Count:
+          $ref: '#/components/headers/X-Unread-Count'
       description: 楽観ロック不一致または状態競合
       content:
         application/problem+json:
@@ -1690,6 +2499,15 @@ components:
             code: conflict
             traceId: 01J0000000000000000000000000
     PayloadTooLarge:
+      headers:
+        RateLimit-Limit:
+          $ref: '#/components/headers/RateLimit-Limit'
+        RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimit-Remaining'
+        RateLimit-Reset:
+          $ref: '#/components/headers/RateLimit-Reset'
+        X-Unread-Count:
+          $ref: '#/components/headers/X-Unread-Count'
       description: アップロードサイズ超過
       content:
         application/problem+json:
@@ -1704,6 +2522,14 @@ components:
     RateLimited:
       description: レートリミット超過
       headers:
+        RateLimit-Limit:
+          $ref: '#/components/headers/RateLimit-Limit'
+        RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimit-Remaining'
+        RateLimit-Reset:
+          $ref: '#/components/headers/RateLimit-Reset'
+        X-Unread-Count:
+          $ref: '#/components/headers/X-Unread-Count'
         Retry-After:
           schema: { type: integer }
       content:
@@ -1718,6 +2544,15 @@ components:
             retryAfterSeconds: 30
             traceId: 01J0000000000000000000000000
     UpstreamUnavailable:
+      headers:
+        RateLimit-Limit:
+          $ref: '#/components/headers/RateLimit-Limit'
+        RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimit-Remaining'
+        RateLimit-Reset:
+          $ref: '#/components/headers/RateLimit-Reset'
+        X-Unread-Count:
+          $ref: '#/components/headers/X-Unread-Count'
       description: 外部基盤の障害またはタイムアウト
       content:
         application/problem+json:
@@ -1729,6 +2564,415 @@ components:
             status: 503
             code: upstream_unavailable
             traceId: 01J0000000000000000000000000
+  examples:
+    ExMeta:
+      summary: 契約の版情報
+      value:
+        contractVersion: '1.0.0'
+        serverTime: '2026-11-21T09:00:00Z'
+        minimumClientVersion: '1.0.0'
+    ExTokenPair:
+      summary: 新しいトークン対
+      value:
+        accessToken: eyJhbGciOiJIUzI1NiJ9.example.signature
+        refreshToken: rt_example_0001
+        expiresIn: 900
+    ExUser:
+      summary: サインイン中の利用者
+      value:
+        id: usr_0001
+        handle: sora
+        displayName: そら
+        avatarUrl: 'https://avatars.example.com/sora.png'
+        bio: 物語を書いています。
+        createdAt: '2026-01-10T09:00:00Z'
+        etag: dXNyLTE=
+    ExPublicUser:
+      summary: 公開プロフィール
+      value:
+        id: usr_0002
+        handle: mizu
+        displayName: みず
+        avatarUrl: 'https://avatars.example.com/mizu.png'
+        bio: 挿絵を描いています。
+        publishedProjectCount: 3
+        createdAt: '2026-01-15T09:00:00Z'
+    ExPublicUserPage:
+      summary: 公開利用者の検索結果
+      value:
+        items:
+          - id: usr_0002
+            handle: mizu
+            displayName: みず
+            publishedProjectCount: 3
+            createdAt: '2026-01-15T09:00:00Z'
+        nextCursor: null
+    ExProject:
+      summary: 公開作品
+      value:
+        id: prj_0001
+        slug: moonlit-garden
+        title: 月明かりの庭
+        description: 夜の庭園を舞台にした短編です。
+        ownerHandle: sora
+        license: cc-by
+        visibility: public
+        tags:
+          - 短編
+          - ファンタジー
+        derivativePolicy: allowed-with-conditions
+        derivativeCount: 2
+        defaultBranchName: main
+        etag: MQ==
+        createdAt: '2026-02-01T10:00:00Z'
+        updatedAt: '2026-11-20T08:30:00Z'
+        publishedUrl: 'https://hub.novnow.example.com/sora/moonlit-garden'
+    ExProjectPage:
+      summary: 作品の一覧
+      value:
+        items:
+          - id: prj_0001
+            slug: moonlit-garden
+            title: 月明かりの庭
+            ownerHandle: sora
+            license: cc-by
+            visibility: public
+            derivativePolicy: allowed-with-conditions
+            derivativeCount: 2
+            defaultBranchName: main
+            etag: MQ==
+            createdAt: '2026-02-01T10:00:00Z'
+            updatedAt: '2026-11-20T08:30:00Z'
+            publishedUrl: 'https://hub.novnow.example.com/sora/moonlit-garden'
+        nextCursor: cur_0002
+    ExDerivativeNodes:
+      summary: 派生作品の木
+      value:
+        - id: prj_0002
+          slug: moonlit-garden-rain
+          title: 月明かりの庭（雨の章）
+          ownerHandle: mizu
+          depth: 1
+          parentId: prj_0001
+          derivativePolicy: allowed
+          createdAt: '2026-03-01T10:00:00Z'
+          updatedAt: '2026-03-01T10:00:00Z'
+    ExJobAccepted:
+      summary: 受け付けたジョブ
+      value:
+        jobId: job_0001
+        status: pending
+    ExRelease:
+      summary: 作成したリリース
+      value:
+        tag: v1.0.0
+        name: 初版
+        notes: 最初の公開版です。
+        createdAt: '2026-02-01T10:00:00Z'
+    ExTree:
+      summary: ファイルツリー
+      value:
+        entries:
+          - path: README.md
+            kind: file
+            size: 120
+            etag: cmVhZG1l
+          - path: chapters
+            kind: dir
+            size: 0
+          - path: chapters/01.md
+            kind: file
+            size: 2048
+            etag: Y2gwMQ==
+        truncated: false
+    ExFileContent:
+      summary: ファイル内容（UTF-8）
+      value:
+        path: chapters/01.md
+        content: "# 第一章\n\n月明かりの下で、庭は静かに息をしていた。"
+        encoding: utf8
+        etag: Y2gwMQ==
+        size: 2048
+    ExFileMeta:
+      summary: 保存後のファイル情報
+      value:
+        path: chapters/01.md
+        etag: Y2gwMg==
+        size: 2100
+        commitId: c0ffee01
+    ExCommitResult:
+      summary: 作成したコミット
+      value:
+        commitId: c0ffee02
+        message: 第二章を追加
+        changes: 1
+        createdAt: '2026-11-20T08:30:00Z'
+    ExProposal:
+      summary: 変更提案
+      value:
+        number: 12
+        title: 第二章の推敲
+        body: 表現を整えました。
+        state: open
+        authorHandle: mizu
+        baseRef: main
+        headRef: proposal/12
+        diffStats:
+          additions: 42
+          deletions: 10
+          changedFiles: 2
+        checks:
+          - name: novnow-verify
+            state: success
+            detailsUrl: 'https://ci.example.com/runs/1'
+        approvalCount: 1
+        requiredApprovals: 2
+        automerge:
+          state: reserved
+          requiredApprovals: 2
+          requiredChecks:
+            - novnow-verify
+          requireNoConflicts: true
+          etag: YW0xMg==
+        createdAt: '2026-11-19T10:00:00Z'
+        updatedAt: '2026-11-20T08:30:00Z'
+    ExProposalPage:
+      summary: 変更提案の一覧
+      value:
+        items:
+          - number: 12
+            title: 第二章の推敲
+            body: 表現を整えました。
+            state: open
+            authorHandle: mizu
+            baseRef: main
+            headRef: proposal/12
+            diffStats:
+              additions: 42
+              deletions: 10
+              changedFiles: 2
+            checks: []
+            approvalCount: 1
+            requiredApprovals: 2
+            createdAt: '2026-11-19T10:00:00Z'
+            updatedAt: '2026-11-20T08:30:00Z'
+        nextCursor: null
+    ExProposalDiff:
+      summary: 変更提案の差分
+      value:
+        number: 12
+        files:
+          - path: chapters/02.md
+            status: modified
+            additions: 42
+            deletions: 10
+            hunks:
+              - '@@ -1,3 +1,5 @@'
+        novnowDiagnosticsDelta:
+          introduced: 0
+          resolved: 1
+    ExComment:
+      summary: 投稿したコメント
+      value:
+        id: cmt_0001
+        authorHandle: sora
+        body: 読みやすくなりました。
+        path: chapters/02.md
+        line: 14
+        createdAt: '2026-11-20T09:00:00Z'
+    ExCommentPage:
+      summary: コメントのスレッド
+      value:
+        items:
+          - id: cmt_0001
+            authorHandle: sora
+            body: 読みやすくなりました。
+            path: chapters/02.md
+            line: 14
+            createdAt: '2026-11-20T09:00:00Z'
+        nextCursor: null
+    ExMergeResult:
+      summary: 取り込み結果
+      value:
+        merged: true
+        sha: a1b2c3d4
+        mergedAt: '2026-11-20T09:10:00Z'
+    ExAutomergeState:
+      summary: 自動マージの予約状態
+      value:
+        state: reserved
+        requiredApprovals: 2
+        requiredChecks:
+          - novnow-verify
+        requireNoConflicts: true
+        etag: YW0xMg==
+    ExIssue:
+      summary: 課題
+      value:
+        number: 3
+        title: 挿絵の位置が合っていません
+        body: 第三章の挿絵がずれています。
+        state: open
+        labels:
+          - bug
+        authorHandle: mizu
+        assigneeHandle: null
+        linkedProposalNumber: null
+        createdAt: '2026-11-18T10:00:00Z'
+        updatedAt: '2026-11-19T10:00:00Z'
+    ExIssuePage:
+      summary: 課題の一覧
+      value:
+        items:
+          - number: 3
+            title: 挿絵の位置が合っていません
+            body: 第三章の挿絵がずれています。
+            state: open
+            labels:
+              - bug
+            authorHandle: mizu
+            assigneeHandle: null
+            linkedProposalNumber: null
+            createdAt: '2026-11-18T10:00:00Z'
+            updatedAt: '2026-11-19T10:00:00Z'
+        nextCursor: null
+    ExChatChannels:
+      summary: チャットルームの一覧
+      value:
+        - id: ch_0001
+          name: 全体
+          description: 作品全体の相談
+          unreadCount: 0
+          createdAt: '2026-02-01T10:00:00Z'
+        - id: ch_0002
+          name: 制作
+          description: 執筆の進捗
+          unreadCount: 2
+          createdAt: '2026-02-02T10:00:00Z'
+    ExChatChannel:
+      summary: 作成したチャットルーム
+      value:
+        id: ch_0003
+        name: 雑談
+        description: 気軽に話しましょう
+        unreadCount: 0
+        createdAt: '2026-11-20T10:00:00Z'
+    ExChatMessage:
+      summary: チャットメッセージ
+      value:
+        id: msg_0001
+        channelId: ch_0002
+        authorHandle: sora
+        body: '第三章の下書きを共有します @mizu'
+        mentions:
+          - mizu
+        editedAt: null
+        deleted: false
+        createdAt: '2026-11-20T09:00:00Z'
+        etag: bXNnMQ==
+    ExChatMessagePage:
+      summary: チャットメッセージの一覧
+      value:
+        items:
+          - id: msg_0001
+            channelId: ch_0002
+            authorHandle: sora
+            body: '第三章の下書きを共有します @mizu'
+            mentions:
+              - mizu
+            editedAt: null
+            deleted: false
+            createdAt: '2026-11-20T09:00:00Z'
+            etag: bXNnMQ==
+        nextCursor: null
+    ExNotificationPage:
+      summary: 通知の一覧
+      value:
+        items:
+          - id: ntf_0001
+            kind: proposal_comment
+            projectId: prj_0001
+            projectSlug: moonlit-garden
+            title: コメントが届きました
+            body: 第二章の提案にコメントがあります
+            read: false
+            createdAt: '2026-11-20T09:00:00Z'
+        nextCursor: null
+    ExNotificationSettings:
+      summary: 通知設定の一覧
+      value:
+        - kind: mention
+          channel: in_app
+          enabled: true
+        - kind: proposal_merged
+          channel: email
+          enabled: false
+    ExVerificationResult:
+      summary: 検証結果
+      value:
+        ok: true
+        errors: []
+        warnings:
+          - path: chapters/03.md
+            code: W001
+            message: 見出しが不足しています
+        checkedAt: '2026-11-20T09:00:00Z'
+    ExJob:
+      summary: 完了したジョブ
+      value:
+        id: job_0001
+        kind: verify
+        status: succeeded
+        result:
+          ok: true
+        error: null
+        createdAt: '2026-11-20T08:59:00Z'
+        finishedAt: '2026-11-20T09:00:00Z'
+    ExReadingDocument:
+      summary: 読者ビューの本文
+      value:
+        projectId: prj_0001
+        title: 月明かりの庭
+        blocks:
+          - kind: heading
+            text: 第一章
+          - kind: paragraph
+            text: 夜の庭は静かでした。
+          - kind: dialogue
+            text: 誰かいるの？
+            speaker: ミナ
+          - kind: scene_break
+            text: ''
+        etag: cmVhZGluZzE=
+    ExSetupInfo:
+      summary: セットアップ情報
+      value:
+        projectId: prj_0001
+        slug: moonlit-garden
+        snapshotVersion: '2026-11-20'
+        acquisition:
+          kind: archive
+          url: 'https://hub.novnow.example.com/archives/moonlit-garden.zip'
+          ref: main
+        novnow:
+          minVersion: '1.2.0'
+  headers:
+    RateLimit-Limit:
+      description: レートリミットの上限（制限単位あたり）
+      schema: { type: integer, minimum: 0 }
+      example: 60
+    RateLimit-Remaining:
+      description: リセットまでに残っている回数
+      schema: { type: integer, minimum: 0 }
+      example: 59
+    RateLimit-Reset:
+      description: 制限がリセットされるまでの秒数
+      schema: { type: integer, minimum: 0 }
+      example: 42
+    X-Unread-Count:
+      description: 認証済み利用者の未読通知件数（匿名の応答では付与されない）
+      schema: { type: integer, minimum: 0 }
+      example: 3
   schemas:
     Problem:
       type: object
@@ -1814,14 +3058,14 @@ components:
         id: { type: string }
         slug: { type: string, pattern: '^[a-z0-9](?:[a-z0-9-]{0,80}[a-z0-9])?$' }
         title: { type: string, minLength: 1, maxLength: 120 }
-        description: { type: string, maxLength: 500 }
+        description: { type: string, minLength: 1, maxLength: 500 }
         ownerHandle: { type: string }
         license:
           type: string
           enum: [cc0, cc-by, cc-by-sa, cc-by-nc, custom]
         visibility:
           type: string
-          enum: [public, private]
+          enum: [public, private, archived]
         tags:
           type: array
           items: { type: string, maxLength: 50 }
@@ -1839,9 +3083,9 @@ components:
       type: object
       properties:
         title: { type: string, minLength: 1, maxLength: 120 }
-        description: { type: string, maxLength: 500 }
+        description: { type: string, minLength: 1, maxLength: 500 }
         license: { type: string, enum: [cc0, cc-by, cc-by-sa, cc-by-nc, custom] }
-        visibility: { type: string, enum: [public, private] }
+        visibility: { type: string, enum: [public, private, archived] }
         tags:
           type: array
           items: { type: string, maxLength: 50 }
@@ -2023,6 +3267,7 @@ components:
           items: { type: string }
         requireNoConflicts: { type: boolean }
         reason: { type: string, description: 'failed のときの理由' }
+        etag: { type: string, description: 'If-Match 用の版識別子' }
     Issue:
       type: object
       required: [number, title, body, state, authorHandle, createdAt, updatedAt]
@@ -2081,6 +3326,7 @@ components:
         editedAt: { type: [string, 'null'], format: date-time }
         deleted: { type: boolean }
         createdAt: { type: string, format: date-time }
+        etag: { type: string, description: 'If-Match 用の版識別子' }
     ChatMessagePage:
       type: object
       required: [items, nextCursor]
@@ -2206,7 +3452,7 @@ components:
           type: object
           required: [kind, url]
           properties:
-            kind: { type: string, enum: [codeload, git] }
+            kind: { type: string, enum: [archive, git] }
             url: { type: string, format: uri }
             ref: { type: string }
         novnow:
