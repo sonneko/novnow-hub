@@ -156,12 +156,13 @@ jobs:
           echo "push rc=$rc"
           cat /tmp/push.log
 
-          # デバッグログを Issue として記録（読み取り可能な形で）
+          # デバッグログを arena ブランチのファイルとして退避（読み取り可能な形で）
           if [ "$rc" != "0" ]; then
-            gh issue create \
-              --repo "${GITHUB_REPOSITORY}" \
-              --title "toolchain-export: push 失敗 (run $GITHUB_RUN_ID)" \
-              --body "```\n$(cat /tmp/push.log)\n```" || echo "issue create failed"
+            base64 -w0 /tmp/push.log > /tmp/push.log.b64
+            gh api "repos/${GITHUB_REPOSITORY}/contents/debug/push.log" \
+              -f message="debug push log (run $GITHUB_RUN_ID)" \
+              -f content="$(cat /tmp/push.log.b64)" \
+              -f branch="${GITHUB_REF_NAME}" || echo "contents upload failed"
           fi
 
           if [ "$rc" != "0" ]; then
