@@ -27,6 +27,14 @@ function problem(status, code, title, detail) {
   });
 }
 
+/** Accept `If-Match: <etag>` with or without the quoted-string form; absent means unconditional. */
+function normalizeIfMatch(value) {
+  if (value === null) return undefined;
+  const trimmed = value.trim();
+  if (trimmed === '') return undefined;
+  return trimmed.replace(/^"(.*)"$/, '$1');
+}
+
 function decodePathPart(value) {
   try {
     return decodeURIComponent(value);
@@ -71,12 +79,12 @@ export function createChatApi({
         const projectId = decodePathPart(channelCollection[1]);
         if (request.method === 'GET') {
           prepareProject(projectId);
-          return json(chatPort.listRooms(projectId, { actorHandle }));
+          return json(chatPort.listChannels(projectId, { actorHandle }));
         }
         if (request.method === 'POST') {
           if (!actorHandle) throw new ChatPortError(401, 'authentication_required', 'サインインが必要です。');
           const body = await readJson(request);
-          const channel = chatPort.createRoom(projectId, {
+          const channel = chatPort.createChannel(projectId, {
             name: body.name,
             description: body.description,
           });
@@ -99,7 +107,7 @@ export function createChatApi({
         if (request.method === 'POST') {
           if (!actorHandle) throw new ChatPortError(401, 'authentication_required', 'サインインが必要です。');
           const body = await readJson(request);
-          return json(chatPort.sendMessage(projectId, channelId, {
+          return json(chatPort.postMessage(projectId, channelId, {
             body: body.body,
             authorHandle: actorHandle,
           }), 201);
@@ -116,6 +124,7 @@ export function createChatApi({
           return json(chatPort.editMessage(projectId, channelId, messageId, {
             body: body.body,
             actorHandle,
+            ifMatch: normalizeIfMatch(request.headers.get('if-match')),
           }));
         }
         if (request.method === 'DELETE') {

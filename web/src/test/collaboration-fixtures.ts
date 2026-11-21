@@ -1,4 +1,4 @@
-import type { Issue, IssuePageData, Proposal, ProposalDiff, ProposalPageData } from '../lib/api/types';
+import type { CommentPageData, Issue, IssuePageData, Proposal, ProposalDiff, ProposalPageData } from '../lib/api/types';
 
 export const proposalFixture = {
   number: 24,
@@ -52,3 +52,23 @@ export const issuePageFixture = {
   items: [issueFixture],
   nextCursor: null,
 } satisfies IssuePageData;
+
+export const commentPageFixture = {
+  items: [
+    {
+      id: 'comment-1',
+      authorHandle: 'mizu',
+      body: '第二章の描写は前後の流れと合っていますか。',
+      path: 'novnow/02-chapter.md',
+      line: 14,
+      createdAt: '2026-10-12T11:00:00Z',
+    },
+    {
+      id: 'comment-2',
+      authorHandle: 'sora',
+      body: '合っていると思います。\n次の場面にもつながります。',
+      createdAt: '2026-10-12T12:30:00Z',
+    },
+  ],
+  nextCursor: null,
+} satisfies CommentPageData;

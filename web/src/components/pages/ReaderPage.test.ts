@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 import ReaderPage from './ReaderPage.svelte';
@@ -113,5 +113,32 @@ describe('ReaderPage', () => {
       messages.ja.api.errors['not-found'],
     );
     expect(await getCachedReadingDocument(projectFixture.id)).toBeUndefined();
+  });
+
+  it('changes the text size on this device and restores it on the next visit', async () => {
+    localStorage.removeItem('novnow-reader-font-size');
+    server.use(
+      http.get('http://hub.test/api/v1/projects/:projectId/reading', () =>
+        HttpResponse.json(readingDocumentFixture),
+      ),
+    );
+
+    const first = render(ReaderPage, { projectId: projectFixture.id, m: messages.ja });
+    await screen.findByRole('heading', { name: readingDocumentFixture.title, level: 1 });
+    const article = first.container.querySelector('article.reader') as HTMLElement;
+    expect(article.dataset.fontSize).toBe('medium');
+
+    fireEvent.click(screen.getByRole('button', { name: '大' }));
+    expect(article.dataset.fontSize).toBe('large');
+    expect(screen.getByRole('button', { name: '大' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: '中' }).getAttribute('aria-pressed')).toBe('false');
+    expect(localStorage.getItem('novnow-reader-font-size')).toBe('large');
+    first.unmount();
+
+    const second = render(ReaderPage, { projectId: projectFixture.id, m: messages.ja });
+    await screen.findByRole('heading', { name: readingDocumentFixture.title, level: 1 });
+    const restored = second.container.querySelector('article.reader') as HTMLElement;
+    expect(restored.dataset.fontSize).toBe('large');
+    localStorage.removeItem('novnow-reader-font-size');
   });
 });

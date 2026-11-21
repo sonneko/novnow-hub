@@ -5,6 +5,7 @@
   import { mapApiFailure, type ApiFailure } from '../../lib/api/errors';
   import type { Issue } from '../../lib/api/types';
   import { issueListHref, proposalDetailHref, projectPageHref } from '../../lib/links';
+  import CommentThread from './CommentThread.svelte';
 
   interface Props {
     projectId: string;
@@ -103,5 +104,6 @@
         <p class="meta">{m.collaboration.issues.noLinkedProposal}</p>
       {/if}
     </article>
+    <CommentThread projectId={projectId} number={number} kind="issue" {locale} {m} />
   {/if}
 </section>

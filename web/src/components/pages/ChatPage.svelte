@@ -230,10 +230,12 @@
     const body = editDraft.trim();
     if (!projectId || !selectedChannelId || !editingMessageId || !body) return;
     actionFailure = undefined;
+    // Send the version we are editing so a concurrent edit or delete is reported as a conflict (409).
+    const editing = messages.find((message) => message.id === editingMessageId);
     try {
       const result = await apiClient.PATCH('/projects/{projectId}/chat/channels/{channelId}/messages/{messageId}', {
         params: { path: { projectId, channelId: selectedChannelId, messageId: editingMessageId } },
-        headers: devHeaders,
+        headers: { ...devHeaders, ...(editing?.etag ? { 'If-Match': editing.etag } : {}) },
         body: { body },
       });
       if (result.error) {
