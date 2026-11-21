@@ -146,9 +146,19 @@ jobs:
           git add -A
           git commit -m "toolchain: $(cat rust-version.txt) / vendor $(ls vendor-src 2>/dev/null | wc -l || echo 0) crates"
 
-          # orphan push
+          # orphan push（失敗時はエラーを debug ブランチに退避して後で確認できるようにする）
           git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git push --force origin cache/rust-toolchain
+          if ! git push --force origin cache/rust-toolchain 2>/tmp/push.err; then
+            cat /tmp/push.err
+            echo "PUSH FAILED" >> /tmp/push.err
+            cd /tmp && rm -rf diag && git init -q diag && cd diag && \
+              git config user.email "actions@github.com" && git config user.name "GitHub Actions" && \
+              git checkout -qb debug/toolchain-push && cp /tmp/push.err push-error.log && \
+              git add -A && git commit -qm "push error" && \
+              git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" && \
+              git push --force origin debug/toolchain-push || true
+            exit 1
+          fi
 
           echo "Pushed to cache/rust-toolchain"
 
