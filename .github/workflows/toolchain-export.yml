@@ -146,12 +146,10 @@ jobs:
             git config user.email "actions@github.com"
             git config user.name "GitHub Actions"
             git checkout -b cache/rust-toolchain
-            cp -r chunks/ .
-            cp SHA256SUMS .
-            cp rust-version.txt .
             # 未分割の tar.gz は GitHub の 100MB 上限を超過するためコミット対象外。
-            # chunks 配下（45MB 以下）のみを追加する。
-            git add chunks SHA256SUMS rust-version.txt
+            # chunks/ ディレクトリ（45MB 以下）と rust-version.txt のみを追加する。
+            # （cp で展開しないため、chunks/ ディレクトリをそのまま git add する）
+            git add chunks rust-version.txt
             git commit -m "toolchain: $(cat rust-version.txt) / vendor $(ls vendor-src 2>/dev/null | wc -l || echo 0) crates"
 
             # orphan push（グローバル認証ヘッダーを無効化し、URL 内トークンのみで認証）
