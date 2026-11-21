@@ -6,12 +6,13 @@
 
 use std::sync::Arc;
 
-use axum::routing::{delete, get, post};
+use axum::routing::{get, post};
 use axum::Router;
 use novnow_hub_server::adapters::github::client::{GitHubClient, OAuthConfig};
 use novnow_hub_server::adapters::github::GitHubAdapter;
 use novnow_hub_server::app_state::AppState;
 use novnow_hub_server::config::Config;
+use novnow_hub_server::routes;
 use novnow_hub_server::routes::auth::{self, StateStore};
 use novnow_hub_server::session::SessionStore;
 use tokio::net::TcpListener;
@@ -25,9 +26,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .init();
 
-    let config = Config::from_env()?;
+    let config = Config::from_env();
     tracing::info!("contract version: {}", config.contract_version);
-    tracing::info!("listening on: {}:{}", config.bind, config.port);
+    tracing::info!("listening on: {}:{}", config.bind_addr, config.port);
 
     // GitHub クライアントとアダプター（OAuth 交換前にトークンは未設定）。
     let client = GitHubClient::new(
@@ -36,14 +37,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::time::Duration::from_secs(config.write_timeout_secs),
     );
     let oauth = OAuthConfig {
-        client_id: config.github_oauth_client_id.clone(),
-        redirect_uri: config.github_oauth_redirect_uri.clone(),
+        client_id: config.github_oauth_client_id.clone().unwrap_or_default(),
+        redirect_uri: config.github_oauth_redirect_uri.clone().unwrap_or_default(),
     };
     let github_adapter = Arc::new(GitHubAdapter::new(client, oauth));
 
     let state = AppState {
         config: config.clone(),
-        sessions: Arc::new(SessionStore::new(config)),
+        sessions: Arc::new(SessionStore::new(config.clone())),
         github_adapter,
         state_store: Arc::new(StateStore::new()),
         verifier_store: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
@@ -51,7 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let app = build_router(state);
-    let listener = TcpListener::bind((config.bind.as_str(), config.port)).await?;
+    let listener = TcpListener::bind((config.bind_addr.as_str(), config.port)).await?;
     tracing::info!("server started");
     axum::serve(listener, app).await?;
     Ok(())

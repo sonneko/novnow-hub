@@ -157,3 +157,41 @@ fn generate_trace_id() -> String {
     let bytes: [u8; 16] = rng.gen();
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn problem_maps_each_variant_to_code() {
+        let cases: Vec<(ApiError, ProblemCode)> = vec![
+            (ApiError::ValidationFailed("x".into()), ProblemCode::ValidationFailed),
+            (
+                ApiError::AuthenticationRequired("x".into()),
+                ProblemCode::AuthenticationRequired,
+            ),
+            (ApiError::SessionExpired("x".into()), ProblemCode::SessionExpired),
+            (
+                ApiError::RefreshTokenReused("x".into()),
+                ProblemCode::RefreshTokenReused,
+            ),
+            (ApiError::PermissionDenied("x".into()), ProblemCode::PermissionDenied),
+            (ApiError::NotFound("x".into()), ProblemCode::NotFound),
+            (ApiError::Conflict("x".into()), ProblemCode::Conflict),
+            (ApiError::RateLimited("x".into()), ProblemCode::RateLimited),
+            (
+                ApiError::UpstreamUnavailable("x".into()),
+                ProblemCode::UpstreamUnavailable,
+            ),
+            (
+                ApiError::VerificationFailed("x".into()),
+                ProblemCode::VerificationFailed,
+            ),
+            (ApiError::Internal("x".into()), ProblemCode::InternalError),
+        ];
+        for (err, expected) in cases {
+            let (code, _) = err.problem();
+            assert_eq!(code, expected);
+        }
+    }
+}

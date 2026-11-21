@@ -22,6 +22,7 @@ use crate::ports::IdentityPort;
 use crate::session::TokenPair;
 
 /// 認可リクエストの状態（state パラメータ）の保存記録。
+#[derive(Debug)]
 struct PendingState {
     code_challenge: String,
     expires_at: Instant,
@@ -88,7 +89,7 @@ pub async fn start(
 
     let code_verifier = random_verifier();
     let code_challenge = GitHubClient::pkce_challenge(&code_verifier);
-    let state_id = state.state_store.save(code_challenge);
+    let state_id = state.state_store.save(code_challenge.clone());
     // code_verifier は callback まで保持（最小実装ではインメモリ）。
     state
         .verifier_store
@@ -105,8 +106,8 @@ pub async fn start(
 
     let url = format!(
         "https://github.com/login/oauth/authorize?client_id={}&redirect_uri={}&scope=read:user&state={}&code_challenge={}&code_challenge_method=S256",
-        urlencoding(&config.github_oauth_client_id),
-        urlencoding(&config.github_oauth_redirect_uri),
+        urlencoding(config.github_oauth_client_id.as_deref().unwrap_or("")),
+        urlencoding(config.github_oauth_redirect_uri.as_deref().unwrap_or("")),
         urlencoding(&state_id),
         urlencoding(&code_challenge),
     );
@@ -177,7 +178,7 @@ pub async fn refresh(
     headers: axum::http::HeaderMap,
 ) -> Result<Json<TokenPair>, ApiError> {
     let token = bearer_token(&headers)?;
-    let session = state.sessions.rotate(token).map_err(|e| match e {
+    let session = state.sessions.rotate(&token).map_err(|e| match e {
         crate::session::SessionError::Expired => ApiError::SessionExpired(
             "更新トークンが無効または期限切れです".into(),
         ),
@@ -264,8 +265,10 @@ fn random_verifier() -> String {
 pub type SharedStateStore = Arc<StateStore>;
 
 /// OAuth 設定からクライアントを生成するヘルパー。
+///
+/// 最小実装では GitHub API ベース URL は既定値を使用する。
 pub fn build_client(
-    oauth: &OAuthConfig,
+    _oauth: &OAuthConfig,
     timeout_read: Duration,
     timeout_write: Duration,
 ) -> GitHubClient {
@@ -274,7 +277,6 @@ pub fn build_client(
 
 /// URL クエリ値として安全な文字列へのエンコード（最小実装）。
 fn urlencoding(input: &str) -> String {
-    const HEX: &[u8; 16] = b"0123456789ABCDEF";
     let mut out = String::with_capacity(input.len());
     for byte in input.bytes() {
         match byte {

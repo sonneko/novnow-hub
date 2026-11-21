@@ -9,6 +9,8 @@ use std::time::Duration;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, USER_AGENT};
 use serde::Deserialize;
 
+use crate::ports::NewFile;
+
 /// クライアントのエラー。
 #[derive(Debug)]
 pub enum ClientError {
@@ -16,8 +18,8 @@ pub enum ClientError {
     Conflict,
     PermissionDenied,
     RateLimited,
-    Unavailable,
-    InvalidResponse,
+    Unavailable(String),
+    InvalidResponse(String),
     Other(String),
 }
 
@@ -78,17 +80,21 @@ impl GitHubClient {
             409 => ClientError::Conflict,
             403 => ClientError::PermissionDenied,
             429 => ClientError::RateLimited,
-            502 | 503 | 504 => ClientError::Unavailable,
+            502 | 503 | 504 => ClientError::Unavailable("上流障害".into()),
             other => ClientError::Other(format!("HTTP {other}")),
         }
     }
 
     /// 429 の再試行（`Retry-After` 尊重、上限 3 回）。設計 §7 の共通規約。
+    ///
+    /// `RequestBuilder` は `send()` でムーブされるため再利用できない。
+    /// 呼び出し側はリクエストを構築するクローズを渡し、各試行で再構築する。
     async fn send_with_retry(
         &self,
-        mut request: reqwest::RequestBuilder,
+        mut build: impl FnMut() -> reqwest::RequestBuilder,
     ) -> Result<reqwest::Response, ClientError> {
         for attempt in 0..3 {
+            let request = build();
             let response = request.send().await.map_err(|e| {
                 ClientError::Unavailable(format!("リクエスト失敗: {e}"))
             })?;
@@ -129,19 +135,12 @@ impl GitHubClient {
             "code_verifier": code_verifier,
         });
         let response = self
-            .inner
-            .post(format!("{}/login/oauth/access_token", self.base_url))
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| ClientError::Unavailable(format!("リクエスト失敗: {e}")))?;
-        let response = if response.status().as_u16() == 429 {
-            // PKCE 交換は 429 でも再試行する
-            self.send_with_retry(response.request().map(|r| r.try_clone().unwrap_or(r)))
-                .await?
-        } else {
-            response
-        };
+            .send_with_retry(|| {
+                self.inner
+                    .post(format!("{}/login/oauth/access_token", self.base_url))
+                    .json(&body)
+            })
+            .await?;
         let status = response.status();
         if !status.is_success() {
             return Err(Self::map_status(status));
@@ -160,12 +159,13 @@ impl GitHubClient {
     /// ログイン中の利用者を取得。
     pub async fn get_user(&self, token: &Token) -> Result<GitHubUser, ClientError> {
         let response = self
-            .send_with_retry(
+            .send_with_retry(|| {
+
                 self.inner
                     .get(format!("{}/user", self.base_url))
                     .headers(self.headers(Some(token.as_str())))
-                    .timeout(self.timeout_read),
-            )
+                    .timeout(self.timeout_read)
+            })
             .await?;
         let response = check_success(response)?;
         response
@@ -186,13 +186,14 @@ impl GitHubClient {
             body["description"] = serde_json::json!(d);
         }
         let response = self
-            .send_with_retry(
+            .send_with_retry(|| {
+
                 self.inner
                     .post(format!("{}/user/repos", self.base_url))
                     .headers(self.headers(Some(token.as_str())))
                     .timeout(self.timeout_write)
-                    .json(&body),
-            )
+                    .json(&body)
+            })
             .await?;
         let response = check_success(response)?;
         response
@@ -204,12 +205,13 @@ impl GitHubClient {
     /// 保管単位のメタを取得。
     pub async fn get_repo(&self, token: &Token, full_name: &str) -> Result<RepoMeta, ClientError> {
         let response = self
-            .send_with_retry(
+            .send_with_retry(|| {
+
                 self.inner
                     .get(format!("{}/repos/{full_name}", self.base_url))
                     .headers(self.headers(Some(token.as_str())))
-                    .timeout(self.timeout_read),
-            )
+                    .timeout(self.timeout_read)
+            })
             .await?;
         let response = check_success(response)?;
         response
@@ -226,13 +228,14 @@ impl GitHubClient {
         private: bool,
     ) -> Result<(), ClientError> {
         let response = self
-            .send_with_retry(
+            .send_with_retry(|| {
+
                 self.inner
                     .patch(format!("{}/repos/{full_name}", self.base_url))
                     .headers(self.headers(Some(token.as_str())))
                     .timeout(self.timeout_write)
-                    .json(&serde_json::json!({ "private": private })),
-            )
+                    .json(&serde_json::json!({ "private": private }))
+            })
             .await?;
         check_success(response)?;
         Ok(())
@@ -241,12 +244,13 @@ impl GitHubClient {
     /// 保管単位を削除。
     pub async fn delete_repo(&self, token: &Token, full_name: &str) -> Result<(), ClientError> {
         let response = self
-            .send_with_retry(
+            .send_with_retry(|| {
+
                 self.inner
                     .delete(format!("{}/repos/{full_name}", self.base_url))
                     .headers(self.headers(Some(token.as_str())))
-                    .timeout(self.timeout_write),
-            )
+                    .timeout(self.timeout_write)
+            })
             .await?;
         check_success(response)?;
         Ok(())
@@ -266,12 +270,13 @@ impl GitHubClient {
             _ => format!("{}/repos/{full_name}/contents", self.base_url),
         };
         let response = self
-            .send_with_retry(
+            .send_with_retry(|| {
+
                 self.inner
-                    .get(url)
+                    .get(url.clone())
                     .headers(self.headers(Some(token.as_str())))
-                    .timeout(self.timeout_read),
-            )
+                    .timeout(self.timeout_read)
+            })
             .await?;
         let response = check_success(response)?;
         response
@@ -288,12 +293,13 @@ impl GitHubClient {
         path: &str,
     ) -> Result<FileEntry, ClientError> {
         let response = self
-            .send_with_retry(
+            .send_with_retry(|| {
+
                 self.inner
                     .get(format!("{}/repos/{full_name}/contents/{path}", self.base_url))
                     .headers(self.headers(Some(token.as_str())))
-                    .timeout(self.timeout_read),
-            )
+                    .timeout(self.timeout_read)
+            })
             .await?;
         let response = check_success(response)?;
         response
@@ -340,15 +346,16 @@ impl GitHubClient {
         let mut tree: serde_json::Value = serde_json::json!([]);
         for file in files {
             let encoded = match file.encoding {
-                FileEncoding::Text => {
+                crate::ports::FileEncoding::Text => {
                     use base64::engine::general_purpose::STANDARD;
                     use base64::Engine;
                     STANDARD.encode(file.content.as_bytes())
                 }
-                FileEncoding::Base64 => file.content.clone(),
+                crate::ports::FileEncoding::Base64 => file.content.clone(),
             };
             let blob_response = self
-                .send_with_retry(
+                .send_with_retry(|| {
+
                     self.inner
                         .post(format!("{}/repos/{full_name}/git/blobs", self.base_url))
                         .headers(self.headers(Some(token.as_str())))
@@ -356,8 +363,8 @@ impl GitHubClient {
                         .json(&serde_json::json!({
                             "content": encoded,
                             "encoding": "base64",
-                        })),
-                )
+                        }))
+            })
                 .await?;
             let blob_response = check_success(blob_response)?;
             let blob: serde_json::Value = blob_response
@@ -379,13 +386,14 @@ impl GitHubClient {
 
         // 2. tree 作成
         let tree_response = self
-            .send_with_retry(
+            .send_with_retry(|| {
+
                 self.inner
                     .post(format!("{}/repos/{full_name}/git/trees", self.base_url))
                     .headers(headers.clone())
                     .timeout(self.timeout_write)
-                    .json(&serde_json::json!({ "base_tree": head, "tree": tree })),
-            )
+                    .json(&serde_json::json!({ "base_tree": head, "tree": tree }))
+            })
             .await?;
         let tree_response = check_success(tree_response)?;
         let tree_payload: serde_json::Value = tree_response
@@ -399,7 +407,8 @@ impl GitHubClient {
         // 3. commit 作成
         let message = format!("novnow-hub commit [idem:{}]", sha256_short(full_name, branch, files));
         let commit_response = self
-            .send_with_retry(
+            .send_with_retry(|| {
+
                 self.inner
                     .post(format!("{}/repos/{full_name}/git/commits", self.base_url))
                     .headers(headers.clone())
@@ -408,8 +417,8 @@ impl GitHubClient {
                         "message": message,
                         "tree": tree_sha,
                         "parents": [head],
-                    })),
-            )
+                    }))
+            })
             .await?;
         let commit_response = check_success(commit_response)?;
         let commit_payload: serde_json::Value = commit_response
@@ -422,16 +431,17 @@ impl GitHubClient {
 
         // 4. ref 更新
         let ref_response = self
-            .send_with_retry(
+            .send_with_retry(|| {
+
                 self.inner
                     .patch(format!(
                         "{}/repos/{full_name}/git/refs/heads/{branch}",
                         self.base_url
                     ))
-                    .headers(headers)
+                    .headers(headers.clone())
                     .timeout(self.timeout_write)
-                    .json(&serde_json::json!({ "sha": commit_sha })),
-            )
+                    .json(&serde_json::json!({ "sha": commit_sha }))
+            })
             .await?;
         check_success(ref_response)?;
         Ok(commit_sha.to_string())
@@ -444,15 +454,16 @@ impl GitHubClient {
         branch: &str,
     ) -> Result<Option<String>, ClientError> {
         let response = self
-            .send_with_retry(
+            .send_with_retry(|| {
+
                 self.inner
                     .get(format!(
                         "{}/repos/{full_name}/git/ref/heads/{branch}",
                         self.base_url
                     ))
                     .headers(self.headers(Some(token.as_str())))
-                    .timeout(self.timeout_read),
-            )
+                    .timeout(self.timeout_read)
+            })
             .await?;
         let response = check_success(response)?;
         let payload: serde_json::Value = response
@@ -528,4 +539,52 @@ pub struct FileEntry {
 pub enum FileEncoding {
     Text,
     Base64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pkce_challenge_is_deterministic_and_base64url() {
+        let a = GitHubClient::pkce_challenge("verifier-123");
+        let b = GitHubClient::pkce_challenge("verifier-123");
+        assert_eq!(a, b);
+        // S256 の 32 バイト → base64url は 43 文字。
+        assert_eq!(a.len(), 43);
+        // base64url 文字セットに収まる。
+        assert!(a.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_'));
+    }
+
+    #[test]
+    fn pkce_challenge_differs_per_verifier() {
+        let a = GitHubClient::pkce_challenge("verifier-1");
+        let b = GitHubClient::pkce_challenge("verifier-2");
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn map_status_maps_known_codes() {
+        use reqwest::StatusCode;
+        assert!(matches!(
+            GitHubClient::map_status(StatusCode::NOT_FOUND),
+            ClientError::NotFound
+        ));
+        assert!(matches!(
+            GitHubClient::map_status(StatusCode::CONFLICT),
+            ClientError::Conflict
+        ));
+        assert!(matches!(
+            GitHubClient::map_status(StatusCode::FORBIDDEN),
+            ClientError::PermissionDenied
+        ));
+        assert!(matches!(
+            GitHubClient::map_status(StatusCode::TOO_MANY_REQUESTS),
+            ClientError::RateLimited
+        ));
+        assert!(matches!(
+            GitHubClient::map_status(StatusCode::BAD_GATEWAY),
+            ClientError::Unavailable(_)
+        ));
+    }
 }

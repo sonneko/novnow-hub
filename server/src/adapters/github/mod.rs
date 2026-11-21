@@ -74,9 +74,9 @@ impl IdentityPort for GitHubAdapter {
 
         Ok(Identity {
             id: user.id.to_string(),
-            handle: user.login,
+            handle: user.login.clone(),
             display_name: user.name.unwrap_or_else(|| user.login.clone()),
-            avatar_url: user.avatar_url,
+            avatar_url: Some(user.avatar_url),
         })
     }
 
@@ -169,7 +169,7 @@ impl ContentPort for GitHubAdapter {
                 } else {
                     TreeEntryKind::File
                 },
-                size: e.size,
+                size: Some(e.size),
                 etag: e.sha,
             })
             .collect())
@@ -184,7 +184,10 @@ impl ContentPort for GitHubAdapter {
             .map_err(|e| map_client_error(&e))?;
         Ok(FileContent {
             content: file.content,
-            encoding: file.encoding,
+            encoding: match file.encoding {
+                client::FileEncoding::Text => crate::ports::FileEncoding::Text,
+                client::FileEncoding::Base64 => crate::ports::FileEncoding::Base64,
+            },
             etag: file.sha,
         })
     }
@@ -232,8 +235,8 @@ fn map_client_error(e: &client::ClientError) -> PortError {
         client::ClientError::Conflict => PortError::Conflict,
         client::ClientError::PermissionDenied => PortError::PermissionDenied,
         client::ClientError::RateLimited => PortError::RateLimited,
-        client::ClientError::Unavailable => PortError::Unavailable,
-        client::ClientError::InvalidResponse => PortError::InvalidResponse,
+        client::ClientError::Unavailable(_) => PortError::Unavailable,
+        client::ClientError::InvalidResponse(_) => PortError::InvalidResponse,
         client::ClientError::Other(_) => PortError::Unknown,
     }
 }

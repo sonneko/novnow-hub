@@ -28,6 +28,12 @@ pub struct Config {
     pub refresh_token_ttl_secs: i64,
     /// addr で待受するアドレス（既定 `127.0.0.1`）。
     pub bind_addr: String,
+    /// 読み取りリクエストのタイムアウト秒数（既定 5。設計 §7 の共通規約）。
+    pub read_timeout_secs: u64,
+    /// 書き込みリクエストのタイムアウト秒数（既定 30。設計 §7 の共通規約）。
+    pub write_timeout_secs: u64,
+    /// コミット操作のタイムアウト秒数（既定 120。設計 §7 の共通規約）。
+    pub commit_timeout_secs: u64,
     /// 待受ポート（既定 8080）。
     pub port: u16,
 }
@@ -54,6 +60,15 @@ impl Config {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(30 * 24 * 3600),
             bind_addr: get("HUB_BIND_ADDR").unwrap_or_else(|| "127.0.0.1".to_string()),
+            read_timeout_secs: get("HUB_READ_TIMEOUT_SECS")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(5),
+            write_timeout_secs: get("HUB_WRITE_TIMEOUT_SECS")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(30),
+            commit_timeout_secs: get("HUB_COMMIT_TIMEOUT_SECS")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(120),
             port: get("HUB_PORT").and_then(|v| v.parse().ok()).unwrap_or(8080),
         }
     }
@@ -75,5 +90,30 @@ impl Config {
         } else {
             Err(format!("GitHub OAuth の設定が未設定です: {}", missing.join(", ")))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_env_uses_defaults() {
+        // 環境変数が無ければ既定値が使われる。
+        let c = Config::from_env();
+        assert_eq!(c.contract_version, "1.0.0");
+        assert_eq!(c.github_api_base, "https://api.github.com");
+        assert_eq!(c.port, 8080);
+        assert_eq!(c.read_timeout_secs, 5);
+        assert_eq!(c.write_timeout_secs, 30);
+        assert_eq!(c.commit_timeout_secs, 120);
+    }
+
+    #[test]
+    fn github_oauth_ready_reports_missing() {
+        let c = Config::from_env();
+        // 沙箱には OAuth 環境変数が無い前提。未設定ならエラー内容に項目名が含まれる。
+        let err = c.github_oauth_ready().expect_err("未設定ならエラー");
+        assert!(err.contains("HUB_GITHUB_OAUTH_CLIENT_ID"));
     }
 }

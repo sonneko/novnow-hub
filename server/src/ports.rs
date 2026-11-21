@@ -115,6 +115,7 @@ pub struct FileContent {
 pub struct NewFile {
     pub path: String,
     pub content: String,
+    pub encoding: FileEncoding,
 }
 
 /// 外部サービスの利用者像とアクセス権への交換。

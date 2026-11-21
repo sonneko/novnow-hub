@@ -2,6 +2,7 @@
 //!
 //! 契約 `REF:api/openapi.yaml` の `GET /meta` に準拠する。
 
+use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::Json;
 use serde::Serialize;

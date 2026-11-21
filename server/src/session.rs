@@ -174,3 +174,53 @@ fn random_token(rng: &mut impl Rng) -> String {
 
 /// 共有ハンドル。
 pub type SharedSessionStore = Arc<SessionStore>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::Config;
+
+    fn store() -> SessionStore {
+        SessionStore::new(Config::from_env())
+    }
+
+    #[test]
+    fn create_and_verify_access() {
+        let s = store();
+        let session = s.create("user-1");
+        assert!(!session.session_id.is_empty());
+        assert!(!session.refresh_token.is_empty());
+        let verified = s.verify_access(&session.session_id).expect("有効なアクセストークン");
+        assert_eq!(verified.user_id, "user-1");
+    }
+
+    #[test]
+    fn verify_access_rejects_unknown() {
+        let s = store();
+        assert!(s.verify_access("no-such-token").is_none());
+    }
+
+    #[test]
+    fn rotate_returns_new_pair() {
+        let s = store();
+        let session = s.create("user-1");
+        let rotated = s.rotate(&session.refresh_token).expect("ローテーション成功");
+        assert_ne!(rotated.refresh_token, session.refresh_token);
+        // ローテーション後、旧 refresh_token は消える。再提示は Expired（見つからない）。
+        assert!(matches!(s.rotate(&session.refresh_token), Err(SessionError::Expired)));
+    }
+
+    #[test]
+    fn rotate_unknown_token_is_expired() {
+        let s = store();
+        assert!(matches!(s.rotate("unknown"), Err(SessionError::Expired)));
+    }
+
+    #[test]
+    fn revoke_invalidates_access() {
+        let s = store();
+        let session = s.create("user-1");
+        s.revoke(&session.session_id);
+        assert!(s.verify_access(&session.session_id).is_none());
+    }
+}

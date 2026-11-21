@@ -133,70 +133,21 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # GitHub Actions の既定 shell は `bash -eo pipefail` のため、
-          # push 失敗で即座に終了し後続のデバッグ記録が実行されない。
-          # 明示的に -e を無効化し、失敗後もデバッグ情報を退避できるようにする。
-          set +e
           cd /tmp/export
 
-          # Push ブロック全体の出力をログに退避（失敗原因の特定用）
-          {
-            # 孤立ブランチとして push（既存の履歴を置き換え）
-            git init
-            git config user.email "actions@github.com"
-            git config user.name "GitHub Actions"
-            git checkout -b cache/rust-toolchain
-            # 未分割の tar.gz は GitHub の 100MB 上限を超過するためコミット対象外。
-            # chunks/ ディレクトリ（45MB 以下）と rust-version.txt のみを追加する。
-            # （cp で展開しないため、chunks/ ディレクトリをそのまま git add する）
-            git add chunks rust-version.txt
-            git commit -m "toolchain: $(cat rust-version.txt) / vendor $(ls vendor-src 2>/dev/null | wc -l || echo 0) crates"
+          # 孤立ブランチとして push（既存の履歴を置き換える）
+          git init
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git checkout -b cache/rust-toolchain
+          # 未分割の tar.gz は GitHub の 100MB 上限を超過するためコミット対象外。
+          # chunks/ ディレクトリ（45MB 以下）と rust-version.txt のみを追加する。
+          git add chunks rust-version.txt
+          git commit -m "toolchain: $(cat rust-version.txt) / vendor $(ls vendor-src 2>/dev/null | wc -l || echo 0) crates"
 
-            # orphan push（グローバル認証ヘッダーを無効化し、URL 内トークンのみで認証）
-            git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-            git -c http.extraHeader= push --force origin cache/rust-toolchain
-          } > /tmp/push.log 2>&1
-          rc=$?
-          echo "push rc=$rc"
-          cat /tmp/push.log
-
-          # デバッグ情報を常時 arena ブランチに退避（読み取り可能な形で）
-          # payload が巨大だと PUT が接続レベルで失敗するため、最後に 50KB にキャップ。
-          {
-            echo "push rc=$rc"
-            echo "GH_TOKEN_SET=$([ -n "${GH_TOKEN:-}" ] && echo yes || echo no)"
-            echo "GITHUB_REF_NAME=${GITHUB_REF_NAME:-<unset>}"
-            echo "GITHUB_RUN_ID=${GITHUB_RUN_ID:-<unset>}"
-            echo "--- push.log (tail 50KB) ---"
-            tail -c 51200 /tmp/push.log
-          } > /tmp/diag.txt
-          # 8KB 刻みに分割して個別アップロード（単一 PUT の失敗を回避）
-          rm -f /tmp/diag.part.*
-          split -b 8000 /tmp/diag.txt /tmp/diag.part.
-          : > /tmp/resp.txt
-          idx=0
-          for part in /tmp/diag.part.*; do
-            B64=$(base64 -w0 "$part")
-            CODE=$(curl -sS -X PUT "https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/diag.$idx.txt" \
-              -H "Authorization: Bearer ${GH_TOKEN}" \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              -d "{\"message\":\"diag\",\"content\":\"${B64}\",\"branch\":\"${GITHUB_REF_NAME}\"}" \
-              -w "%{http_code}" -o /tmp/resp_part.txt 2>>/tmp/resp.txt) || CODE="curl_failed"
-            echo "diag.$idx.txt HTTP=$CODE" >> /tmp/resp.txt
-            idx=$((idx + 1))
-          done
-          # 集計レスポンスを退避（HTTP コードの一覧が読み取れる）
-          B64R=$(base64 -w0 /tmp/resp.txt)
-          curl -sS -X PUT "https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/resp.txt" \
-            -H "Authorization: Bearer ${GH_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            -d "{\"message\":\"resp\",\"content\":\"${B64R}\",\"branch\":\"${GITHUB_REF_NAME}\"}" || echo "resp upload failed"
-
-          if [ "$rc" != "0" ]; then
-            exit "$rc"
-          fi
+          # orphan push（グローバル認証ヘッダーを無効化し、URL 内トークンのみで認証）
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git -c http.extraHeader= push --force origin cache/rust-toolchain
 
           echo "Pushed to cache/rust-toolchain"
 
