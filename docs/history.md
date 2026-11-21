@@ -169,5 +169,5 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
   - `docs/handoff.md`: ブランチ情報（`arena/34527e8a-novnow-hub`、分岐点 `34689ec`=PR #38 マージ）・M2 状態・検証行を更新。
 - **検証**:
   - ローカル: `bash docs/script/smoke-mock.sh` を実際に実行し 5 パスすべて 2xx（200）を返すことを実測確認。`api/openapi.yaml` の OpenAPI 3.1 スキーマ検証も成功。
-  - CI: 本 PR の docs ジョブでスモークテストステップが実際に走り success となることを確認（PR 作成後に CI 結果を照合）。
+  - CI: 本 PR の docs ジョブでスモークテストステップが実際に走ることを確認。初版はステップレベルの `defaults.run.working-directory` がワークフロー検証で失敗したため、`working-directory: web` を直接指定する形に修正。修正後の CI 実行（run 44942112423）で docs ジョブの全ステップ `success`（特に「Smoke test Prism mock」が `completed success`）を確認（`gh api` でステップごとの照合）。
 - `web/` と `api/openapi.yaml` の挙動変更は含めていない（CI 定義と検証スクリプト・ドキュメントのみ）。
