@@ -40,13 +40,19 @@ jobs:
     name: Docs & Change Filter
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     outputs:
       code_changed: ${{ steps.filter.outputs.code_changed }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
 
       - name: Verify documentation rules (verify-docs.py)
         run: python3 docs/script/verify-docs.py
@@ -60,6 +66,12 @@ jobs:
             echo "::error::api/openapi.yaml に GitHub 固有語が含まれています（契約は hub 語彙に統一してください）"
             exit 1
           fi
+
+      - name: Smoke test Prism mock
+        defaults:
+          run:
+            working-directory: web
+        run: bash ../docs/script/smoke-mock.sh
 
       - name: Detect whether code inputs changed
         id: filter
