@@ -86,7 +86,7 @@ if [ "${REGENERATE_ONLY:-0}" != 1 ]; then
     fi
 
     say "sysroot を展開"
-    if [ -f chunks/sysroot.tar.gz.* ]; then
+    if compgen -G "chunks/sysroot.tar.gz.*" > /dev/null; then
         cat chunks/sysroot.tar.gz.* > sysroot.tar.gz
     elif [ -f sysroot.tar.gz ]; then
         : # 既に単一ファイル
@@ -96,7 +96,7 @@ if [ "${REGENERATE_ONLY:-0}" != 1 ]; then
     tar xzf sysroot.tar.gz -C "$BUILD_DIR/sysroot"
 
     say "vendor を展開"
-    if [ -f chunks/vendor.tar.gz.* ]; then
+    if compgen -G "chunks/vendor.tar.gz.*" > /dev/null; then
         cat chunks/vendor.tar.gz.* > vendor.tar.gz
     elif [ -f vendor.tar.gz ]; then
         : # 既に単一ファイル
