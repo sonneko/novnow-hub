@@ -36,5 +36,10 @@
   },
   "dependencies": {
     "openapi-fetch": "^0.17.0"
+  },
+  "overrides": {
+    "postman-collection": {
+      "lodash": "4.18.1"
+    }
   }
 }
