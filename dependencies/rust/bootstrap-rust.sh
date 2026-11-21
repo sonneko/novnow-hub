@@ -72,9 +72,11 @@ if [ "${REGENERATE_ONLY:-0}" != 1 ]; then
         || die "ダウンロードに失敗した。ブランチ $BRANCH が存在するか確認すること。"
     say "ダウンロード完了: $(du -h tc.tgz | cut -f1)"
 
-    rm -rf ./std-app-dev-template-*
+    # codeload の tarball は <repo>-<sha>/ に展開される。リポジトリ名に依存せず
+    # 展開された唯一のトップディレクトリを検出する。
+    rm -rf ./novnow-hub-* ./std-app-dev-template-*
     tar xzf tc.tgz
-    work="$(find . -maxdepth 1 -type d -name 'std-app-dev-template-*' | head -1)"
+    work="$(find . -maxdepth 1 -mindepth 1 -type d ! -name 'sysroot' ! -name 'cargo-home' ! -name 'vendor-src' ! -name 'crates' | head -1)"
     [ -n "$work" ] || die "tarball の中に展開先ディレクトリが見つからない"
     cd "$work"
 
