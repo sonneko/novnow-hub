@@ -166,11 +166,20 @@ jobs:
             cat /tmp/push.log
           } > /tmp/diag.txt
           B64=$(base64 -w0 /tmp/diag.txt)
+          # 1 回目のアップロード（HTTP コードとレスポンスを取得）
           curl -sS -X PUT "https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/debug/diag.txt" \
             -H "Authorization: Bearer ${GH_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            -d "{\"message\":\"diag (run ${GITHUB_RUN_ID:-unknown})\",\"content\":\"${B64}\",\"branch\":\"${GITHUB_REF_NAME}\"}" || echo "curl upload failed"
+            -d "{\"message\":\"diag\",\"content\":\"${B64}\",\"branch\":\"${GITHUB_REF_NAME}\"}" \
+            -w "\nHTTP_CODE=%{http_code}" -o /tmp/resp1.txt || echo "curl1 failed"
+          # レスポンスを 2 回目のアップロードで退避（エラー内容まで読み取れる）
+          B64R=$(base64 -w0 /tmp/resp1.txt)
+          curl -sS -X PUT "https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/debug/resp.txt" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -d "{\"message\":\"resp\",\"content\":\"${B64R}\",\"branch\":\"${GITHUB_REF_NAME}\"}" || echo "curl2 failed"
 
           if [ "$rc" != "0" ]; then
             exit "$rc"
