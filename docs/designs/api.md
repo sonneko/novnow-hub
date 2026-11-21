@@ -99,7 +99,7 @@ JSON の読み書きは `serde_json` に統一し、未知フィールドは `#[
 
 状態: 未実装・実装計画済み（REF:docs/plans.md#m3-thin-slice, REF:docs/plans.md#m7-ops）
 
-Workers では Rate Limiting バインディング、VPS では `governor` 相当のトークンバケットをミドルウェアで掛ける。認証済みは user_id 単位（例: 600 req/min）、匿名は IP 単位（例: 60 req/min）を既定とし、環境変数で調整可能にする。`RateLimit-*` ヘッダはミドルウェアで一律付与し、超過時は `retryAfterSeconds` を含む `problem+json` を返す。
+Workers では Rate Limiting バインディング、VPS では `governor` 相当のトークンバケットをミドルウェアで掛ける。認証済みは user_id 単位（例: 600 req/min）、匿名は IP 単位（例: 60 req/min）を既定とし、環境変数で調整可能にする。`RateLimit-*` ヘッダはミドルウェアで一律付与し、超過時は `retryAfterSeconds` を含む `problem+json` を返す。なお `RateLimit-Limit`／`RateLimit-Remaining`／`RateLimit-Reset`／`X-Unread-Count` のヘッダ定義は `REF:api/openapi.yaml` の `components/headers` に既に定義済みであり、実装時はこれに準拠する。
 
 ### 4.6 日時・ID・文字列の表現規則
 
@@ -111,7 +111,7 @@ slug 生成はタイトルを NFKC 正規化→小文字化→連続記号の圧
 
 状態: 未実装・実装計画済み（REF:docs/plans.md#m3-thin-slice）
 
-書き込み系は `Idempotency-Key` を `idempotency_keys` テーブル（key／user_id／request_hash／response_snapshot／expires_at）に保存し、24 時間は同一応答を返す。`If-Match` はプロジェクト本体が保持する `etag`（更新のたびに版を進めた値）と照合し、不一致は `conflict`（409）。ファイル更新は GitHub の blob SHA をファイル単位の ETag として用い、ContentPort の `getEtag` 経由でのみ参照する。
+書き込み系は `Idempotency-Key` を `idempotency_keys` テーブル（key／user_id／request_hash／response_snapshot／expires_at）に保存し、24 時間は同一応答を返す。`Idempotency-Key` ヘッダの定義は `REF:api/openapi.yaml` の `components/parameters/IdempotencyKey` に既定（24 時間有効）で定義済み。`If-Match` はプロジェクト本体が保持する `etag`（更新のたびに版を進めた値）と照合し、不一致は `conflict`（409）。ファイル更新は GitHub の blob SHA をファイル単位の ETag として用い、ContentPort の `getEtag` 経由でのみ参照する。なおチャットメッセージの編集・削除は参照実装（`REF:web/server/chat-port.mjs`）で `ChatMessage.etag` による `If-Match` 照合（不一致は 409）を実装済み。
 
 ---
 
@@ -163,7 +163,7 @@ IssuePort 越しに GitHub Issues を操作する。hub 側は一覧の投影（
 
 状態: 実装完了（REF:web/server/chat-port.mjs, REF:web/server/chat-api.mjs, REF:api/openapi.yaml）
 
-本リポジトリには契約検証・ブラウザ確認用の SQLite-backed ChatPort 参照実装を置く。チャットデータは hub 管理ストア（`chat_channels`、`chat_messages`、`chat_room_reads`）にのみ保存する。メンションは `@handle` をパースして `mentions` に保存し、`chat_notification_outbox` へ記録した通知イベントを購読者へ発行する。編集前の本文は `chat_message_revisions` に保持し、削除は論理削除（本文を `［削除されました］` に置換してフラグを保持）とする。メッセージ一覧取得では認証済み利用者の既読位置を進め、ルーム一覧の `unreadCount` を算出する。SSE は M7 で検討し、Phase 1 の UI は 5 秒間隔でポーリングする。
+本リポジトリには契約検証・ブラウザ確認用の SQLite-backed ChatPort 参照実装を置く。チャットデータは hub 管理ストア（`chat_channels`、`chat_messages`、`chat_room_reads`）にのみ保存する。メンションは `@handle` をパースして `mentions` に保存し、`chat_notification_outbox` へ記録した通知イベントを購読者へ発行する。編集前の本文は `chat_message_revisions` に保持し、削除は論理削除（本文を `［削除されました］` に置換してフラグを保持）とする。メッセージ一覧取得では認証済み利用者の既読位置を進め、ルーム一覧の `unreadCount` を算出する。編集・削除は `ChatMessage.etag`（本文・編集日時・削除状態から導出した版識別子）を `If-Match` で照合し、不一致は `conflict`（409）とする。SSE は M7 で検討し、Phase 1 の UI は 5 秒間隔でポーリングする（参照実装では `REF:web/src/components/pages/ChatPage.svelte` が 5 秒間隔のポーリングと未読表示、編集時の `If-Match` 送信を実装）。開発用に `--seed-demo` によるデモ種子（3 ルームとサンプルメッセージ）も提供する。
 
 ### 5.9 検索（search）
 
@@ -227,7 +227,7 @@ ER 図は設計文書で管理し、DB マイグレーション（`migrations/NN
 
 状態: 実装完了（REF:web/server/chat-port.mjs, REF:api/openapi.yaml）
 
-参照実装は `chat_messages`（id／project_id／channel_id／author_handle／body／mentions_json／created_at／edited_at／deleted）。本文は 4000 文字上限とし、検索・全文索引用の索引は持たない。既読位置は `chat_room_reads`（project_id／channel_id／reader_handle／last_read_at／last_read_message_id）に保存する。編集前本文は `chat_message_revisions`、メンション通知イベントは `chat_notification_outbox` に保持する。
+参照実装は `chat_messages`（id／project_id／channel_id／author_handle／body／mentions_json／created_at／edited_at／deleted）。本文は 4000 文字上限とし、検索・全文索引用の索引は持たない。レスポンスの `etag` は本文・編集日時・削除状態から導出した版識別子（`messageVersion`）で、PATCH 時の `If-Match` 照合に用いる。既読位置は `chat_room_reads`（project_id／channel_id／reader_handle／last_read_at／last_read_message_id）に保存する。編集前本文は `chat_message_revisions`、メンション通知イベントは `chat_notification_outbox` に保持する。
 
 ### 6.7 通知（Notification）
 
@@ -316,9 +316,9 @@ CI に「契約互換性ジョブ」を追加し、oasdiff 等で前版との差
 
 ### 9.3 クライアントでの解釈
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m2-frontend-mock, REF:docs/plans.md#m3-thin-slice）
+状態: 実装完了（REF:web/src/lib/api/errors.ts）
 
-API クライアントの共通層（`src/lib/api/`）で `code` を `AuthRequired`／`NotFound`／`Conflict`／`RateLimited`／`UpstreamDown`／`VerificationFailed`／`Unknown` の内部表現へ写像し、画面層は内部表現のみを扱う。`traceId` はエラー画面の「問題を報告」導線のプリセットに埋め込む。
+API クライアントの共通層（`web/src/lib/api/`）で `code` を `auth-required`／`not-found`／`conflict`／`rate-limited`／`upstream-unavailable`／`verification-failed`／`unknown` の内部表現へ写像し、画面層は内部表現のみを扱う。`traceId` はエラー画面の「問題を報告」導線のプリセットに埋め込む。
 
 ---
 
@@ -358,6 +358,7 @@ zip 取込は許可リスト（UTF-8・50MB・2000 ファイル・圧縮率 100 
 
 モックは `REF:api/openapi.yaml` の副産物としてのみ存在する。目的は (a) バックエンド未実装期のフロントエンド駆動開発、(b) CI における契約のスモークテスト、(c) デモ・受入シナリオの実行環境、の 3 つに限定し、本番代替にはならない。位置づけは「契約の生きたドキュメント」であり、モックが契約より先に進化することを禁止する。
 
+<a id="mock-seed"></a>
 ### 11.2 モックの作り方
 
 状態: 未実装・実装計画済み（REF:docs/plans.md#m2-frontend-mock, REF:api/openapi.yaml）
@@ -374,4 +375,4 @@ zip 取込は許可リスト（UTF-8・50MB・2000 ファイル・圧縮率 100 
 
 状態: 未実装・実装計画済み（REF:docs/plans.md#m2-frontend-mock）
 
-シナリオは仕様書 §11.4 の 8 類型を最低限サポートし、切替はリクエストヘッダ `X-Mock-Scenario`（例: `auth/expired`・`rate-limit`・`conflict`）で行う。CI では `mock-smoke` ジョブを新設し、モック起動 → 主要 6 経路（メタ取得／サインイン遷移／プロジェクト作成／一覧／読者ビュー／提案一覧）の example 応答を検証する。シードとフィクスチャは `mocks/seed/` に生成物としてコミットし、生成元スクリプトと同一 PR で更新する。モックのポート・起動手順は開発者向けドキュメントと README のクイックスタートに明記する。
+シナリオは仕様書 §11.4 の 8 類型を最低限サポートし、切替はリクエストヘッダ `X-Mock-Scenario`（例: `auth/expired`・`rate-limit`・`conflict`）で行う。CI では `mock-smoke` ジョブを新設し、モック起動 → 主要 6 経路（メタ取得／サインイン遷移／プロジェクト作成／一覧／読者ビュー／提案一覧）の example 応答を検証する。モック用シードは `mocks/seed/` に生成物としてコミットし（§11.2 の生成規則の対象。導入まではフロントエンドテストのフィクスチャは `web/src/test/` で手書き運用）、生成元スクリプトと同一 PR で更新する。モックのポート・起動手順は開発者向けドキュメントと README のクイックスタートに明記する。

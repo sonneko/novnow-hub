@@ -52,7 +52,12 @@ npm run mock
 npm run dev
 ```
 
-起動後、ブラウザで <http://localhost:4321/> を開く。
+起動後、ブラウザで <http://localhost:4321/> を開く。チャット画面（`/collaboration/chat/`）を使う場合は、モック API に加えて別ターミナルで SQLite バックのチャット API も起動する。
+
+```sh
+# terminal 3（任意）: チャット API（:4011）。Astro が /api/v1/projects/.../chat/channels 系をこのポートへ转发
+npm run chat:dev
+```
 
 ### 試せることの一覧
 

@@ -22,10 +22,10 @@
 
 ## 2. 現在のブランチ・PR・直近の作業状態
 
-- **現在のブランチ**: `arena/56f1227e-novnow-hub`（`main` 分岐点 `997f9dd541a387aad4fa3d0a840a32f4063d8e0a`、PR #21 のマージコミット）
-- **PR**: Issues #22–#33 のドキュメント側修正（仕様・設計・計画・運維ドキュメント）を検証後、`main` 向け PR を作成する（作成後に URL と CI 状態を記録）。マージはユーザーの指示を待つ。
-- **現在の状態**: M3 は `/reading`・公開ページの静的シェル事前描画と ETag キャッシュを実装済み。M4 は Proposal／Issue UI に加え、SQLite-backed ChatPort 参照実装とチャット UI を実装済み。自動マージ・通知センター等は未完了。M5 はセットアップ URL 発行・解決 UI を実装済み。M2 の CI 拡張は未完了。
-- **検証**: `cd web && npm run check && npm run build`、`python3 docs/script/verify-docs.py`、`openapi-spec-validator` による `api/openapi.yaml` 検証を確認済み。35 テストが成功（うちチャット関連は 10 テスト: ChatPort 6・ChatPage UI 2・chat API 2）。
+- **現在のブランチ**: `arena/a75439b7-novnow-hub`（`main` 分岐点 `941aa57913f7e454dadd2c085d57d3daaac9b2a4`、PR #34 のマージコミット。直近の `main` は `4aeae8d`（PR #36 マージ）まで同期済み）
+- **PR**: 直近のマージ済み PR は **#34（npm audit）・#35（docs バッチ、マージコミット `70fc60c`）・#36（web バッチ、契約・実装の同期修正 #22–#28・#31–#33）**。現在はドキュメントとソースのリファクタリング作業中（PR 作成待ち）。マージはユーザーの指示を待つ。
+- **現在の状態**: M3 は `/reading`・公開ページの静的シェル事前描画と ETag キャッシュを実装済み。M4 は Proposal／Issue UI・コメント一覧表示に加え、SQLite-backed ChatPort 参照実装とチャット UI を実装済み。自動マージ・通知センター等は未完了。M5 はセットアップ URL 発行・解決 UI を実装済み。M2 の CI 拡張は未完了。
+- **検証**: `cd web && npm run check && npm run build`、`python3 docs/script/verify-docs.py`、`openapi-spec-validator` による `api/openapi.yaml` 検証を確認済み。Vitest は **40 テスト・16 ファイル**が成功（うちチャット関連は 10 テスト: ChatPort 6・ChatPage UI 2・chat API 2）。astro check は 0 errors、ビルドは 12 ページ生成。
 
 ---
 
@@ -33,7 +33,7 @@
 
 1. コンテナ再起動後は現在のブランチを fetch して追随する:
    ```bash
-   git fetch origin arena/56f1227e-novnow-hub
+   git fetch origin arena/a75439b7-novnow-hub
    git reset --mixed FETCH_HEAD
    ```
    Rust ツールチェーン復旧が必要な場合は `REF:docs/developers.md` §2.2 を参照する。

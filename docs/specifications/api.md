@@ -200,6 +200,7 @@
 | POST | `/projects/{projectId}/proposals` | 要認証 | 提案を作成する（比較元・比較先・差分） |
 | GET | `/projects/{projectId}/proposals/{number}` | 匿名可 | 提案詳細（本文・状態・チェック一覧） |
 | GET | `/projects/{projectId}/proposals/{number}/diff` | 匿名可 | 差分（novnow 診断差分を含む） |
+| GET | `/projects/{projectId}/proposals/{number}/comments` | 匿名可 | コメント一覧（カーソル・時系列順） |
 | POST | `/projects/{projectId}/proposals/{number}/comments` | 要認証 | コメントを追加する |
 | POST | `/projects/{projectId}/proposals/{number}/approve` | 要認証 | レビューを記録する（`verdict`: `approve`／`dismiss`／`request_changes`） |
 | POST | `/projects/{projectId}/proposals/{number}/merge` | 所有者／協働者 | 即時取り込み |
@@ -223,6 +224,7 @@
 | POST | `/projects/{projectId}/issues` | 要認証 | 課題を作成する |
 | GET | `/projects/{projectId}/issues/{number}` | 匿名可 | 課題詳細（本文・会話） |
 | PATCH | `/projects/{projectId}/issues/{number}` | 要認証 | タイトル・本文・ラベル・担当・状態を更新する |
+| GET | `/projects/{projectId}/issues/{number}/comments` | 匿名可 | コメント一覧（カーソル・時系列順） |
 | POST | `/projects/{projectId}/issues/{number}/comments` | 要認証 | コメントを追加する |
 | POST | `/projects/{projectId}/issues/{number}/close` | 要認証 | クローズ／再オープン |
 
@@ -297,7 +299,7 @@ Project 1───N Release
 | `description` | string | 任意 | 説明（1〜500 字） |
 | `ownerHandle` | string | 必須 | 原作者の handle |
 | `license` | string | 必須 | `cc0`／`cc-by`／`cc-by-sa`／`cc-by-nc`／`custom` |
-| `visibility` | string | 必須 | `public`／`private` |
+| `visibility` | string | 必須 | `public`／`private`／`archived`（取り下げ） |
 | `tags` | string[] | 任意 | タグ（最大 10 件） |
 | `derivativePolicy` | string | 必須 | `allowed`／`allowed-with-conditions`／`disallowed` |
 | `derivativeCount` | number | 必須 | 派生作品数 |
@@ -356,6 +358,7 @@ Project 1───N Release
 | `mentions` | string[] | 任意 | 言及された handle |
 | `editedAt` | datetime | 任意 | 編集日時 |
 | `deleted` | boolean | 必須 | 論理削除か |
+| `etag` | string | 任意 | 楽観ロック用の版識別子（編集・削除の照合に用いる） |
 | `createdAt` | datetime | 必須 | 投稿日時 |
 
 ### 6.7 通知（Notification）
