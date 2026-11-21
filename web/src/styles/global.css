@@ -217,8 +217,39 @@ textarea {
 }
 
 .reader {
+  --reader-font-size: 1.0625rem;
   max-width: 68ch;
   margin-inline: auto;
+}
+
+.reader[data-font-size='small'] {
+  --reader-font-size: 0.9375rem;
+}
+
+.reader[data-font-size='large'] {
+  --reader-font-size: 1.25rem;
+}
+
+.reader[data-font-size='xlarge'] {
+  --reader-font-size: 1.5rem;
+}
+
+.reader-font-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-block-start: 1rem;
+}
+
+.reader-font-label {
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+.reader-font-controls .button[aria-pressed='true'] {
+  background: var(--color-accent-soft);
+  font-weight: 700;
 }
 
 .reader-cache-notice {
@@ -234,6 +265,10 @@ textarea {
   margin-bottom: 2rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--color-border);
+}
+
+.reader-body {
+  font-size: var(--reader-font-size);
 }
 
 .reader-body p {

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -89,6 +89,16 @@ function channelFromRow(row, unreadCount = 0) {
   };
 }
 
+/**
+ * Version (ETag) of a message: changes whenever its visible state changes, so a client can
+ * send it back as If-Match and detect that someone else edited or deleted the message first.
+ */
+function messageVersion(row) {
+  return createHash('sha256')
+    .update([row.id, row.body, row.edited_at ?? '', row.created_at, row.deleted ? '1' : '0'].join('\n'))
+    .digest('base64url');
+}
+
 function messageFromRow(row) {
   return {
     id: row.id,
@@ -99,6 +109,7 @@ function messageFromRow(row) {
     editedAt: row.edited_at,
     deleted: Boolean(row.deleted),
     createdAt: row.created_at,
+    etag: messageVersion(row),
   };
 }
 
@@ -275,7 +286,7 @@ export class SqliteChatPort {
       .run(projectId, channelId, readerHandle, nextPosition.createdAt, nextPosition.id);
   }
 
-  createRoom(projectIdValue, { name, description = '' } = {}) {
+  createChannel(projectIdValue, { name, description = '' } = {}) {
     const projectId = validateProjectId(projectIdValue);
     const normalizedName = validateText(name, 'ルーム名', 80, { trim: true });
     const normalizedDescription = validateText(description, '説明', 200, { allowEmpty: true, trim: true });
@@ -292,7 +303,7 @@ export class SqliteChatPort {
     return channelFromRow(row);
   }
 
-  listRooms(projectIdValue, { actorHandle } = {}) {
+  listChannels(projectIdValue, { actorHandle } = {}) {
     const projectId = validateProjectId(projectIdValue);
     const rows = this.database.prepare(`SELECT id, project_id, name, description, created_at
       FROM chat_channels WHERE project_id = ? ORDER BY created_at ASC, id ASC`)
@@ -316,7 +327,7 @@ export class SqliteChatPort {
     });
   }
 
-  sendMessage(projectIdValue, channelId, { body, authorHandle } = {}) {
+  postMessage(projectIdValue, channelId, { body, authorHandle } = {}) {
     const projectId = validateProjectId(projectIdValue);
     const room = this.#room(projectId, channelId);
     const normalizedBody = validateText(body, '本文', 4000);
@@ -326,25 +337,31 @@ export class SqliteChatPort {
     const mentions = extractMentions(normalizedBody);
     const message = {
       id: this.idFactory(),
-      channelId: room.id,
-      authorHandle: author,
+      channel_id: room.id,
+      author_handle: author,
       body: normalizedBody,
-      mentions,
-      editedAt: null,
-      deleted: false,
-      createdAt,
+      mentions_json: JSON.stringify(mentions),
+      edited_at: null,
+      deleted: 0,
+      created_at: createdAt,
     };
     const events = this.#transaction(() => {
       this.database.prepare(`INSERT INTO chat_messages
         (id, project_id, channel_id, author_handle, body, mentions_json, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)`)
-        .run(message.id, projectId, room.id, author, normalizedBody, JSON.stringify(mentions), createdAt);
-      const recorded = this.#recordMentionEvents({ projectId, room, message, recipients: mentions, createdAt });
+        .run(message.id, projectId, room.id, author, normalizedBody, message.mentions_json, createdAt);
+      const recorded = this.#recordMentionEvents({
+        projectId,
+        room,
+        message: { ...message, channelId: room.id, authorHandle: author, mentions },
+        recipients: mentions,
+        createdAt,
+      });
       this.#markRead(projectId, room.id, author, { created_at: createdAt, id: message.id });
       return recorded;
     });
     this.#publish(events);
-    return message;
+    return messageFromRow({ ...message, project_id: projectId });
   }
 
   listMessages(projectIdValue, channelId, { cursor, limit = 20, actorHandle } = {}) {
@@ -376,13 +393,16 @@ export class SqliteChatPort {
     };
   }
 
-  editMessage(projectIdValue, channelId, messageId, { body, actorHandle } = {}) {
+  editMessage(projectIdValue, channelId, messageId, { body, actorHandle, ifMatch } = {}) {
     const projectId = validateProjectId(projectIdValue);
     const actor = normalizeHandle(actorHandle);
     const previous = this.#message(projectId, channelId, messageId);
     if (previous.deleted) throw new ChatPortError(404, 'not_found', 'メッセージが見つかりません。');
     if (previous.author_handle.toLocaleLowerCase('und') !== actor.toLocaleLowerCase('und')) {
       throw new ChatPortError(403, 'permission_denied', 'このメッセージを編集する権限がありません。');
+    }
+    if (ifMatch !== undefined && ifMatch !== messageVersion(previous)) {
+      throw new ChatPortError(409, 'conflict', 'メッセージが別の操作で更新されています。最新の内容を確認してください。');
     }
     const normalizedBody = validateText(body, '本文', 4000);
     if (!normalizedBody.trim()) invalid('本文を入力してください。');
@@ -418,7 +438,7 @@ export class SqliteChatPort {
       });
     });
     this.#publish(events);
-    return updated;
+    return messageFromRow(this.#message(projectId, channelId, messageId));
   }
 
   deleteMessage(projectIdValue, channelId, messageId, { actorHandle, isProjectOwner = false } = {}) {

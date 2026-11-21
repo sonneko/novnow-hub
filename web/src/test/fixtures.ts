@@ -122,7 +122,7 @@ export const setupInfoFixture = {
   slug: projectFixture.slug,
   snapshotVersion: 'v1',
   acquisition: {
-    kind: 'codeload',
+    kind: 'archive',
     url: 'https://hub.example.test/setup/sample-story.zip',
   },
   novnow: { minVersion: '1.2.0' },

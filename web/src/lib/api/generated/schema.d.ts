@@ -855,7 +855,7 @@ export interface components {
             /** @enum {string} */
             license: "cc0" | "cc-by" | "cc-by-sa" | "cc-by-nc" | "custom";
             /** @enum {string} */
-            visibility: "public" | "private";
+            visibility: "public" | "private" | "archived";
             tags?: string[];
             /** @enum {string} */
             derivativePolicy: "allowed" | "allowed-with-conditions" | "disallowed";
@@ -875,7 +875,7 @@ export interface components {
             /** @enum {string} */
             license?: "cc0" | "cc-by" | "cc-by-sa" | "cc-by-nc" | "custom";
             /** @enum {string} */
-            visibility?: "public" | "private";
+            visibility?: "public" | "private" | "archived";
             tags?: string[];
             /** @enum {string} */
             derivativePolicy?: "allowed" | "allowed-with-conditions" | "disallowed";
@@ -1016,6 +1016,8 @@ export interface components {
             requireNoConflicts?: boolean;
             /** @description failed のときの理由 */
             reason?: string;
+            /** @description If-Match 用の版識別子 */
+            etag?: string;
         };
         Issue: {
             number: number;
@@ -1063,6 +1065,8 @@ export interface components {
             deleted: boolean;
             /** Format: date-time */
             createdAt: string;
+            /** @description If-Match 用の版識別子 */
+            etag?: string;
         };
         ChatMessagePage: {
             items: components["schemas"]["ChatMessage"][];
@@ -1142,7 +1146,7 @@ export interface components {
             snapshotVersion: string;
             acquisition: {
                 /** @enum {string} */
-                kind: "codeload" | "git";
+                kind: "archive" | "git";
                 /** Format: uri */
                 url: string;
                 ref?: string;
@@ -1164,6 +1168,10 @@ export interface components {
         /** @description 入力値が契約に違反している */
         ValidationFailed: {
             headers: {
+                "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                "X-Unread-Count": components["headers"]["X-Unread-Count"];
                 [name: string]: unknown;
             };
             content: {
@@ -1183,6 +1191,10 @@ export interface components {
         /** @description 未認証またはセッション不正 */
         AuthenticationRequired: {
             headers: {
+                "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                "X-Unread-Count": components["headers"]["X-Unread-Count"];
                 [name: string]: unknown;
             };
             content: {
@@ -1201,6 +1213,10 @@ export interface components {
         /** @description セッション期限切れまたは失効 */
         SessionExpired: {
             headers: {
+                "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                "X-Unread-Count": components["headers"]["X-Unread-Count"];
                 [name: string]: unknown;
             };
             content: {
@@ -1219,6 +1235,10 @@ export interface components {
         /** @description 操作権限がない */
         PermissionDenied: {
             headers: {
+                "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                "X-Unread-Count": components["headers"]["X-Unread-Count"];
                 [name: string]: unknown;
             };
             content: {
@@ -1237,6 +1257,10 @@ export interface components {
         /** @description 対象が存在しない、または存在を秘匿すべき場合 */
         NotFound: {
             headers: {
+                "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                "X-Unread-Count": components["headers"]["X-Unread-Count"];
                 [name: string]: unknown;
             };
             content: {
@@ -1255,6 +1279,10 @@ export interface components {
         /** @description 楽観ロック不一致または状態競合 */
         Conflict: {
             headers: {
+                "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                "X-Unread-Count": components["headers"]["X-Unread-Count"];
                 [name: string]: unknown;
             };
             content: {
@@ -1273,6 +1301,10 @@ export interface components {
         /** @description アップロードサイズ超過 */
         PayloadTooLarge: {
             headers: {
+                "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                "X-Unread-Count": components["headers"]["X-Unread-Count"];
                 [name: string]: unknown;
             };
             content: {
@@ -1291,6 +1323,10 @@ export interface components {
         /** @description レートリミット超過 */
         RateLimited: {
             headers: {
+                "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                "X-Unread-Count": components["headers"]["X-Unread-Count"];
                 "Retry-After"?: number;
                 [name: string]: unknown;
             };
@@ -1311,6 +1347,10 @@ export interface components {
         /** @description 外部基盤の障害またはタイムアウト */
         UpstreamUnavailable: {
             headers: {
+                "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                "X-Unread-Count": components["headers"]["X-Unread-Count"];
                 [name: string]: unknown;
             };
             content: {
@@ -1333,13 +1373,34 @@ export interface components {
         /** @description 前ページの nextCursor（省略時は先頭） */
         Cursor: string;
         Limit: number;
-        /** @description 読み取り時の etag。版が進んでいた場合は 409 */
+        /** @description 読み取り時の etag（Project・ChatMessage・AutomergeState の etag、通知設定は ETag ヘッダ）。版が進んでいた場合は 409 */
         IfMatch: string;
         /** @description 作成系の重複防止キー（24 時間有効） */
         IdempotencyKey: string;
     };
     requestBodies: never;
-    headers: never;
+    headers: {
+        /**
+         * @description レートリミットの上限（制限単位あたり）
+         * @example 60
+         */
+        "RateLimit-Limit": number;
+        /**
+         * @description リセットまでに残っている回数
+         * @example 59
+         */
+        "RateLimit-Remaining": number;
+        /**
+         * @description 制限がリセットされるまでの秒数
+         * @example 42
+         */
+        "RateLimit-Reset": number;
+        /**
+         * @description 認証済み利用者の未読通知件数（匿名の応答では付与されない）
+         * @example 3
+         */
+        "X-Unread-Count": number;
+    };
     pathItems: never;
 }
 export type $defs = Record<string, never>;
@@ -1356,6 +1417,10 @@ export interface operations {
             /** @description 契約の版情報 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -1379,6 +1444,10 @@ export interface operations {
             /** @description 認可 URL へのリダイレクト */
             302: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     Location?: string;
                     [name: string]: unknown;
                 };
@@ -1402,6 +1471,10 @@ export interface operations {
             /** @description クライアントのコールバック URL へ一時コードを付けてリダイレクト */
             302: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     Location?: string;
                     [name: string]: unknown;
                 };
@@ -1423,6 +1496,10 @@ export interface operations {
             /** @description 新しいトークン対 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -1432,6 +1509,10 @@ export interface operations {
             /** @description セッション期限切れ・失効、または更新トークン再利用検知（再利用時は当該利用者の全セッションを失効） */
             401: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -1452,6 +1533,10 @@ export interface operations {
             /** @description 失効完了 */
             204: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -1471,6 +1556,10 @@ export interface operations {
             /** @description 退会完了 */
             204: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -1490,6 +1579,10 @@ export interface operations {
             /** @description 利用者像 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -1503,7 +1596,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description 読み取り時の etag。版が進んでいた場合は 409 */
+                /** @description 読み取り時の etag（Project・ChatMessage・AutomergeState の etag、通知設定は ETag ヘッダ）。版が進んでいた場合は 409 */
                 "If-Match"?: components["parameters"]["IfMatch"];
             };
             path?: never;
@@ -1518,6 +1611,10 @@ export interface operations {
             /** @description 更新後の利用者像 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -1543,6 +1640,10 @@ export interface operations {
             /** @description 公開利用者像 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -1568,6 +1669,10 @@ export interface operations {
             /** @description プロジェクト一覧ページ */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -1594,6 +1699,10 @@ export interface operations {
             /** @description プロジェクト一覧ページ */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -1657,6 +1766,10 @@ export interface operations {
             /** @description 作成されたプロジェクト */
             201: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -1670,6 +1783,10 @@ export interface operations {
             /** @description novnow 形式の検証失敗 */
             422: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -1692,6 +1809,10 @@ export interface operations {
             /** @description プロジェクト詳細 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -1715,6 +1836,10 @@ export interface operations {
             /** @description 取り下げ完了 */
             204: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -1728,7 +1853,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description 読み取り時の etag。版が進んでいた場合は 409 */
+                /** @description 読み取り時の etag（Project・ChatMessage・AutomergeState の etag、通知設定は ETag ヘッダ）。版が進んでいた場合は 409 */
                 "If-Match"?: components["parameters"]["IfMatch"];
             };
             path: {
@@ -1745,6 +1870,10 @@ export interface operations {
             /** @description 更新後のプロジェクト */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -1772,6 +1901,10 @@ export interface operations {
             /** @description 派生ツリー */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -1810,6 +1943,10 @@ export interface operations {
             /** @description 派生作成を受け付けた */
             202: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -1824,7 +1961,10 @@ export interface operations {
     createRelease: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description 作成系の重複防止キー（24 時間有効） */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
             path: {
                 projectId: components["parameters"]["ProjectId"];
             };
@@ -1843,6 +1983,10 @@ export interface operations {
             /** @description 作成されたリリース */
             201: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -1869,6 +2013,10 @@ export interface operations {
             /** @description ファイルツリー */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -1894,6 +2042,10 @@ export interface operations {
             /** @description ファイル内容 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -1907,7 +2059,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description 読み取り時の etag。版が進んでいた場合は 409 */
+                /** @description 読み取り時の etag（Project・ChatMessage・AutomergeState の etag、通知設定は ETag ヘッダ）。版が進んでいた場合は 409 */
                 "If-Match"?: components["parameters"]["IfMatch"];
             };
             path: {
@@ -1928,6 +2080,10 @@ export interface operations {
             /** @description 更新後のファイルメタ情報 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -1944,7 +2100,10 @@ export interface operations {
     commitFiles: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description 作成系の重複防止キー（24 時間有効） */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
             path: {
                 projectId: components["parameters"]["ProjectId"];
             };
@@ -1968,6 +2127,10 @@ export interface operations {
             /** @description コミット結果 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2000,6 +2163,10 @@ export interface operations {
             /** @description 変更提案のページ */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2035,6 +2202,10 @@ export interface operations {
             /** @description 作成された変更提案 */
             201: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2062,6 +2233,10 @@ export interface operations {
             /** @description 変更提案 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2086,6 +2261,10 @@ export interface operations {
             /** @description 差分 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2114,6 +2293,10 @@ export interface operations {
             /** @description コメントのページ */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2127,7 +2310,10 @@ export interface operations {
     commentProposal: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description 作成系の重複防止キー（24 時間有効） */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
             path: {
                 projectId: components["parameters"]["ProjectId"];
                 number: components["parameters"]["NumberParam"];
@@ -2148,6 +2334,10 @@ export interface operations {
             /** @description 作成されたコメント */
             201: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2181,6 +2371,10 @@ export interface operations {
             /** @description レビュー記録後の変更提案 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2206,6 +2400,10 @@ export interface operations {
             /** @description 取り込み結果 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2233,6 +2431,10 @@ export interface operations {
             /** @description クローズ後の変更提案 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2258,6 +2460,10 @@ export interface operations {
             /** @description 予約状態 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2270,7 +2476,10 @@ export interface operations {
     reserveAutomerge: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description 読み取り時の etag（Project・ChatMessage・AutomergeState の etag、通知設定は ETag ヘッダ）。版が進んでいた場合は 409 */
+                "If-Match"?: components["parameters"]["IfMatch"];
+            };
             path: {
                 projectId: components["parameters"]["ProjectId"];
                 number: components["parameters"]["NumberParam"];
@@ -2293,6 +2502,10 @@ export interface operations {
             /** @description 予約後の状態 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2320,6 +2533,10 @@ export interface operations {
             /** @description 予約取消し完了 */
             204: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -2348,6 +2565,10 @@ export interface operations {
             /** @description 課題のページ */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2382,6 +2603,10 @@ export interface operations {
             /** @description 作成された課題 */
             201: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2408,6 +2633,10 @@ export interface operations {
             /** @description 課題 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2421,7 +2650,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description 読み取り時の etag。版が進んでいた場合は 409 */
+                /** @description 読み取り時の etag（Project・ChatMessage・AutomergeState の etag、通知設定は ETag ヘッダ）。版が進んでいた場合は 409 */
                 "If-Match"?: components["parameters"]["IfMatch"];
             };
             path: {
@@ -2439,6 +2668,10 @@ export interface operations {
             /** @description 更新後の課題 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2470,6 +2703,10 @@ export interface operations {
             /** @description コメントのページ */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2483,7 +2720,10 @@ export interface operations {
     commentIssue: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description 作成系の重複防止キー（24 時間有効） */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
             path: {
                 projectId: components["parameters"]["ProjectId"];
                 number: components["parameters"]["NumberParam"];
@@ -2501,6 +2741,10 @@ export interface operations {
             /** @description 作成されたコメント */
             201: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2533,6 +2777,10 @@ export interface operations {
             /** @description 更新後の課題 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2557,6 +2805,10 @@ export interface operations {
             /** @description ルーム一覧 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2570,7 +2822,10 @@ export interface operations {
     createChatChannel: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description 作成系の重複防止キー（24 時間有効） */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
             path: {
                 projectId: components["parameters"]["ProjectId"];
             };
@@ -2588,6 +2843,10 @@ export interface operations {
             /** @description 作成されたルーム */
             201: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2618,6 +2877,10 @@ export interface operations {
             /** @description メッセージのページ */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2631,7 +2894,10 @@ export interface operations {
     postChatMessage: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description 作成系の重複防止キー（24 時間有効） */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
             path: {
                 projectId: components["parameters"]["ProjectId"];
                 channelId: string;
@@ -2649,6 +2915,10 @@ export interface operations {
             /** @description 送信されたメッセージ */
             201: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2676,6 +2946,10 @@ export interface operations {
             /** @description 削除完了 */
             204: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -2689,7 +2963,10 @@ export interface operations {
     editChatMessage: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description 読み取り時の etag（Project・ChatMessage・AutomergeState の etag、通知設定は ETag ヘッダ）。版が進んでいた場合は 409 */
+                "If-Match"?: components["parameters"]["IfMatch"];
+            };
             path: {
                 projectId: components["parameters"]["ProjectId"];
                 channelId: string;
@@ -2708,6 +2985,10 @@ export interface operations {
             /** @description 編集後のメッセージ */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2718,6 +2999,7 @@ export interface operations {
             401: components["responses"]["AuthenticationRequired"];
             403: components["responses"]["PermissionDenied"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     searchProjects: {
@@ -2740,6 +3022,10 @@ export interface operations {
             /** @description 検索結果ページ */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2766,6 +3052,10 @@ export interface operations {
             /** @description 検索結果ページ */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2793,6 +3083,10 @@ export interface operations {
             /** @description 通知のページ */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2822,6 +3116,10 @@ export interface operations {
             /** @description 既読化完了 */
             204: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -2842,6 +3140,12 @@ export interface operations {
             /** @description 通知設定 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
+                    /** @description 通知設定の版識別子（If-Match に指定する） */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2854,7 +3158,10 @@ export interface operations {
     updateNotificationSettings: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description 読み取り時の etag（Project・ChatMessage・AutomergeState の etag、通知設定は ETag ヘッダ）。版が進んでいた場合は 409 */
+                "If-Match"?: components["parameters"]["IfMatch"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -2869,6 +3176,12 @@ export interface operations {
             /** @description 更新後の通知設定 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
+                    /** @description 通知設定の版識別子（If-Match に指定する） */
+                    ETag?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -2877,6 +3190,7 @@ export interface operations {
             };
             400: components["responses"]["ValidationFailed"];
             401: components["responses"]["AuthenticationRequired"];
+            409: components["responses"]["Conflict"];
         };
     };
     verifyProject: {
@@ -2893,6 +3207,10 @@ export interface operations {
             /** @description 検証結果 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2918,6 +3236,10 @@ export interface operations {
             /** @description 検証結果（未実行の場合は 404） */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2930,7 +3252,10 @@ export interface operations {
     runDiagnostics: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description 作成系の重複防止キー（24 時間有効） */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
             path: {
                 projectId: components["parameters"]["ProjectId"];
             };
@@ -2941,6 +3266,10 @@ export interface operations {
             /** @description ジョブを受け付けた */
             202: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2965,6 +3294,10 @@ export interface operations {
             /** @description ジョブ状態 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2975,6 +3308,10 @@ export interface operations {
             /** @description ジョブ不存在 */
             404: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -2986,7 +3323,10 @@ export interface operations {
     createExport: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description 作成系の重複防止キー（24 時間有効） */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
             path: {
                 projectId: components["parameters"]["ProjectId"];
             };
@@ -3004,6 +3344,10 @@ export interface operations {
             /** @description ジョブを受け付けた */
             202: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -3027,6 +3371,10 @@ export interface operations {
             /** @description 読者ビュー */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -3050,6 +3398,10 @@ export interface operations {
             /** @description セットアップ情報 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -3074,6 +3426,10 @@ export interface operations {
             /** @description セットアップ情報 */
             200: {
                 headers: {
+                    "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
+                    "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
+                    "RateLimit-Reset": components["headers"]["RateLimit-Reset"];
+                    "X-Unread-Count": components["headers"]["X-Unread-Count"];
                     [name: string]: unknown;
                 };
                 content: {

@@ -11,6 +11,8 @@
     getCachedReadingDocument,
   } from '../../lib/reader-cache';
 
+  type ReaderFontSize = 'small' | 'medium' | 'large' | 'xlarge';
+
   interface Props {
     projectId: string;
     m: Messages;
@@ -21,6 +23,24 @@
   let state = $state<'loading' | 'ready' | 'error'>('loading');
   let failure = $state<ApiFailure>('unknown');
   let cacheState = $state<'refreshing' | 'offline' | undefined>(undefined);
+  let fontSize = $state<ReaderFontSize>('medium');
+
+  // The size is kept on this device only (localStorage), as the design requires.
+  const readerFontSizes: ReaderFontSize[] = ['small', 'medium', 'large', 'xlarge'];
+  const fontSizeStorageKey = 'novnow-reader-font-size';
+
+  function isReaderFontSize(value: unknown): value is ReaderFontSize {
+    return typeof value === 'string' && (readerFontSizes as string[]).includes(value);
+  }
+
+  function setFontSize(next: ReaderFontSize) {
+    fontSize = next;
+    try {
+      localStorage.setItem(fontSizeStorageKey, next);
+    } catch {
+      // Storage may be unavailable; the size still applies to the current page.
+    }
+  }
 
   async function loadReadingDocument() {
     if (!projectId) {
@@ -88,11 +108,17 @@
   }
 
   onMount(() => {
+    try {
+      const stored = localStorage.getItem(fontSizeStorageKey);
+      if (isReaderFontSize(stored)) fontSize = stored;
+    } catch {
+      // Keep the default size when storage is unavailable.
+    }
     void loadReadingDocument();
   });
 </script>
 
-<article class="reader" aria-labelledby="reader-heading">
+<article class="reader" aria-labelledby="reader-heading" data-font-size={fontSize}>
   {#if state === 'loading'}
     <header class="reader-header">
       <h1 id="reader-heading">{m.reader.title}</h1>
@@ -112,6 +138,19 @@
         <a href={projectPageHref(projectId)}>{m.reader.backToProject}</a>
       </p>
       <h1 id="reader-heading">{document.title}</h1>
+      <div class="reader-font-controls" role="group" aria-label={m.reader.fontSize.label}>
+        <span class="reader-font-label" aria-hidden="true">{m.reader.fontSize.label}</span>
+        {#each readerFontSizes as size (size)}
+          <button
+            class="button"
+            type="button"
+            aria-pressed={fontSize === size}
+            onclick={() => setFontSize(size)}
+          >
+            {m.reader.fontSize[size]}
+          </button>
+        {/each}
+      </div>
     </header>
 
     {#if cacheState}
