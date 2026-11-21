@@ -128,7 +128,20 @@
 
 ### 4.7 冪等性と楽観ロック
 
-- 作成系（POST）は `Idempotency-Key` ヘッダを受け付け、同一キー・同一内容の再送では作成を重複させず、前回の結果を返す。
+- 作成系（POST）は `Idempotency-Key` ヘッダを受け付け、同一キー・同一内容の再送では作成を重複させず、前回の結果を返す。対象は次の 12 操作である。
+  - `POST /projects`
+  - `POST /projects/{projectId}/derive`
+  - `POST /projects/{projectId}/proposals`
+  - `POST /projects/{projectId}/issues`
+  - `POST /projects/{projectId}/releases`
+  - `POST /projects/{projectId}/commit`
+  - `POST /projects/{projectId}/proposals/{number}/comments`
+  - `POST /projects/{projectId}/issues/{number}/comments`
+  - `POST /projects/{projectId}/chat/channels`
+  - `POST /projects/{projectId}/chat/channels/{channelId}/messages`
+  - `POST /projects/{projectId}/diagnostics`
+  - `POST /projects/{projectId}/exports`
+- `Idempotency-Key` の対象外は `auth/refresh`、`auth/logout`、`merge`、`approve`、`close`、`notifications/read`、`verify` である。
 - 更新系（PATCH/PUT）は `If-Match` による楽観ロックを用いる。読み取り時の `etag` を指定して送り、版が進んでいた場合は 409 を返す。
 - 削除系は冪等とする（既に削除済みでも 204 相当または 404 を返す。具体は各エンドポイントで定める）。
 
@@ -188,9 +201,11 @@
 | GET | `/projects/{projectId}/proposals/{number}` | 匿名可 | 提案詳細（本文・状態・チェック一覧） |
 | GET | `/projects/{projectId}/proposals/{number}/diff` | 匿名可 | 差分（novnow 診断差分を含む） |
 | POST | `/projects/{projectId}/proposals/{number}/comments` | 要認証 | コメントを追加する |
-| POST | `/projects/{projectId}/proposals/{number}/approve` | 要認証 | 承認／承認取消し |
+| POST | `/projects/{projectId}/proposals/{number}/approve` | 要認証 | レビューを記録する（`verdict`: `approve`／`dismiss`／`request_changes`） |
 | POST | `/projects/{projectId}/proposals/{number}/merge` | 所有者／協働者 | 即時取り込み |
-| POST | `/projects/{projectId}/proposals/{number}/close` | 要認証 | 却下／クローズ |
+| POST | `/projects/{projectId}/proposals/{number}/close` | 要認証 | 提案の取下げ・クローズ（ライフサイクル操作） |
+
+`approve` はレビュー操作として `verdict` を受け取る。却下（`dismiss`）と変更要求（`request_changes`）は `approve` 経由で行う。`close` はレビューの却下ではなく、提案の取下げ・クローズ（ライフサイクル操作）である。
 
 ### 5.6 自動マージ（automerge）
 
@@ -244,7 +259,7 @@
 |---|---|---|---|
 | POST | `/projects/{projectId}/verify` | 所有者／協働者 | novnow 形式の妥当性検証を実行する |
 | GET | `/projects/{projectId}/verify/latest` | 匿名可 | 直近の検証結果 |
-| POST | `/projects/{projectId}/diagnostics` | 任意 | novnow 診断を実行する（非同期ジョブ） |
+| POST | `/projects/{projectId}/diagnostics` | 要認証 | novnow 診断を実行する（非同期ジョブ） |
 | GET | `/jobs/{jobId}` | 要認証 | 非同期ジョブの状態と結果 |
 | POST | `/projects/{projectId}/exports` | 匿名可 | 本文のエクスポートを生成する（非同期ジョブ） |
 | GET | `/projects/{projectId}/reading` | 匿名可 | pre-setup ビュー（読者向け表現済み本文） |
@@ -348,7 +363,7 @@ Project 1───N Release
 | フィールド | 型 | 必須 | 説明 |
 |---|---|---|---|
 | `id` | string | 必須 | hub 発行の不透明 ID |
-| `kind` | string | 必須 | `derivative_created`／`proposal_merged`／`proposal_comment`／`issue_created`／`mention`／`job_finished`／`publish_rebuilt` など |
+| `kind` | string | 必須 | `derivative_created`／`proposal_merged`／`proposal_automerge_failed`／`proposal_comment`／`issue_created`／`issue_comment`／`mention`／`job_finished`／`publish_rebuilt` のいずれか |
 | `projectId` / `projectSlug` | string | 任意 | 対象プロジェクト |
 | `title` / `body` | string | 必須 | 表示文 |
 | `read` | boolean | 必須 | 既読か |

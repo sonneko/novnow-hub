@@ -24,7 +24,7 @@ npm run dev
 
 - `/`: プロジェクト一覧
 - `/projects/?projectId=<id>`: プロジェクト詳細
-- `/read/?projectId=<id>`: 読者ビュー
+- `/reading/?projectId=<id>`: 読者ビュー
 
 詳細・読者ページはクエリの `projectId` を使い、API が返す任意の project ID に対応します。
 

@@ -12,7 +12,7 @@
 | 初期マイルストーン | 完了 | プロジェクトセットアップ・ドキュメント管理規則の策定 | `REF:docs/history.md` |
 | M1 仕様策定 | 完了 | 仕様書・API 契約（OpenAPI 3.1）・マイルストーン計画の策定 | `REF:docs/plans.md#m1-specs` |
 | M2 フロントエンド基盤 | ほぼ完了 | Astro／Svelte、API 型生成、OpenAPI モック、アプリシェル（CI 拡張は未完了） | `REF:docs/plans.md#m2-frontend-mock` |
-| M3 公開と閲覧 | 進行中 | 読者ビュー・公開ページの静的シェル事前描画・ETag キャッシュを実装。バックエンド・公開フロー・検索は未完了 | `REF:docs/plans.md#m3-thin-slice` |
+| M3 公開と閲覧 | 進行中 | 読者ビュー・公開ページの静的シェル事前描画・ETag キャッシュ・公開ウィザード UI を実装。バックエンド・公開フロー本体・検索は未完了 | `REF:docs/plans.md#m3-thin-slice` |
 | M4 コラボレーション | 進行中 | Proposal／Issue UI と SQLite ChatPort 参照実装・チャット UI を実装。自動マージ・通知等は未完了 | `REF:docs/plans.md#m4-collaboration` |
 | M5 novnow 特化機能 | 進行中 | セットアップ URL 発行・解決を実装。派生・診断等は未完了 | `REF:docs/plans.md#m5-novnow-features` |
 <!-- SYNC:END project-status -->

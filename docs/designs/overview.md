@@ -114,7 +114,7 @@ Phase 1 は GitHub アダプター群 + hub 管理ストア（チャット・通
 
 ### 5.1 新規公開フロー
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m3-thin-slice）
+状態: 実装中（公開ウィザード UI は PR #8 で実装済み。バックエンドの保管・検証・公開フロー本体は未実装、REF:docs/plans.md#m3-thin-slice）
 
 UI は 4 画面。API は `POST /projects` に集約し、multipart または JSON（ソース指定）で受ける。サーバ側の処理順は (1) 入力検証 → (2) novnow 検証（§5.3 相当・バックエンド側で再検証）→ (3) 保管単位作成 → (4) 原子コミット → (5) hub 登録と検索インデックス投入 → (6) 公開ページの事前描画。失敗箇所ごとに補償手順を定義し、リトライは冪等キーで吸収する。
 
@@ -148,7 +148,7 @@ Phase 1 は 1 hub プロジェクト = 1 GitHub リポジトリ（所有者は�
 
 ### 6.1 プロジェクトページ
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m3-thin-slice）
+状態: 実装中（読者ビューと公開ページの静的シェル事前描画・ETag キャッシュは PR #19 で実装済み。バックエンド・検索は未実装、REF:docs/plans.md#m3-thin-slice）
 
 Astro の動的ルート + Svelte アイランド（インタラクション部分のみ）。公開ページの本文データは `/projects/{id}/reading` で取得し、OGP（タイトル・説明・作者・ライセンス）は SSR でメタタグ化する。設定資料タブは `materials/` 公開フラグをプロジェクト設定として持ち、既定は非公開。
 
@@ -160,7 +160,7 @@ Astro の動的ルート + Svelte アイランド（インタラクション部�
 
 ### 6.3 ブラウザでそのまま読む
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m2-frontend-mock, REF:docs/plans.md#m3-thin-slice）
+状態: 実装中（読者ビューの事前描画と ETag キャッシュは PR #19 で実装済み。CDN／Workers キャッシュ等の完成形は未実装、REF:docs/plans.md#m2-frontend-mock, REF:docs/plans.md#m3-thin-slice）
 
 読者ビューは novnow 本文を注釈除去済み HTML として事前生成（公開・再生成時）し、CDN／Workers のキャッシュに乗せる。テーマは `prefers-color-scheme` 追従 + 手動切替、文字サイズは端末内（localStorage 相当）保存。JS 無効でも本文が読めるよう、本文部分は静的 HTML を正とする。
 
@@ -170,7 +170,7 @@ Astro の動的ルート + Svelte アイランド（インタラクション部�
 
 ### 7.1 URL ワンクリックセットアップ
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m5-novnow-features）
+状態: 実装中（セットアップ URL 発行・解決は PR #12 で実装済み。派生・診断等は未実装、REF:docs/plans.md#m5-novnow-features）
 
 セットアップ URL は `https://<hub>/setup/{projectId}?via=web|desktop` 形式で、`GET /projects/{projectId}/setup` が返すペイロード（取得元・tarball URL／浅い clone URL・検証結果・推奨 novnow 版）を novnow アプリが解釈する。デスクトップ版はカスタムスキーム（`novnow://setup?…`）で受け、ブラウザ版は Web アプリへクエリを渡す。URL に認証情報は含めない。失敗時のフォールバックとして GitHub 上のプロジェクトページへ遷移できる導線を常に表示する。
 
@@ -204,7 +204,7 @@ Astro の動的ルート + Svelte アイランド（インタラクション部�
 
 ### 8.1 変更提案（プルリクエスト）とレビュー
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m4-collaboration）
+状態: 実装中（変更提案 UI と課題 UI は PR #16 で実装済み。自動マージ等は未実装、REF:docs/plans.md#m4-collaboration）
 
 ProposalPort を介して GitHub PR を操作する。UI は「提案一覧／詳細／差分／会話」の 4 ビュー。差分は unified diff をサーバで整形し、行単位コメント（Review threads）は GitHub の pull request review comments に写像する。会話の同期は読み取り専用の都度取得 + 書き込み時の即時反映で行い、リアルタイム性は要求しない。
 
@@ -216,13 +216,13 @@ AutomergePort.reserveAutomerge → GitHub の GraphQL `enablePullRequestAutoMerg
 
 ### 8.3 課題（Issue）
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m4-collaboration）
+状態: 実装中（課題 UI は PR #16 で実装済み。自動マージ等は未実装、REF:docs/plans.md#m4-collaboration）
 
 IssuePort を介して GitHub Issues を操作する。ラベルの正は GitHub 側に置き、hub は一覧表示用の投影（id／number／title／state／labels／assignee）だけを保持する。課題→提案の紐付けは本文先頭の `Closes #N` 相当の規約文字列として表現し、hub が解釈して `linkedProposalNumber` を自動設定する。
 
 ### 8.4 チャット
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m4-collaboration）
+状態: 実装完了（SQLite ChatPort 参照実装とチャット UI は PR #21 で実装済み、REF:docs/plans.md#m4-collaboration）
 
 ChatPort は hub 管理ストアに実装する（Phase 1 から GitHub を使わない）。メッセージは `chat_messages` テーブル（id／channel_id／author_id／body／mentions JSON／created_at／edited_at／deleted_at）に保存し、表示はカーソルページネーション。未読は `last_read_message_id` を利用者ごとに保持して算出する。WebSocket は Phase 1 では導入せず、短間隔ポーリング（5 秒）または表示時再取得とする（コスト制約）。
 
