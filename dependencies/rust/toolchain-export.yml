@@ -84,6 +84,8 @@ jobs:
 
       - name: Vendor dependencies
         if: steps.check.outputs.enabled == 'true'
+        # バックエンド crate は server/ にあるため、そこで vendor を実行する
+        working-directory: server
         run: |
           set -euo pipefail
           mkdir -p /tmp/export/vendor-src
