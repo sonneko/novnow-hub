@@ -156,15 +156,21 @@ jobs:
           echo "push rc=$rc"
           cat /tmp/push.log
 
-          # デバッグログを arena ブランチのファイルとして退避（curl で直接アップロード）
-          if [ "$rc" != "0" ]; then
-            B64=$(base64 -w0 /tmp/push.log)
-            curl -sS -X PUT "https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/debug/push.log" \
-              -H "Authorization: Bearer ${GH_TOKEN}" \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              -d "{\"message\":\"debug push log (run $GITHUB_RUN_ID)\",\"content\":\"${B64}\",\"branch\":\"${GITHUB_REF_NAME}\"}" || echo "curl upload failed"
-          fi
+          # デバッグ情報を常時 arena ブランチに退避（読み取り可能な形で）
+          {
+            echo "push rc=$rc"
+            echo "GH_TOKEN_SET=$([ -n "${GH_TOKEN:-}" ] && echo yes || echo no)"
+            echo "GITHUB_REF_NAME=${GITHUB_REF_NAME:-<unset>}"
+            echo "GITHUB_RUN_ID=${GITHUB_RUN_ID:-<unset>}"
+            echo "--- push.log ---"
+            cat /tmp/push.log
+          } > /tmp/diag.txt
+          B64=$(base64 -w0 /tmp/diag.txt)
+          curl -sS -X PUT "https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/debug/diag.txt" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -d "{\"message\":\"diag (run ${GITHUB_RUN_ID:-unknown})\",\"content\":\"${B64}\",\"branch\":\"${GITHUB_REF_NAME}\"}" || echo "curl upload failed"
 
           if [ "$rc" != "0" ]; then
             exit "$rc"
