@@ -6,6 +6,7 @@
   import type { FileContent, Project, ReadingDocument, SetupInfo, Tree } from '../../lib/api/types';
   import { cacheReadingDocument, getCachedReadingDocument } from '../../lib/reader-cache';
   import {
+    chatPageHref,
     derivativesPageHref,
     issueListHref,
     projectPageHref,
@@ -221,6 +222,7 @@
       <h2 id="collaboration-links-heading">{m.collaboration.projectLinksTitle}</h2>
       <a class="button" href={proposalListHref(projectId)}>{m.collaboration.openProposals}</a>
       <a class="button" href={issueListHref(projectId)}>{m.collaboration.openIssues}</a>
+      <a class="button" href={chatPageHref(projectId)}>{m.collaboration.chat.openChat}</a>
     </section>
 
     <section class="panel" aria-labelledby="project-contents">

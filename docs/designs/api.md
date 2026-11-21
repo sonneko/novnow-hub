@@ -161,9 +161,9 @@ IssuePort 越しに GitHub Issues を操作する。hub 側は一覧の投影（
 
 ### 5.8 チャット（chat）
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m4-collaboration, REF:api/openapi.yaml）
+状態: 実装完了（REF:web/server/chat-port.mjs, REF:web/server/chat-api.mjs, REF:api/openapi.yaml）
 
-GitHub ではなく hub 管理ストア（D1／SQLite）に実装する。テーブルは `chat_channels` と `chat_messages`。メンションは `@handle` をパースして `mentions` に保存し、ドメインイベント `MessagePosted` から通知へファンアウトする。編集履歴は `chat_message_revisions` に保持し、削除は論理削除（本文を `［削除されました］` に置換してフラグのみ保持）とする。リアルタイム配信は SSE の導入を M7 で検討し、Phase 1 は 5 秒ポーリングで十分とする。
+本リポジトリには契約検証・ブラウザ確認用の SQLite-backed ChatPort 参照実装を置く。チャットデータは hub 管理ストア（`chat_channels`、`chat_messages`、`chat_room_reads`）にのみ保存する。メンションは `@handle` をパースして `mentions` に保存し、`chat_notification_outbox` へ記録した通知イベントを購読者へ発行する。編集前の本文は `chat_message_revisions` に保持し、削除は論理削除（本文を `［削除されました］` に置換してフラグを保持）とする。メッセージ一覧取得では認証済み利用者の既読位置を進め、ルーム一覧の `unreadCount` を算出する。SSE は M7 で検討し、Phase 1 の UI は 5 秒間隔でポーリングする。
 
 ### 5.9 検索（search）
 
@@ -225,9 +225,9 @@ ER 図は設計文書で管理し、DB マイグレーション（`migrations/NN
 
 ### 6.6 チャットメッセージ（ChatMessage）
 
-状態: 未実装・実装計画済み（REF:api/openapi.yaml）
+状態: 実装完了（REF:web/server/chat-port.mjs, REF:api/openapi.yaml）
 
-`chat_messages`（id／channel_id／author_id／body／mentions／created_at／edited_at／deleted_at）。本文は 4000 字上限・UTF-8・NFC。検索・全文索引用の索引は持たない。既読位置は `chat_read_positions`（user_id／channel_id／last_message_id）に保持する。
+参照実装は `chat_messages`（id／project_id／channel_id／author_handle／body／mentions_json／created_at／edited_at／deleted）。本文は 4000 文字上限とし、検索・全文索引用の索引は持たない。既読位置は `chat_room_reads`（project_id／channel_id／reader_handle／last_read_at／last_read_message_id）に保存する。編集前本文は `chat_message_revisions`、メンション通知イベントは `chat_notification_outbox` に保持する。
 
 ### 6.7 通知（Notification）
 

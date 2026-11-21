@@ -2563,6 +2563,7 @@ export interface operations {
                     "application/json": components["schemas"]["ChatChannel"][];
                 };
             };
+            400: components["responses"]["ValidationFailed"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -2593,6 +2594,7 @@ export interface operations {
                     "application/json": components["schemas"]["ChatChannel"];
                 };
             };
+            400: components["responses"]["ValidationFailed"];
             401: components["responses"]["AuthenticationRequired"];
             404: components["responses"]["NotFound"];
         };
@@ -2622,6 +2624,7 @@ export interface operations {
                     "application/json": components["schemas"]["ChatMessagePage"];
                 };
             };
+            400: components["responses"]["ValidationFailed"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -2652,6 +2655,7 @@ export interface operations {
                     "application/json": components["schemas"]["ChatMessage"];
                 };
             };
+            400: components["responses"]["ValidationFailed"];
             401: components["responses"]["AuthenticationRequired"];
             404: components["responses"]["NotFound"];
         };
@@ -2676,6 +2680,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["ValidationFailed"];
             401: components["responses"]["AuthenticationRequired"];
             403: components["responses"]["PermissionDenied"];
             404: components["responses"]["NotFound"];
@@ -2709,6 +2714,7 @@ export interface operations {
                     "application/json": components["schemas"]["ChatMessage"];
                 };
             };
+            400: components["responses"]["ValidationFailed"];
             401: components["responses"]["AuthenticationRequired"];
             403: components["responses"]["PermissionDenied"];
             404: components["responses"]["NotFound"];
