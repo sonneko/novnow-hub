@@ -132,7 +132,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -uo pipefail
           cd /tmp/export
 
           # Push ブロック全体の出力をログに退避（失敗原因の特定用）
@@ -153,15 +152,24 @@ jobs:
             git push --force origin cache/rust-toolchain
           } > /tmp/push.log 2>&1
           rc=$?
+          echo "push rc=$rc"
           cat /tmp/push.log
 
-          # デバッグログを debug ブランチに退避（読み取り可能な形で）
-          cd /tmp && rm -rf diag && git init -q diag && cd diag && \
-            git config user.email "actions@github.com" && git config user.name "GitHub Actions" && \
-            git checkout -qb debug/toolchain-push && cp /tmp/push.log push.log && \
-            git add -A && git commit -qm "push debug log" && \
-            git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" && \
-            git push --force origin debug/toolchain-push || true
+          # デバッグログを debug ブランチに退避（サブシェルで必ず実行）
+          (
+            cd /tmp
+            rm -rf diag
+            git init -q diag
+            cd diag
+            git config user.email "actions@github.com"
+            git config user.name "GitHub Actions"
+            git checkout -qb debug/toolchain-push
+            cp /tmp/push.log push.log
+            git add -A
+            git commit -qm "push debug log"
+            git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+            git push --force origin debug/toolchain-push
+          ) || echo "debug push failed"
 
           if [ "$rc" != "0" ]; then
             exit "$rc"
