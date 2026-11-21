@@ -68,9 +68,7 @@ jobs:
           fi
 
       - name: Smoke test Prism mock
-        defaults:
-          run:
-            working-directory: web
+        working-directory: web
         run: bash ../docs/script/smoke-mock.sh
 
       - name: Detect whether code inputs changed
