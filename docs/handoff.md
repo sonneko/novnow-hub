@@ -13,7 +13,7 @@
 | 初期マイルストーン | 完了 | プロジェクトセットアップ・ドキュメント管理規則の策定 | `REF:docs/history.md` |
 | M1 仕様策定 | 完了 | 仕様書・API 契約（OpenAPI 3.1）・マイルストーン計画の策定 | `REF:docs/plans.md#m1-specs` |
 | M2 フロントエンド基盤 | ほぼ完了 | Astro／Svelte、API 型生成、OpenAPI モック、アプリシェル（CI 拡張は未完了） | `REF:docs/plans.md#m2-frontend-mock` |
-| M3 公開と閲覧 | 進行中 | 読者ビュー・公開ページの静的シェル事前描画・ETag キャッシュを実装。バックエンド・公開フロー・検索は未完了 | `REF:docs/plans.md#m3-thin-slice` |
+| M3 公開と閲覧 | 進行中 | 読者ビュー・公開ページの静的シェル事前描画・ETag キャッシュ・公開ウィザード UI を実装。バックエンド・公開フロー本体・検索は未完了 | `REF:docs/plans.md#m3-thin-slice` |
 | M4 コラボレーション | 進行中 | Proposal／Issue UI と SQLite ChatPort 参照実装・チャット UI を実装。自動マージ・通知等は未完了 | `REF:docs/plans.md#m4-collaboration` |
 | M5 novnow 特化機能 | 進行中 | セットアップ URL 発行・解決を実装。派生・診断等は未完了 | `REF:docs/plans.md#m5-novnow-features` |
 <!-- SYNC:END project-status -->
@@ -22,10 +22,10 @@
 
 ## 2. 現在のブランチ・PR・直近の作業状態
 
-- **現在のブランチ**: `arena/35aca776-novnow-hub`（`main` 分岐点 `01b84879ceccb30fee5dcb4586b0bf0dbcae328c`、PR #19 のマージコミット）
-- **PR**: M4 会話スレッド UI の実装を検証後、`main` 向け PR を作成する（作成後に URL と CI 状態を記録）。マージはユーザーの指示を待つ。
-- **現在の状態**: M3 は `/reading`・公開ページの静的シェル事前描画と ETag キャッシュを実装済み。M4 は Proposal／Issue UI に加え、この作業で SQLite-backed ChatPort 参照実装とチャット UI を実装。自動マージ・通知センター等は未完了。M5 はセットアップ URL 発行・解決 UI を実装済み。M2 の CI 拡張は未完了。
-- **検証**: `cd web && npm run check && npm run build`、`python3 docs/script/verify-docs.py`、`openapi-spec-validator` による `api/openapi.yaml` 検証を確認済み。チャット用の API 検証・UI を含む 35 テストが成功。
+- **現在のブランチ**: `arena/56f1227e-novnow-hub`（`main` 分岐点 `997f9dd541a387aad4fa3d0a840a32f4063d8e0a`、PR #21 のマージコミット）
+- **PR**: Issues #22–#33 のドキュメント側修正（仕様・設計・計画・運維ドキュメント）を検証後、`main` 向け PR を作成する（作成後に URL と CI 状態を記録）。マージはユーザーの指示を待つ。
+- **現在の状態**: M3 は `/reading`・公開ページの静的シェル事前描画と ETag キャッシュを実装済み。M4 は Proposal／Issue UI に加え、SQLite-backed ChatPort 参照実装とチャット UI を実装済み。自動マージ・通知センター等は未完了。M5 はセットアップ URL 発行・解決 UI を実装済み。M2 の CI 拡張は未完了。
+- **検証**: `cd web && npm run check && npm run build`、`python3 docs/script/verify-docs.py`、`openapi-spec-validator` による `api/openapi.yaml` 検証を確認済み。35 テストが成功（うちチャット関連は 10 テスト: ChatPort 6・ChatPage UI 2・chat API 2）。
 
 ---
 
@@ -33,7 +33,7 @@
 
 1. コンテナ再起動後は現在のブランチを fetch して追随する:
    ```bash
-   git fetch origin arena/35aca776-novnow-hub
+   git fetch origin arena/56f1227e-novnow-hub
    git reset --mixed FETCH_HEAD
    ```
    Rust ツールチェーン復旧が必要な場合は `REF:docs/developers.md` §2.2 を参照する。

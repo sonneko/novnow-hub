@@ -4,8 +4,8 @@ name: CI
 #
 # ジョブ構成:
 # 1. `docs`: ドキュメント管理規則の検証 + 変更ファイルの判定（docs-only の場合は重いジョブをスキップ）
-# 2. `lint`: Astro / Svelte / TypeScript の型チェック
-# 3. `test`: テストの実行（スキャフォールド段階では未配置）
+# 2. `lint`: Astro / Svelte / TypeScript の型チェック（Vitest によるテストも `npm run check` に含めて実行）
+# 3. `test`: テストの実行（テスト自体は lint ジョブの `npm run check` で実行しているため、本書は位置付けのみ）
 # 4. `build`: フロントエンドのビルド検証
 #
 # PR の draft 中はジョブをスキップし、ready for review で走らせる。
@@ -134,9 +134,9 @@ jobs:
         with:
           fetch-depth: 1
 
-      # 依存を増やさないため、スキャフォールド段階ではテストフレームワークを導入しない。
-      - name: No application tests in scaffold
-        run: echo "No application tests have been added to this scaffold yet."
+      # テスト実行自体は lint ジョブの `npm run check`（Vitest を含む）で担っているため、本ジョブは構成上の位置付けのみとする。
+      - name: Note on test execution
+        run: echo "Tests run via the lint job's 'npm run check' (Vitest)."
 
   build:
     name: Build Check

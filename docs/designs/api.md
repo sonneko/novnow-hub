@@ -75,7 +75,7 @@
 
 状態: 未実装・実装計画済み（REF:api/openapi.yaml, REF:docs/plans.md#m3-thin-slice）
 
-ベースパス `/api/v1` は Axum のネストしたルータで一元管理し、クライアントは `PUBLIC_API_BASE_URL`（Astro の `PUBLIC_` 環境変数）から注入する。`GET /api/v1/meta` は匿名可で、`{"contractVersion": "1.0.0", "serverTime": "…"}` を返す。ヘルスチェックは外部監視からも叩けるよう認証不要とする。
+ベースパス `/api/v1` は Axum のネストしたルータで一元管理し、クライアントは `PUBLIC_API_BASE_URL`（Astro の `PUBLIC_` 環境変数）から注入する。`GET /api/v1/meta` は匿名可で、`contractVersion` を返す。その値が `openapi.yaml` の `info.version` と等しいことは契約テストで固定する。ヘルスチェックは外部監視からも叩けるよう認証不要とする。
 
 ### 4.2 リクエストとレスポンスの形式
 
@@ -187,7 +187,7 @@ IssuePort 越しに GitHub Issues を操作する。hub 側は一覧の投影（
 
 状態: 未実装・実装計画済み（REF:docs/plans.md#m5-novnow-features, REF:api/openapi.yaml）
 
-`GET /projects/{id}/setup` は `{ projectId, slug, snapshotVersion, acquisition: { kind: "codeload" | "git", url, ref }, novnow: { minVersion }, displayHints }` を返す。`GET /setup/resolve?u=…` は公開ページのセットアップ URL を解釈し、同じペイロードを返す（アプリが公開 URL から出発できるようにするため）。`acquisition.url` は認証不要の公開 tarball（codeload 相当）を既定とし、私設の場合は短期失効トークン付き URL を発行する。いずれの場合も hub のセッションをアプリへ渡さない。
+`GET /projects/{id}/setup` は `{ projectId, slug, snapshotVersion, acquisition: { kind: "archive" | "git", url, ref }, novnow: { minVersion }, displayHints }` を返す。`GET /setup/resolve?u=…` は公開ページのセットアップ URL を解釈し、同じペイロードを返す（アプリが公開 URL から出発できるようにするため）。`acquisition.url` は認証不要の公開 tarball（archive 相当）を既定とし、私設の場合は短期失効トークン付き URL を発行する。いずれの場合も hub のセッションをアプリへ渡さない。
 
 ---
 
@@ -278,7 +278,7 @@ GitHub 実装は `octocrab`（または薄い reqwest ラッパ）で実装し�
 
 状態: 実装完了（REF:api/openapi.yaml）
 
-`openapi.yaml` の `info.version` を `1.0.0` で開始し、`GET /api/v1/meta` が同値を返すことを契約テストで固定する。タグ・リリースにも契約版を刻み、変更履歴を `CHANGELOG.md` で管理する（M3 で導入）。
+`openapi.yaml` の `info.version` を `1.0.0` で開始する。`GET /api/v1/meta` は `contractVersion` を返し、その値が `openapi.yaml` の `info.version` と等しいことは契約テストで固定する。タグ・リリースにも契約版を刻み、変更履歴を `CHANGELOG.md` で管理する（M3 で導入）。
 
 ### 8.2 後方互換のルール
 
@@ -362,7 +362,7 @@ zip 取込は許可リスト（UTF-8・50MB・2000 ファイル・圧縮率 100 
 
 状態: 未実装・実装計画済み（REF:docs/plans.md#m2-frontend-mock, REF:api/openapi.yaml）
 
-構成は 2 層。(1) 開発用モックサーバー: Node + `@stoplight/prism-cli`（OpenAPI 3.1 対応）を `npm run mock` で起動し、既定 `:4010` で契約のエンドポイント・バリデーション・example 応答を提供する。example は `openapi.yaml` の `examples` に集約し、別ファイルへ重複させない。(2) テスト用インメモリモック: `msw`（Mock Service Worker）のハンドラを契約スキーマで検証しながらブラウザ／Vitest 上で差し替える。状態を持つシナリオ（サインイン→公開→派生）は Prism の `--dynamic` ではなく、`msw` 側のシードデータ（生成スクリプト出力、手書き禁止）で再現する。
+構成は 2 層。(1) 開発用モックサーバー: Node + `@stoplight/prism-cli`（OpenAPI 3.1 対応）を `npm run mock` で起動し、既定 `:4010` で契約のエンドポイント・バリデーション・example 応答を提供する。example は `openapi.yaml` の `examples` に集約し、別ファイルへ重複させない。(2) テスト用インメモリモック: `msw`（Mock Service Worker）のハンドラを契約スキーマで検証しながらブラウザ／Vitest 上で差し替える。状態を持つシナリオ（サインイン→公開→派生）は Prism の `--dynamic` ではなく、`msw` 側のシードデータで再現する。なお「シード生成スクリプト、手書き禁止」の対象は `mocks/seed` のモック用シードデータのみであり、ユニットテストのフィクスチャ（例: `web/src/test/fixtures.ts`）は対象外で、手書きで構わない。
 
 ### 11.3 契約テストによる同一性の検証
 

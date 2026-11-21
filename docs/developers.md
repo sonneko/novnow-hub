@@ -65,14 +65,14 @@ docs/
 Arena サンドボックスには初期状態で目的のツールチェーンが入っていない場合がある。外部通信が制限されているため、以下の手順でツールチェーンを展開する。
 
 **プロジェクトの技術スタックに応じた復旧手順**:
-- Rust を使用する場合: `dependencies/rust/README.md` の手順に従う（`scripts/bootstrap-rust.sh` を配置済みであること）
+- Rust を使用する場合: `dependencies/rust/README.md` の手順に従う（`dependencies/rust/bootstrap-rust.sh` を配置済みであること）
 - その他の技術スタック: `dependencies/` 内の該当ディレクトリを参照（存在しない場合はプロジェクト固有の手順を記述すること）
 
 1. **ツールチェーンの展開**:
    ```bash
    bash scripts/bootstrap-toolchain.sh   # 汎用スクリプト（プロジェクト側で調整）
    # または
-   bash scripts/bootstrap-rust.sh         # Rust 用（dependencies/rust/ から移動）
+   bash dependencies/rust/bootstrap-rust.sh   # Rust 用
    ```
 2. **各コマンド実行時の環境有効化**:
    `bash` ツール呼び出しは毎回新しいシェルで起動するため、コマンドを実行する際は必ず先頭に環境有効化コマンドを付ける。
@@ -102,7 +102,7 @@ novnow-hub/
 ├── scripts/
 │   ├── bootstrap-toolchain.sh # サンドボックス用ツールチェーン展開
 │   └── verify.sh              # コミット前の一括検証スクリプト
-├── mocks/                     # モックのシード・フィクスチャ（M2 で導入）
+├── mocks/                     # モックのシード・フィクスチャ（既定パス。未導入: モックは web/ の Prism・msw で代替中）
 ├── Cargo.toml / crates/       # バックエンド（別途開発。導入時に追記）
 └── tests/                     # テスト
 ```
