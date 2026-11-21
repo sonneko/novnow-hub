@@ -148,8 +148,8 @@ jobs:
             git add -A
             git commit -m "toolchain: $(cat rust-version.txt) / vendor $(ls vendor-src 2>/dev/null | wc -l || echo 0) crates"
 
-            # orphan push
-            git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+            # orphan push（認証は Actions のグローバル git 設定に依存。URL にトークンを入れると二重認証で失敗する）
+            git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
             git push --force origin cache/rust-toolchain
           } > /tmp/push.log 2>&1
           rc=$?
