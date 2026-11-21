@@ -11,7 +11,7 @@
 |---|---|---|---|
 | 初期マイルストーン | 完了 | プロジェクトセットアップ・ドキュメント管理規則の策定 | `REF:docs/history.md` |
 | M1 仕様策定 | 完了 | 仕様書・API 契約（OpenAPI 3.1）・マイルストーン計画の策定 | `REF:docs/plans.md#m1-specs` |
-| M2 フロントエンド基盤 | ほぼ完了 | Astro／Svelte、API 型生成、OpenAPI モック、アプリシェル（CI 拡張は未完了） | `REF:docs/plans.md#m2-frontend-mock` |
+| M2 フロントエンド基盤 | 完了 | Astro／Svelte、API 型生成、OpenAPI モック、アプリシェル、CI 拡張（契約スキーマ検証 + Prism モックのスモークテストを docs ジョブに追加済み） | `REF:docs/plans.md#m2-frontend-mock` |
 | M3 公開と閲覧 | 進行中 | 読者ビュー・公開ページの静的シェル事前描画・ETag キャッシュ・公開ウィザード UI を実装。バックエンド・公開フロー本体・検索は未完了 | `REF:docs/plans.md#m3-thin-slice` |
 | M4 コラボレーション | 進行中 | Proposal／Issue UI と SQLite ChatPort 参照実装・チャット UI を実装。自動マージ・通知等は未完了 | `REF:docs/plans.md#m4-collaboration` |
 | M5 novnow 特化機能 | 進行中 | セットアップ URL 発行・解決を実装。派生・診断等は未完了 | `REF:docs/plans.md#m5-novnow-features` |
@@ -43,12 +43,12 @@
 - [x] `web/` の雛形（Astro + Svelte + TypeScript strict、パッケージマネージャは npm）
 - [x] 契約からの API クライアント生成（型 + フェッチャ）と CI での生成物差分チェック
 - [x] 開発用モックサーバー（OpenAPI から起動）とテスト用インメモリモック（シード生成スクリプトは未導入: モックは Prism の example 応答と `web/src/test/` の手書きフィクスチャで代替中）
-- [ ] CI 拡張: 契約のスキーマ検証とモックのスモークテストを docs ジョブに追加
+- [x] CI 拡張: 契約のスキーマ検証とモックのスモークテストを docs ジョブに追加
 - [x] アプリシェル（レイアウト・i18n（ja/en）・ダーク／ライトテーマ・ルーティング）
 - [x] 読者ビュー・プロジェクトページの UI 骨格（モックデータ駆動）
 - [x] Tauri v2 の雛形（Web と同一コードベース）
 
-完了条件: モックに接続した読者ビューとプロジェクトページがローカルで動くこと。
+完了条件: モックに接続した読者ビューとプロジェクトページがローカルで動くこと。**達成済み**（CI の docs ジョブで Prism モックのスモークテストとして検証: `docs/script/smoke-mock.sh` がモックを起動し、読者ビュー・プロジェクトページが接続する主要パス（/meta、/projects/{id}、/projects/{id}/reading、/projects/{id}/tree、/projects/{id}/setup）が 2xx を返すことを確認）。
 
 <a id="m3-thin-slice"></a>
 ### M3: 薄いスライス — 公開と閲覧（Phase 1 最小）（仕様・設計策定済み）

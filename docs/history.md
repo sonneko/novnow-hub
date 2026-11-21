@@ -154,3 +154,20 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
   - **#33**: 表記ずれ 10 件を個別照合し PR #35/#36/#37 で全部是正済み（設計書状態行、plans.md M3、handoff.md 表記、developers.md 参照先、`/read` 重複ルート削除、CI コメント、テストフィクスチャ方針明記、通知 kind 列挙、description minLength、acquisition.kind の codeload→archive 是正）。
 - **ドキュメント**: `docs/handoff.md` のブランチ情報（`arena/ae4415dd-novnow-hub`、`main` 分岐点 `547e08a`=PR #37 マージ）と Issues #22–#33 クローズ記録を更新。
 - **検証**: `python3 docs/script/verify-docs.py`、`npm run check`、Vitest（40 テスト・16 ファイル）、`npm run build`（11 ページ、実測）を本ブランチで再実行し通過。`api/openapi.yaml` は変更なし（契約の正として不変）。
+
+## 2026-11-21: M2 の CI 拡張（契約スキーマ検証 + モックのスモークテスト）
+
+- **ブランチ**: `arena/34527e8a-novnow-hub`（`main` @ `34689ec` = PR #38 マージコミット）
+- **作業**: `docs/plans.md` の M2 未完了項目「CI 拡張: 契約のスキーマ検証とモックのスモークテストを docs ジョブに追加」を完了。
+- **現状確認（実行検証）**:
+  - スキーマ検証: CI の docs ジョブに既に「Validate OpenAPI contract (api/openapi.yaml)」ステップが存在し、直近の CI 実行（run 44938210687）でステップ結果 `success` を確認（`gh api repos/sonneko/novnow-hub/actions/jobs/...` でステップごとの結果を照合）。ローカルでも `openapi-spec-validator` で `api/openapi.yaml` を OpenAPI **3.1.0** として検証成功。
+  - モックのスモークテスト: 既存のワークフローに存在せず、不足していた。
+- **変更内容**:
+  - `.github/workflows/ci.yml`: docs ジョブに `actions/setup-node@v4`（Node 22、npm キャッシュ = `web/package-lock.json`）と「Smoke test Prism mock」ステップ（`web/` を作業ディレクトリに `bash ../docs/script/smoke-mock.sh`）を追加。timeout を 5 分 → 10 分に拡大。
+  - `docs/script/smoke-mock.sh` 新規作成: Prism モックを起動し、読者ビュー・プロジェクトページが接続する主要パス（`/meta`、`/projects/{id}`、`/projects/{id}/reading`、`/projects/{id}/tree`、`/projects/{id}/setup`）へ GET し、すべて 2xx かを検証（plans.md の M2 完了条件「モックに接続した読者ビューとプロジェクトページがローカルで動くこと」と整合）。
+  - `docs/plans.md`: 該当チェックボックスを `[x]` に。M2 の状態行を「ほぼ完了」→「完了」に更新。完了条件の達成状況を記録。
+  - `docs/handoff.md`: ブランチ情報（`arena/34527e8a-novnow-hub`、分岐点 `34689ec`=PR #38 マージ）・M2 状態・検証行を更新。
+- **検証**:
+  - ローカル: `bash docs/script/smoke-mock.sh` を実際に実行し 5 パスすべて 2xx（200）を返すことを実測確認。`api/openapi.yaml` の OpenAPI 3.1 スキーマ検証も成功。
+  - CI: 本 PR の docs ジョブでスモークテストステップが実際に走ることを確認。初版はステップレベルの `defaults.run.working-directory` がワークフロー検証で失敗したため、`working-directory: web` を直接指定する形に修正。修正後の CI 実行（run 44942112423）で docs ジョブの全ステップ `success`（特に「Smoke test Prism mock」が `completed success`）を確認（`gh api` でステップごとの照合）。
+- `web/` と `api/openapi.yaml` の挙動変更は含めていない（CI 定義と検証スクリプト・ドキュメントのみ）。
