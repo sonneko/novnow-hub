@@ -135,3 +135,22 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
 - `README.md`／`web/README.md`: チャット API（`npm run chat:dev`、:4011）の起動・プロキシ経路を明記。`web/README.md` のルート一覧を実装ルートと一致させた。
 - ソース: `web/src/pages/read/index.astro`（`/read` ルート）は `/reading` の完全重複で参照元が一切ないため削除（振る舞い・契約は不変。ビルド出力は 12 ページ → 11 ページ）。`api/openapi.yaml` は変更なし（契約の正として不変）。
 - 検証: `python3 docs/script/verify-docs.py` 通過。`npm run check`（生成物チェック含む）0 errors、Vitest 40 テスト・16 ファイル成功、`npm run build` 成功。
+
+## 2026-11-21: Issues #22–#33 の解消確認とクローズ
+
+- **ブランチ**: `arena/ae4415dd-novnow-hub`（`main` @ `547e08a` = PR #37 マージコミット）
+- **作業**: Issues #22–#33（全 12 Issue）について `main` の現状と照合し、解消確認を実行。全件解消済みと判断し GitHub Issue をクローズ（各 Issue に検証内容のコメントを記録）。
+  - **#22**: `api/openapi.yaml` の本文付き 2xx 応答 53 件すべてに example / examples（$ref）が付与されていることを実測確認。
+  - **#23**: PUT `/projects/{id}/automerge`・PATCH `/chat/messages/{messageId}`・PATCH `/notifications/settings` の 3 操作に If-Match + 409、notifications/settings は GET/PATCH に ETag を含むことを実測確認（ChatMessage.etag 欄も存在）。
+  - **#24**: 作成系 POST 12 操作（/projects、derive、releases、commit、proposals、proposals/{n}/comments、issues、issues/{n}/comments、chat/channels、chat/channels/{id}/messages、diagnostics、exports）すべてが Idempotency-Key を受容することを実測確認。
+  - **#25**: `components/headers` に RateLimit-Limit/Remaining/Reset と X-Unread-Count が定義され、59 件の 2xx 応答すべてに RateLimit-Limit が付与されていることを実測確認。
+  - **#26**: approve は verdict（approve/dismiss/request_changes）に集約、close は別ライフサイクル操作。ProposalDetailPage.test.ts が 3 経路をテストで固定。
+  - **#27**: コメント一覧 GET（proposals/issues）が仕様 `docs/specifications/api.md` §5.5/§5.7 に PR #37 で追補済み。
+  - **#28**: ChatPort の操作名（createChannel/listChannels/postMessage 等）が実装（chat-port.d.mts）・テスト・仕様 §7.2 で一致。
+  - **#29**: `/meta` の Meta スキーマが contractVersion（pattern）/serverTime/minimumClientVersion を返し、`info.version: 1.0.0` と一致。design §4.1/§8.1 と一致し生成スキーマにも反映。
+  - **#30**: POST `/projects/{id}/diagnostics` はグローバル security（bearerAuth 必須）対象で 401 応答も定義。仕様 §5.11 も「要認証」に是正済み。
+  - **#31**: `Project.visibility` の enum が public/private/archived の 3 値。i18n ラベル（ja/en）と仕様 §6.2 も 3 値で一致。
+  - **#32**: `ReaderPage.svelte` が文字サイズ 4 段階（small/medium/large/xlarge）を実装し、CSS 変数・localStorage（`novnow-reader-font-size`）保存・i18n ラベル（ja/en）完備。
+  - **#33**: 表記ずれ 10 件を個別照合し PR #35/#36/#37 で全部是正済み（設計書状態行、plans.md M3、handoff.md 表記、developers.md 参照先、`/read` 重複ルート削除、CI コメント、テストフィクスチャ方針明記、通知 kind 列挙、description minLength、acquisition.kind の codeload→archive 是正）。
+- **ドキュメント**: `docs/handoff.md` のブランチ情報（`arena/ae4415dd-novnow-hub`、`main` 分岐点 `547e08a`=PR #37 マージ）と Issues #22–#33 クローズ記録を更新。
+- **検証**: `python3 docs/script/verify-docs.py`、`npm run check`、Vitest（40 テスト・16 ファイル）、`npm run build`（11 ページ、実測）を本ブランチで再実行し通過。`api/openapi.yaml` は変更なし（契約の正として不変）。
