@@ -132,32 +132,39 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
           cd /tmp/export
 
-          # 孤立ブランチとして push（既存の履歴を置き換え）
-          git init
-          git config user.email "actions@github.com"
-          git config user.name "GitHub Actions"
-          git checkout -b cache/rust-toolchain
-          cp -r chunks/ .
-          cp SHA256SUMS .
-          cp rust-version.txt .
-          git add -A
-          git commit -m "toolchain: $(cat rust-version.txt) / vendor $(ls vendor-src 2>/dev/null | wc -l || echo 0) crates"
+          # Push ブロック全体の出力をログに退避（失敗原因の特定用）
+          {
+            # 孤立ブランチとして push（既存の履歴を置き換え）
+            git init
+            git config user.email "actions@github.com"
+            git config user.name "GitHub Actions"
+            git checkout -b cache/rust-toolchain
+            cp -r chunks/ .
+            cp SHA256SUMS .
+            cp rust-version.txt .
+            git add -A
+            git commit -m "toolchain: $(cat rust-version.txt) / vendor $(ls vendor-src 2>/dev/null | wc -l || echo 0) crates"
 
-          # orphan push（失敗時はエラーを debug ブランチに退避して後で確認できるようにする）
-          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          if ! git push --force origin cache/rust-toolchain 2>/tmp/push.err; then
-            cat /tmp/push.err
-            echo "PUSH FAILED" >> /tmp/push.err
-            cd /tmp && rm -rf diag && git init -q diag && cd diag && \
-              git config user.email "actions@github.com" && git config user.name "GitHub Actions" && \
-              git checkout -qb debug/toolchain-push && cp /tmp/push.err push-error.log && \
-              git add -A && git commit -qm "push error" && \
-              git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" && \
-              git push --force origin debug/toolchain-push || true
-            exit 1
+            # orphan push
+            git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+            git push --force origin cache/rust-toolchain
+          } > /tmp/push.log 2>&1
+          rc=$?
+          cat /tmp/push.log
+
+          # デバッグログを debug ブランチに退避（読み取り可能な形で）
+          cd /tmp && rm -rf diag && git init -q diag && cd diag && \
+            git config user.email "actions@github.com" && git config user.name "GitHub Actions" && \
+            git checkout -qb debug/toolchain-push && cp /tmp/push.log push.log && \
+            git add -A && git commit -qm "push debug log" && \
+            git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" && \
+            git push --force origin debug/toolchain-push || true
+
+          if [ "$rc" != "0" ]; then
+            exit "$rc"
           fi
 
           echo "Pushed to cache/rust-toolchain"
