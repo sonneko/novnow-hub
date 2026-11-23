@@ -10,3 +10,4 @@ pub mod middleware;
 pub mod ports;
 pub mod routes;
 pub mod session;
+pub mod zip_import;
