@@ -171,3 +171,23 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
   - ローカル: `bash docs/script/smoke-mock.sh` を実際に実行し 5 パスすべて 2xx（200）を返すことを実測確認。`api/openapi.yaml` の OpenAPI 3.1 スキーマ検証も成功。
   - CI: 本 PR の docs ジョブでスモークテストステップが実際に走ることを確認。初版はステップレベルの `defaults.run.working-directory` がワークフロー検証で失敗したため、`working-directory: web` を直接指定する形に修正。修正後の CI 実行（run 44942112423）で docs ジョブの全ステップ `success`（特に「Smoke test Prism mock」が `completed success`）を確認（`gh api` でステップごとの照合）。
 - `web/` と `api/openapi.yaml` の挙動変更は含めていない（CI 定義と検証スクリプト・ドキュメントのみ）。
+
+## 2026-11-21: M3 バックエンド骨格と GitHub アダプター最小実装
+
+- **ブランチ**: `arena/e1a89d1a-novnow-hub`（`main` @ `4f6cb81` = PR #39 マージコミット）
+- **作業**: `docs/plans.md` の M3 未完了項目「バックエンド骨格（Rust + Axum、API 契約にのみ準拠）」と「GitHub アダプターの最小実装（保管単位の作成、原子コミット、ツリー／ファイル取得、ETag）」を完了。
+- **配置判断**: バックエンドの配置箇所は仕様・設計に未定だったため、新規 crate `server/` に配置（PR 本文に未解決事項として記録）。API 契約の唯一の正は `api/openapi.yaml` で、契約変更は不要（追加も削除も行わない）。
+- **変更内容**:
+  - `server/` 新規 crate: `Cargo.toml`（axum 0.8 / tokio 1 / reqwest 0.12 rustls / sha2 / base64 / rand / chrono / tracing）、`lib.rs`、`main.rs`（エントリポイント、`/api/v1` ネストルータ）。
+  - `ports.rs`: `IdentityPort`／`ProjectStoragePort`／`ContentPort` と `PortError`（7 値）。GitHub SDK 型はアダプター側に閉じ込め、クライアントはポート経由で差し替え可能。
+  - `config.rs`: 環境変数からの設定読み込み＋未設定時の明確なエラー（`github_oauth_ready`）。実際の資格情報はコード・ドキュメントに記載なし。
+  - `error.rs`: RFC 9457 の Problem 応答、`ProblemCode` 14 値。
+  - `session.rs`: 不透明乱数 256bit のセッション、ローテーションと再利用検知。
+  - `adapters/github/{mod.rs,client.rs}`: reqwest ラッパ（PKCE S256、トークン交換、Git Data API の blob→tree→commit→ref 原子コミット、429 リトライ 3 回、冪等マーカー）。
+  - `routes/{meta.rs,auth.rs}`: `GET /meta` と 5 認証パス。`middleware.rs`: Bearer 認可。
+- **検証（実行で証明）**:
+  - ビルド: Rust ツールチェーンを `cache/rust-toolchain` ブランチ経由で bootstrap し、`cargo build` が警告 0・エラー 0 で成功。
+  - 单元テスト: **11 件**成功（PKCE 決定性・セッション作成/照合/ローテーション/失効・設定既定値・エラー変換）。
+  - 実機: サーバー起動後 `GET /api/v1/meta` が **200** で契約どおりの応答（`contractVersion`/`serverTime`）。`/auth/github/start`（OAuth 未設定）は **500** で明示エラー、`/auth/refresh`・`/auth/logout`（認証なし）は **401** で契約どおりの Problem 応答。
+- **工具チェーン基盤の整備**: `toolchain-export` ワークフローの Push ステップ連続失敗の真因を特定（`sysroot.tar.gz` が 300MB で GitHub の 100MB ファイル上限を超過 → pre-receive 拒否）。未分割 tar.gz をコミット対象外にし `chunks/` ディレクトリをそのまま追加する形に修正。`bootstrap-rust.sh` の codeload 展開ディレクトリ名を汎用検出に、複数ファイル glob の存在チェックを `compgen -G` に修正。修正後ワークフローは **success** を確認。
+- `api/openapi.yaml` は変更なし（契約の正として不変）。

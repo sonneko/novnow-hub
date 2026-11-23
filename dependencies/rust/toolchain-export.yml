@@ -31,6 +31,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: toolchain-export-${{ github.ref }}
@@ -84,6 +85,8 @@ jobs:
 
       - name: Vendor dependencies
         if: steps.check.outputs.enabled == 'true'
+        # バックエンド crate は server/ にあるため、そこで vendor を実行する
+        working-directory: server
         run: |
           set -euo pipefail
           mkdir -p /tmp/export/vendor-src
@@ -130,23 +133,21 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -euo pipefail
           cd /tmp/export
 
-          # 孤立ブランチとして push（既存の履歴を置き換え）
+          # 孤立ブランチとして push（既存の履歴を置き換える）
           git init
           git config user.email "actions@github.com"
           git config user.name "GitHub Actions"
           git checkout -b cache/rust-toolchain
-          cp -r chunks/ .
-          cp SHA256SUMS .
-          cp rust-version.txt .
-          git add -A
+          # 未分割の tar.gz は GitHub の 100MB 上限を超過するためコミット対象外。
+          # chunks/ ディレクトリ（45MB 以下）と rust-version.txt のみを追加する。
+          git add chunks rust-version.txt
           git commit -m "toolchain: $(cat rust-version.txt) / vendor $(ls vendor-src 2>/dev/null | wc -l || echo 0) crates"
 
-          # orphan push
+          # orphan push（グローバル認証ヘッダーを無効化し、URL 内トークンのみで認証）
           git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git push --force origin cache/rust-toolchain
+          git -c http.extraHeader= push --force origin cache/rust-toolchain
 
           echo "Pushed to cache/rust-toolchain"
 

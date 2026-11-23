@@ -4,9 +4,10 @@ name: CI
 #
 # ジョブ構成:
 # 1. `docs`: ドキュメント管理規則の検証 + 変更ファイルの判定（docs-only の場合は重いジョブをスキップ）
-# 2. `lint`: Astro / Svelte / TypeScript の型チェック（Vitest によるテストも `npm run check` に含めて実行）
-# 3. `test`: テストの実行（テスト自体は lint ジョブの `npm run check` で実行しているため、本書は位置付けのみ）
-# 4. `build`: フロントエンドのビルド検証
+# 2. `rust`: バックエンド（Rust / Axum）の build・test・clippy
+# 3. `lint`: Astro / Svelte / TypeScript の型チェック（Vitest によるテストも `npm run check` に含めて実行）
+# 4. `test`: テストの実行（テスト自体は lint ジョブの `npm run check` で実行しているため、本書は位置付けのみ）
+# 5. `build`: フロントエンドのビルド検証
 #
 # PR の draft 中はジョブをスキップし、ready for review で走らせる。
 # PR の push では古い実行をキャンセルする。
@@ -106,6 +107,46 @@ jobs:
           done <<< "$changed"
           echo "code_changed=$code_changed"
           echo "code_changed=$code_changed" >> "$GITHUB_OUTPUT"
+
+  rust:
+    name: Rust (backend)
+    needs: docs
+    if: needs.docs.outputs.code_changed == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.90.0"
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            server/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('server/Cargo.toml', 'server/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Build (cargo build)
+        working-directory: server
+        run: cargo build --locked --all-targets
+
+      - name: Test (cargo test)
+        working-directory: server
+        run: cargo test --locked --all-targets
+
+      - name: Lint (cargo clippy)
+        working-directory: server
+        run: cargo clippy --locked --all-targets -- -D warnings
 
   lint:
     name: Type Check

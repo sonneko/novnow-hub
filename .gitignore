@@ -3,6 +3,7 @@
 /dist
 /build
 /node_modules
+server/target/
 
 # 環境ファイル（ローカル開発用）
 .env
