@@ -40,6 +40,15 @@ impl StateStore {
             pending: RwLock::new(HashMap::new()),
         }
     }
+}
+
+impl Default for StateStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl StateStore {
 
     pub fn save(&self, code_challenge: String) -> String {
         let mut rng = rand::thread_rng();
@@ -121,7 +130,13 @@ pub struct StartParams {
 
 /// `GET /auth/github/callback`
 ///
-/// `code`／`state` を検証し、トークン交換→セッション作成→クライアントコールバックへ 302。
+/// `code`／`state` を検証し、トークン交換→セッション作成→クライアントの
+/// コールバック URL へ一時コードを付けて 302。
+///
+/// 設計 §3・`REF:api/openapi.yaml` の 302 記述に準拠し、アクセストークンを
+/// URL クエリ（`hub_token=…`）に载せない。代わりに使い捨ての一時コードを
+/// 発行し、SPA が直後に `POST /auth/refresh` でセッション（トークン対）を
+/// 得る形とする。
 pub async fn callback(
     State(state): State<AppState>,
     Query(params): Query<CallbackParams>,
@@ -146,21 +161,18 @@ pub async fn callback(
         .github_adapter
         .exchange_code_for_identity(&params.code, &code_verifier)
         .await
-        .map_err(|e| map_port_error(e))?;
+        .map_err(map_port_error)?;
 
     let session = state.sessions.create(&identity.id);
-    let token_pair = TokenPair {
-        access_token: session.session_id.clone(),
-        refresh_token: session.refresh_token.clone(),
-        expires_in: session.expires_in,
-    };
     let redirect = state
         .redirect_store
         .write()
         .unwrap()
         .remove(&params.state)
         .unwrap_or_else(|| "/".to_string());
-    let url = format!("{redirect}?hub_token={}", token_pair.access_token);
+    // 一時コードを発行（セッションと紐付ける使い捨てコード）。
+    let temp_code = state.sessions.issue_temp_code(&session.session_id);
+    let url = build_redirect_with_code(&redirect, &temp_code);
     Ok(Redirect::to(&url).into_response())
 }
 
@@ -172,12 +184,25 @@ pub struct CallbackParams {
 
 /// `POST /auth/refresh`
 ///
-/// Bearer リフレッシュトークンを検証し、ローテーションしたトークン対を返す。
+/// Bearer リフレッシュトークン（または callback で発行された一時コード）を
+/// 検証し、ローテーションしたトークン対を返す。
 pub async fn refresh(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
 ) -> Result<Json<TokenPair>, ApiError> {
     let token = bearer_token(&headers)?;
+    // callback で発行された一時コードの場合は、セッション取得（ローテーション
+    // ではなく新規発行分）へ移行する。
+    if let Some(session) = state.sessions.exchange_temp_code(&token) {
+        let access_token = session.session_id.clone();
+        let refresh_token = session.refresh_token.clone();
+        let expires_in = state.sessions.remaining_access_secs(&session);
+        return Ok(Json(TokenPair {
+            access_token,
+            refresh_token,
+            expires_in,
+        }));
+    }
     let session = state.sessions.rotate(&token).map_err(|e| match e {
         crate::session::SessionError::Expired => ApiError::SessionExpired(
             "更新トークンが無効または期限切れです".into(),
@@ -186,10 +211,13 @@ pub async fn refresh(
             "更新トークンの再利用が検知されたためセッションを失効しました".into(),
         ),
     })?;
+    let access_token = session.session_id.clone();
+    let refresh_token = session.refresh_token.clone();
+    let expires_in = state.sessions.remaining_access_secs(&session);
     Ok(Json(TokenPair {
-        access_token: session.session_id,
-        refresh_token: session.refresh_token,
-        expires_in: session.expires_in,
+        access_token,
+        refresh_token,
+        expires_in,
     }))
 }
 
@@ -266,13 +294,18 @@ pub type SharedStateStore = Arc<StateStore>;
 
 /// OAuth 設定からクライアントを生成するヘルパー。
 ///
-/// 最小実装では GitHub API ベース URL は既定値を使用する。
+/// 最小実装では GitHub API ベース URL と認証ベース URL は既定値を使用する。
 pub fn build_client(
     _oauth: &OAuthConfig,
     timeout_read: Duration,
     timeout_write: Duration,
 ) -> GitHubClient {
-    GitHubClient::new("https://api.github.com", timeout_read, timeout_write)
+    GitHubClient::new(
+        "https://api.github.com",
+        "https://github.com",
+        timeout_read,
+        timeout_write,
+    )
 }
 
 /// URL クエリ値として安全な文字列へのエンコード（最小実装）。
@@ -287,4 +320,15 @@ fn urlencoding(input: &str) -> String {
         }
     }
     out
+}
+
+/// リダイレクト先の URL に一時コードを付与する。
+///
+/// 既にクエリパラメータを持つ場合は `&`、持たない場合は `?` を前置する。
+fn build_redirect_with_code(redirect: &str, code: &str) -> String {
+    if redirect.contains('?') {
+        format!("{redirect}&hub_code={}", urlencoding(code))
+    } else {
+        format!("{redirect}?hub_code={}", urlencoding(code))
+    }
 }

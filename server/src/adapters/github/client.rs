@@ -39,13 +39,21 @@ impl Token {
 /// GitHub API クライアント。
 pub struct GitHubClient {
     inner: reqwest::Client,
+    /// API ベース URL（`https://api.github.com`）。REST API 用。
     base_url: String,
+    /// 認証ベース URL（`https://github.com`）。OAuth のトークン交換等に用いる。
+    auth_base: String,
     timeout_read: Duration,
     timeout_write: Duration,
 }
 
 impl GitHubClient {
-    pub fn new(base_url: &str, timeout_read: Duration, timeout_write: Duration) -> Self {
+    pub fn new(
+        base_url: &str,
+        auth_base: &str,
+        timeout_read: Duration,
+        timeout_write: Duration,
+    ) -> Self {
         let inner = reqwest::Client::builder()
             .timeout(timeout_write)
             .build()
@@ -53,6 +61,7 @@ impl GitHubClient {
         Self {
             inner,
             base_url: base_url.trim_end_matches('/').to_string(),
+            auth_base: auth_base.trim_end_matches('/').to_string(),
             timeout_read,
             timeout_write,
         }
@@ -80,7 +89,7 @@ impl GitHubClient {
             409 => ClientError::Conflict,
             403 => ClientError::PermissionDenied,
             429 => ClientError::RateLimited,
-            502 | 503 | 504 => ClientError::Unavailable("上流障害".into()),
+            502..=504 => ClientError::Unavailable("上流障害".into()),
             other => ClientError::Other(format!("HTTP {other}")),
         }
     }
@@ -122,22 +131,44 @@ impl GitHubClient {
         URL_SAFE_NO_PAD.encode(digest)
     }
 
+    /// トークン交換エンドポイントの URL。
+    ///
+    /// 認証ベース URL（`github.com`）配下の `/login/oauth/access_token`。
+    /// API ベース URL（`api.github.com`）ではない。
+    fn exchange_code_url(auth_base: &str) -> String {
+        format!("{}/login/oauth/access_token", auth_base.trim_end_matches('/'))
+    }
+
+    /// トークン交換のリクエストボディ。
+    ///
+    /// `client_secret` と `redirect_uri` を含む（GitHub の交換仕様）。
+    fn exchange_code_body(code: &str, code_verifier: &str, oauth: &OAuthConfig) -> serde_json::Value {
+        serde_json::json!({
+            "client_id": oauth.client_id,
+            "client_secret": oauth.client_secret,
+            "code": code,
+            "code_verifier": code_verifier,
+            "redirect_uri": oauth.redirect_uri,
+        })
+    }
+
     /// 認可コードをアクセストークンへ交換（PKCE）。
+    ///
+    /// トークン交換エンドポイントは認証ベース URL（`auth_base`）配下の
+    /// `/login/oauth/access_token`。ボディには PKCE に加え OAuth App の
+    /// `client_secret` と `redirect_uri` を含む（GitHub の交換仕様）。
     pub async fn exchange_code(
         &self,
         code: &str,
         code_verifier: &str,
         oauth: &OAuthConfig,
     ) -> Result<Token, ClientError> {
-        let body = serde_json::json!({
-            "client_id": oauth.client_id,
-            "code": code,
-            "code_verifier": code_verifier,
-        });
+        let body = Self::exchange_code_body(code, code_verifier, oauth);
+        let auth_base = self.auth_base.clone();
         let response = self
             .send_with_retry(|| {
                 self.inner
-                    .post(format!("{}/login/oauth/access_token", self.base_url))
+                    .post(Self::exchange_code_url(&auth_base))
                     .json(&body)
             })
             .await?;
@@ -196,13 +227,23 @@ impl GitHubClient {
             })
             .await?;
         let response = check_success(response)?;
-        response
+        let etag = response
+            .headers()
+            .get(reqwest::header::ETAG)
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.trim_matches('"').to_string());
+        let mut repo: RepoMeta = response
             .json::<RepoMeta>()
             .await
-            .map_err(|e| ClientError::InvalidResponse(format!("ボディ解析失敗: {e}")))
+            .map_err(|e| ClientError::InvalidResponse(format!("ボディ解析失敗: {e}")))?;
+        repo.etag = etag;
+        Ok(repo)
     }
 
     /// 保管単位のメタを取得。
+    ///
+    /// `etag` は GitHub の repo JSON には含まれない（ETag はレスポンス
+    /// ヘッダ）。ボディからは取得できないため、ヘッダの `ETag` から読む。
     pub async fn get_repo(&self, token: &Token, full_name: &str) -> Result<RepoMeta, ClientError> {
         let response = self
             .send_with_retry(|| {
@@ -214,10 +255,17 @@ impl GitHubClient {
             })
             .await?;
         let response = check_success(response)?;
-        response
+        let etag = response
+            .headers()
+            .get(reqwest::header::ETAG)
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.trim_matches('"').to_string());
+        let mut repo: RepoMeta = response
             .json::<RepoMeta>()
             .await
-            .map_err(|e| ClientError::InvalidResponse(format!("ボディ解析失敗: {e}")))
+            .map_err(|e| ClientError::InvalidResponse(format!("ボディ解析失敗: {e}")))?;
+        repo.etag = etag;
+        Ok(repo)
     }
 
     /// 保管単位の公開／非公開を切り替え。
@@ -500,6 +548,7 @@ fn sha256_short(full_name: &str, branch: &str, files: &[NewFile]) -> String {
 #[derive(Debug, Clone)]
 pub struct OAuthConfig {
     pub client_id: String,
+    pub client_secret: String,
     pub redirect_uri: String,
 }
 
@@ -516,6 +565,8 @@ pub struct RepoMeta {
     pub full_name: String,
     pub default_branch: String,
     pub private: bool,
+    /// GitHub の repo JSON には含まれない。レスポンスヘッダの `ETag` から
+    /// `get_repo` が設定する。ヘッダが無ければ `None`。
     pub etag: Option<String>,
 }
 
@@ -523,8 +574,13 @@ pub struct RepoMeta {
 pub struct ContentEntry {
     pub path: String,
     pub sha: String,
-    pub size: u64,
-    pub is_dir: bool,
+    /// GitHub の contents API は `type`（"file"/"dir"/"symlink"/"submodule"）を返す。
+    /// `is_dir` は返さないため、種別はこちらで判定する。
+    #[serde(rename = "type")]
+    pub entry_type: String,
+    /// ディレクトリでは欠損または 0 の場合がある。
+    #[serde(default)]
+    pub size: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -586,5 +642,87 @@ mod tests {
             GitHubClient::map_status(StatusCode::BAD_GATEWAY),
             ClientError::Unavailable(_)
         ));
+    }
+
+    #[test]
+    fn exchange_code_url_targets_auth_host() {
+        // 修正1: 交換先は api.github.com ではなく github.com 配下。
+        let url = GitHubClient::exchange_code_url("https://github.com");
+        assert_eq!(url, "https://github.com/login/oauth/access_token");
+        assert!(!url.contains("api.github.com"));
+        // 末尾スラッシュを除去。
+        let url2 = GitHubClient::exchange_code_url("https://github.com/");
+        assert_eq!(url2, "https://github.com/login/oauth/access_token");
+    }
+
+    #[test]
+    fn exchange_code_body_includes_secret_and_redirect() {
+        // 修正1: ボディには client_secret と redirect_uri を含む。
+        let oauth = OAuthConfig {
+            client_id: "cid".into(),
+            client_secret: "secret-value".into(),
+            redirect_uri: "https://hub.example/callback".into(),
+        };
+        let body = GitHubClient::exchange_code_body("the-code", "the-verifier", &oauth);
+        assert_eq!(body["client_id"], "cid");
+        assert_eq!(body["client_secret"], "secret-value");
+        assert_eq!(body["code"], "the-code");
+        assert_eq!(body["code_verifier"], "the-verifier");
+        assert_eq!(body["redirect_uri"], "https://hub.example/callback");
+    }
+
+    #[test]
+    fn content_entry_deserializes_github_file_json() {
+        // 修正2: GitHub は is_dir を返さず type を返す。file 型を読む。
+        let json = r#"{
+            "path": "README.md",
+            "sha": "abc123",
+            "size": 1234,
+            "type": "file"
+        }"#;
+        let entry: ContentEntry = serde_json::from_str(json).expect("file 型 JSON を読める");
+        assert_eq!(entry.path, "README.md");
+        assert_eq!(entry.entry_type, "file");
+        assert_eq!(entry.size, Some(1234));
+    }
+
+    #[test]
+    fn content_entry_deserializes_github_dir_json() {
+        // 修正2: ディレクトリは size 無し／0 の場合がある。
+        let json = r#"{
+            "path": "docs",
+            "sha": "def456",
+            "type": "dir"
+        }"#;
+        let entry: ContentEntry = serde_json::from_str(json).expect("dir 型 JSON を読める");
+        assert_eq!(entry.entry_type, "dir");
+        assert_eq!(entry.size, None);
+    }
+
+    #[test]
+    fn content_entry_deserializes_symlink_json() {
+        // 修正2: symlink 等の別種別も type から読む。
+        let json = r#"{
+            "path": "link",
+            "sha": "ghi789",
+            "size": 0,
+            "type": "symlink"
+        }"#;
+        let entry: ContentEntry = serde_json::from_str(json).expect("symlink 型 JSON を読める");
+        assert_eq!(entry.entry_type, "symlink");
+        assert_eq!(entry.size, Some(0));
+    }
+
+    #[test]
+    fn repo_meta_etag_optional_in_body() {
+        // 修正7: repo JSON に etag は無い（ヘッダ由来）。ボディ解析は通る。
+        let json = r#"{
+            "full_name": "owner/repo",
+            "default_branch": "main",
+            "private": false
+        }"#;
+        let meta: RepoMeta = serde_json::from_str(json).expect("etag 無しでも読める");
+        assert_eq!(meta.full_name, "owner/repo");
+        assert!(meta.etag.is_none());
     }
 }

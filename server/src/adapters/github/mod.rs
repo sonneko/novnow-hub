@@ -98,10 +98,15 @@ impl ProjectStoragePort for GitHubAdapter {
             .create_repo(&token, name, description)
             .await
             .map_err(|e| map_client_error(&e))?;
+        let visibility = if repo.private {
+            ProjectVisibility::Private
+        } else {
+            ProjectVisibility::Public
+        };
         Ok(ProjectShell {
             id: repo.full_name,
             default_branch: repo.default_branch,
-            visibility: ProjectVisibility::Public,
+            visibility,
             etag: repo.etag.unwrap_or_default(),
         })
     }
@@ -164,12 +169,11 @@ impl ContentPort for GitHubAdapter {
             .into_iter()
             .map(|e| TreeEntry {
                 path: e.path,
-                kind: if e.is_dir {
-                    TreeEntryKind::Directory
-                } else {
-                    TreeEntryKind::File
+                kind: match e.entry_type.as_str() {
+                    "dir" => TreeEntryKind::Directory,
+                    _ => TreeEntryKind::File,
                 },
-                size: Some(e.size),
+                size: e.size,
                 etag: e.sha,
             })
             .collect())

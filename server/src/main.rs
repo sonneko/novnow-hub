@@ -33,11 +33,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // GitHub クライアントとアダプター（OAuth 交換前にトークンは未設定）。
     let client = GitHubClient::new(
         &config.github_api_base,
+        &config.github_auth_base,
         std::time::Duration::from_secs(config.read_timeout_secs),
         std::time::Duration::from_secs(config.write_timeout_secs),
     );
     let oauth = OAuthConfig {
         client_id: config.github_oauth_client_id.clone().unwrap_or_default(),
+        client_secret: config.github_oauth_client_secret.clone().unwrap_or_default(),
         redirect_uri: config.github_oauth_redirect_uri.clone().unwrap_or_default(),
     };
     let github_adapter = Arc::new(GitHubAdapter::new(client, oauth));
