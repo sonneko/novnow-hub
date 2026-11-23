@@ -42,3 +42,14 @@
 3. PR のレビュー・CI 状態を確認する。PR はユーザーの明示指示があるまでマージしない。
 4. 次の実装範囲はユーザーの指示を待つ。M4 の残項目は Proposal／Issue／Automerge 等の adapter と契約テスト、自動マージ、通知センター／ファンアウト、Webhook。
 5. `REF:api/openapi.yaml` を変更する場合は追加のみとし、OpenAPI validator と生成 API 型チェックを通す。API 仕様書／設計書の対応箇所も同期する。
+
+---
+
+## 4. M3 実装判断（thin slice での方針）
+
+M3 の公開フロー実装において、仕様・設計に明記が無く判断が必要だった点を次に定める。いずれも契約（`api/openapi.yaml`）は変更しない。
+
+1. **公開ページ URL（`publishedUrl`）の形式**。設計 §6.2（`docs/designs/api.md`）は `https://<hub-domain>/{handle}/{slug}` を想定するが、M3 thin slice で既存の web ルーティングはクエリパラメータベース（`/reading/?projectId=…`、`/projects/?projectId=…`、`REF:web/src/lib/links.ts`）である。公開フローが「第三者が URL を開いて本文を読める」ことを満たすため、`publishedUrl` は `{HUB_PUBLIC_BASE}/reading/?projectId={projectId}` として機械生成する。`{handle}/{slug}` のクリーン URL はクリーン URL ルーティングが導入された後続マイルストーンで追加する。`HUB_PUBLIC_BASE` は環境変数で設定し、既定はローカル開発用の `http://localhost:4321`。
+2. **hub 登録（プロジェクトメタ）の保持**。設計 §6.2（`projects` テーブル・SQL マイグレーション）は M3 thin slice では未導入（`server/` crate に DB 依存が無い）。M3 ではインメモリのプロジェクト登録簿（`ProjectRegistry`、`Arc<RwLock<HashMap<projectId, ProjectRecord>>>`）でメタを保持し、読み取り（`GET /projects/{projectId}`・`/reading`）がポート経由で保管単位からコンテンツを読む。後続で DB 導入時に登録簿の実装を差し替えのみで移行できる（ポート経由で隔離）。zip は検証後に破棄し、恒久保存しない（仕様 §6.1）。
+3. **セッションと利用者の紐付け**。公開フローでレスポンスの `ownerHandle` と保管単位名（`{handle}/{repo}`）が必要。既存の `Session` は利用者 ID のみ保持していたため、`Session` に `Identity`（ID・ハンドル・表示名）を保持させ、`POST /auth/github/callback` で交換済みの `Identity` を渡す。`require_auth` ミドルウェアが返すセッションからハンドルを取り出せる。
+4. **multipart と zip 展開の自己完実装**。サンドボックスはオフラインビルドで、vendor に multipart（`multer`）／zip（`zip`／`flate2`）系の crate が未包含であり、crates.io へ到達できない。M3 では (a) multipart/form-data のパース（`Content-Type` の boundary ベース）と (b) ZIP の展開（手書きの DEFLATE 展開＋中央ディレクトリ／ローカルヘッダ解析）を純粋 Rust で自己実装し、外部 crate に依存しない。許可リスト（設計 §10.3）は展開時にストリームで検査する。
