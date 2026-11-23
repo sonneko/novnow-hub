@@ -191,3 +191,27 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
   - 実機: サーバー起動後 `GET /api/v1/meta` が **200** で契約どおりの応答（`contractVersion`/`serverTime`）。`/auth/github/start`（OAuth 未設定）は **500** で明示エラー、`/auth/refresh`・`/auth/logout`（認証なし）は **401** で契約どおりの Problem 応答。
 - **工具チェーン基盤の整備**: `toolchain-export` ワークフローの Push ステップ連続失敗の真因を特定（`sysroot.tar.gz` が 300MB で GitHub の 100MB ファイル上限を超過 → pre-receive 拒否）。未分割 tar.gz をコミット対象外にし `chunks/` ディレクトリをそのまま追加する形に修正。`bootstrap-rust.sh` の codeload 展開ディレクトリ名を汎用検出に、複数ファイル glob の存在チェックを `compgen -G` に修正。修正後ワークフローは **success** を確認。
 - `api/openapi.yaml` は変更なし（契約の正として不変）。
+
+## 2026-11-23: M3 公開フロー（multipart 取込・軽量検証・hub 登録・公開ページ生成）
+
+### [HIST:MILESTONE:M3-PUBLISH-FLOW] 2026-11-23 M3 公開フロー本体を実装（multipart 取込 → 軽量検証 → 保管単位作成 → hub 登録 → 公開ページ生成）
+[HIST-TAG: category=MILESTONE id=M3-PUBLISH-FLOW topics=m3,publish,multipart,verify,registry,published-url]
+- **ブランチ**: `arena/3f2aec93-novnow-hub`（`main` @ `c279c64` = PR #41 マージコミット）。**マージは指示待ち（未マージ）**。
+- **作業**: `docs/plans.md` の M3「公開フロー: zip 取込 → novnow 軽量検証 → 保管単位作成 → hub 登録 → 公開ページ生成」を実装。M3 完了条件「非エンジニアが zip をアップロードして公開でき、第三者が URL を開いて本文を読める」のバックエンド本体。
+- **変更内容**:
+  - `server/src/multipart.rs`（新規）: multipart/form-data パースを純粋 Rust で自前実装（boundary ベース、外部 crate 依存なし、判断 `docs/handoff.md` §4 判断 4）。テキストフィールドとファイルパートの両方を扱う。
+  - `server/src/verify.rs`（新規）: novnow 軽量検証。novnow 本体の仕様（novnow リポジトリの `specifications/project.md` §4.2・§4.3）と同一の判定。必須ファイル（`project.toml`・`characters.md`・`words.md`・`materials/index.json`・`plots/all.cnov`）・必須ディレクトリ（`contents/`・`plots/`）・`project.toml` の TOML 妥当性と `schema_version`（`2` または省略は OK、`2` より大きい版と読めないマニフェストは拒否）・UTF-8 妥当性を検査。不足ファイルの自動生成は行わない。
+  - `server/src/registry.rs`（新規）: インメモリ `ProjectRegistry`（判断 `docs/handoff.md` §4 判断 2）。プロジェクトメタを保持し、DB 導入時に差し替え可能。
+  - `server/src/routes/projects.rs`（新規）: `POST /projects` ルート。multipart 受領 → zip 取込（許可リスト検査）→ novnow 軽量検証 → 保管単位作成（ポート経由）→ ファイルコミット → 公開範囲設定 → hub 登録 → 公開ページ URL 生成。いずれか失敗時は中間状態（保管単位）を残さずエラー。GitHub 概念は API/ルート層に漏らさずポート経由。
+  - `server/src/config.rs`: `HUB_PUBLIC_BASE`（既定 `http://localhost:4321`）を追加。
+  - `server/src/session.rs`: `Session` に `Identity` 保持を拡張（判断 `docs/handoff.md` §4 判断 3）。`create_with_identity` 追加、`rotate` で Identity を保持。
+  - `server/src/routes/auth.rs`: callback で交換済み Identity をセッションへ紐付け。
+  - `server/src/middleware.rs`: `require_auth` がセッションをリクエスト拡張（`RequestIdentity`）へ挿入。
+  - `server/src/app_state.rs`・`server/src/main.rs`: `ProjectRegistry` 登録、`POST /projects` ルート追加（`require_auth` 経由）。router 組み立てを lib 側に公開（`build_router`・`build_app_state`）しテストで再利用。
+- **検証（実行で証明）**:
+  - ビルド: `cargo build --locked --all-targets` → 警告 0・エラー 0 で成功。
+  - テスト: `cargo test --locked --all-targets` → **61 件**成功（multipart パース・novnow 検証・registry・公開 URL 生成・router 経由の統合テスト 3 件を含む）。
+  - clippy: `cargo clippy --locked --all-targets -- -D warnings` → 通過。
+  - 実機: サーバ起動で `GET /api/v1/meta` が **200**、`POST /projects` の認証ゲートが **401**（認証ヘッダーなし・無効トークン）を確認。統合テストで novnow 検証失敗が保管単位作成より前に **400 `verification_failed`** で返り中間状態を残さないこと、有効 zip が検証を通過して保管単位作成へ進むことを検証。
+  - ドキュメント: `python3 docs/script/verify-docs.py` → OK（rule-4 見出し構成一致）。
+- **ドキュメント同期**: `docs/designs/m3.md` §2.1・§2.2 の状態を「実装完了」に更新、novnow 軽量検証の具体的仕様を追記。`docs/specifications/m3.md` §2.1 に軽量検証の定義を追記。判断記録は `docs/handoff.md` §4 判断 5 に追記。`api/openapi.yaml` は変更なし。

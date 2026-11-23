@@ -12,7 +12,7 @@
 | 初期マイルストーン | 完了 | プロジェクトセットアップ・ドキュメント管理規則の策定 | `REF:docs/history.md` |
 | M1 仕様策定 | 完了 | 仕様書・API 契約（OpenAPI 3.1）・マイルストーン計画の策定 | `REF:docs/plans.md#m1-specs` |
 | M2 フロントエンド基盤 | 完了 | Astro／Svelte、API 型生成、OpenAPI モック、アプリシェル、CI 拡張（契約スキーマ検証 + Prism モックのスモークテストを docs ジョブに追加済み） | `REF:docs/plans.md#m2-frontend-mock` |
-| M3 公開と閲覧 | 進行中 | 読者ビュー・公開ページの静的シェル事前描画・ETag キャッシュ・公開ウィザード UI・バックエンド骨格（Rust + Axum）・GitHub アダプター最小実装を実装。公開フロー本体・検索は未完了 | `REF:docs/plans.md#m3-thin-slice` |
+| M3 公開と閲覧 | 進行中 | 読者ビュー・公開ページの静的シェル事前描画・ETag キャッシュ・公開ウィザード UI・バックエンド骨格（Rust + Axum）・GitHub アダプター最小実装・公開フロー本体（multipart 取込・novnow 軽量検証・保管単位作成・hub 登録・公開ページ生成）を実装。検索は未完了 | `REF:docs/plans.md#m3-thin-slice` |
 | M4 コラボレーション | 進行中 | Proposal／Issue UI と SQLite ChatPort 参照実装・チャット UI を実装。自動マージ・通知等は未完了 | `REF:docs/plans.md#m4-collaboration` |
 | M5 novnow 特化機能 | 進行中 | セットアップ URL 発行・解決を実装。派生・診断等は未完了 | `REF:docs/plans.md#m5-novnow-features` |
 <!-- SYNC:END project-status -->
@@ -54,7 +54,7 @@
 ### M3: 薄いスライス — 公開と閲覧（Phase 1 最小）（仕様・設計策定済み）
 - [x] バックエンド骨格（Rust + Axum、API 契約にのみ準拠）: `GET /meta`、認証（GitHub OAuth + PKCE）、セッション、認可ミドルウェア（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）— 実装済み。配置箇所は仕様・設計に未定だったため新規 crate `server/` に配置（PR 本文に記録）。実機検証: `GET /api/v1/meta` が 200 で契約どおりの応答、認証エンドポイントも契約どおり。单元テスト 11 件成功。
 - [x] GitHub アダプターの最小実装（保管単位の作成、原子コミット、ツリー／ファイル取得、ETag）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）— 実装済み。GitHub アクセスは `adapters/github/` 配下に閉じ込め、ポート経由で差し替え可能。契約スキーマ・型は `api/openapi.yaml` と `docs/designs/api.md` §7 に準拠。
-- [ ] 公開フロー: zip 取込 → novnow 軽量検証 → 保管単位作成 → hub 登録 → 公開ページ生成（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
+- [x] 公開フロー: zip 取込 → novnow 軽量検証 → 保管単位作成 → hub 登録 → 公開ページ生成（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）— 実装済み。multipart/form-data パース（純粋 Rust 自前実装）、`POST /projects` ルート（`require_auth` 経由）、novnow 軽量検証（novnow 本体の仕様 §4.2・§4.3 と同一）、保管単位作成（ポート経由）、インメモリ hub 登録（ProjectRegistry）、公開ページ URL 生成（`{HUB_PUBLIC_BASE}/reading/?projectId=…`）。`cargo build`（警告 0）・`cargo test`（61 件）・`cargo clippy -D warnings` 通過。実機検証: サーバ起動で認証ゲート 401・`/meta` 200 を確認。
 - [x] 読者ビュー本体（`/reading` の API 接続・本文表示、設計 §3.2）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
 - [x] 公開ページへの事前描画と ETag キャッシュ（設計 §3.3）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
 - [ ] プロジェクト一覧・検索の最小実装（軽量インデックス、カーソルページネーション）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）

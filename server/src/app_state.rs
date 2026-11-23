@@ -5,6 +5,7 @@ use std::sync::{Arc, RwLock};
 
 use crate::adapters::github::SharedGitHubAdapter;
 use crate::config::Config;
+use crate::registry::SharedProjectRegistry;
 use crate::routes::auth::StateStore;
 use crate::session::SharedSessionStore;
 
@@ -19,4 +20,6 @@ pub struct AppState {
     pub verifier_store: Arc<RwLock<HashMap<String, String>>>,
     /// state → クライアント側リダイレクト先の一時保存。
     pub redirect_store: Arc<RwLock<HashMap<String, String>>>,
+    /// インメモリのプロジェクト登録簿（判断: `REF:docs/handoff.md` §4 判断 2）。
+    pub projects: SharedProjectRegistry,
 }

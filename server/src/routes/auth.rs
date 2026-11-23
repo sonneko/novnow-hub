@@ -163,7 +163,8 @@ pub async fn callback(
         .await
         .map_err(map_port_error)?;
 
-    let session = state.sessions.create(&identity.id);
+    let user_id = identity.id.clone();
+    let session = state.sessions.create_with_identity(&user_id, Some(identity));
     let redirect = state
         .redirect_store
         .write()

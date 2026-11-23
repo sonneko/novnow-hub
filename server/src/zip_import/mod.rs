@@ -358,12 +358,12 @@ fn read_eocd(data: &[u8], eocd: usize) -> Result<(usize, u16), ZipError> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     /// Python の zipfile 相当で生成した zip の byte 列を返す。
     /// `entries` は (ファイル名, 展開後内容, 圧縮後内容, 圧縮方式)。
-    fn make_zip(entries: &[(&str, &[u8], &[u8], u16)]) -> Vec<u8> {
+    pub(crate) fn make_zip(entries: &[(&str, &[u8], &[u8], u16)]) -> Vec<u8> {
         let mut buf = Vec::new();
         let mut central = Vec::new();
         for (name, content, compressed, method) in entries {
