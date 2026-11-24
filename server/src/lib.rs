@@ -575,6 +575,56 @@ mod tests {
         assert_eq!(status, StatusCode::UNAUTHORIZED);
     }
 
+    /// 正しい **16 進形式**の署名で受信が成功し（202）、再生成ジョブが起票される。
+    #[tokio::test]
+    async fn webhook_accepts_hex_signature() {
+        use crate::test_support::register_test_project;
+
+        let state = test_state();
+        register_test_project(&state, "prj_1", "octo/demo");
+        let router = test_router(state.clone());
+        let body = push_payload("octo/demo");
+        // sign は 16 進形式（sha256=<hex>）を生成する。
+        let hex_sig = crate::webhook::sign(TEST_WEBHOOK_SECRET.as_bytes(), &body);
+        assert!(hex_sig.starts_with("sha256="));
+        let req = webhook_request(&body, Some(TEST_WEBHOOK_SECRET), "push", Some(&hex_sig));
+        let resp = router.oneshot(req).await.unwrap();
+        let (status, body) = response_text(resp).await;
+        assert_eq!(status, StatusCode::ACCEPTED, "body={body}");
+        let job_id = serde_json::from_str::<serde_json::Value>(&body)
+            .unwrap()["jobId"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        // 再生成ジョブが起票されている（受信と同時に Pending で登録される）。
+        let job = state.webhook.get(&job_id).expect("ジョブが起票されている");
+        assert_eq!(job.project_id, "prj_1");
+    }
+
+    /// **base64 形式**の署名は受け付けず 401 になる（GitHub は 16 進ダイジェスト）。
+    #[tokio::test]
+    async fn webhook_rejects_base64_signature() {
+        use base64::engine::general_purpose::STANDARD;
+        use base64::Engine;
+
+        let state = test_state();
+        let router = test_router(state);
+        let body = push_payload("octo/demo");
+
+        // 正しい署名（hex）を算出し、そのダイジェストを base64 形式に替える。
+        let hex_sig = crate::webhook::sign(TEST_WEBHOOK_SECRET.as_bytes(), &body);
+        let hex = hex_sig.strip_prefix("sha256=").unwrap();
+        let bytes: Vec<u8> = (0..hex.len() / 2)
+            .map(|i| u8::from_str_radix(&hex[i * 2..i * 2 + 2], 16).unwrap())
+            .collect();
+        let base64_sig = format!("sha256={}", STANDARD.encode(bytes));
+
+        let req = webhook_request(&body, Some(TEST_WEBHOOK_SECRET), "push", Some(&base64_sig));
+        let resp = router.oneshot(req).await.unwrap();
+        let (status, _) = response_text(resp).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+    }
+
     /// 署名検証成功后、登録済みリポジトリの公開ページ再生成ジョブが起票される。
     #[tokio::test]
     async fn webhook_accepts_valid_signature_and_enqueues_rebuild() {
