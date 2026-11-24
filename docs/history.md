@@ -215,3 +215,19 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
   - 実機: サーバ起動で `GET /api/v1/meta` が **200**、`POST /projects` の認証ゲートが **401**（認証ヘッダーなし・無効トークン）を確認。統合テストで novnow 検証失敗が保管単位作成より前に **400 `verification_failed`** で返り中間状態を残さないこと、有効 zip が検証を通過して保管単位作成へ進むことを検証。
   - ドキュメント: `python3 docs/script/verify-docs.py` → OK（rule-4 見出し構成一致）。
 - **ドキュメント同期**: `docs/designs/m3.md` §2.1・§2.2 の状態を「実装完了」に更新、novnow 軽量検証の具体的仕様を追記。`docs/specifications/m3.md` §2.1 に軽量検証の定義を追記。判断記録は `docs/handoff.md` §4 判断 5 に追記。`api/openapi.yaml` は変更なし。
+
+[HIST-TAG: category=PR-FIX id=M3-PUBLISH-FLOW-FIX-PR42 topics=m3,pr42,zip,toml,binary,cleanup]
+- **ブランチ**: `arena/3f2aec93-novnow-hub`（PR #42、M3 公開フロー本体）。**マージは指示待ち（未マージ）**。
+- **作業**: PR #42 に対する 5 件の修正指示を実装。
+- **変更内容**:
+  - **修正1（zip ディレクトリ entry）**: `server/src/zip_import/mod.rs` の `import_zip` がディレクトリ entry（末尾 `/`、または Unix モードのディレクトリ）を `files` ではなく `dirs` に分類。ノイズ（`__MACOSX/`・`.DS_Store`）は除外。`server/src/verify.rs` の `verify_snapshot(files, dirs)` が必須ディレクトリをディレクトリ entry も含めて判定し、空の `contents/` を受理。偽名テストを廃止、`real_zip_with_dir_entries_passes_full_verify` を追加（ディレクトリ entry 含む本物 zip を `import_zip` → `verify_snapshot` まで通す）。
+  - **修正2（バイナリファイル）**: `server/src/routes/projects.rs` のコミットループを UTF-8 妥当判定で切替。妥当なら `FileEncoding::Text`、そうでなければ `FileEncoding::Base64`（base64 STANDARD エンジン）で内容を壊さずコミット。
+  - **修正3（クリーンアップ）**: `server/src/routes/projects.rs` で `commit_files`/`set_visibility` を `commit_result` に包み、失敗時に `delete_project_shell` を呼ぶ。削除失敗時はエラーに含める。
+  - **修正4（複数行 TOML）**: `server/src/verify.rs` の `parse_minimal_toml` を `[`・`]` 深さと引用符状態（単一行・三重引用符のマルチライン文字列）を行間で追跡する形に書き換え。複数行配列・三重引用符マルチライン文字列を受理、不平衡は拒否。
+  - **修正5（schema_version 検査範囲）**: `schema_version` 検査はトップレベルのキーのみと明記。テーブル内は検査対象外（省略扱い）。
+- **検証（実行で証明）**:
+  - ビルド: `cargo build --locked --all-targets` → 警告 0・エラー 0 で成功。
+  - テスト: `cargo test --locked --all-targets` → **69 件**成功（修正1 の本物 zip 検証を含む）。
+  - clippy: `cargo clippy --locked --all-targets -- -D warnings` → 通過。
+  - ドキュメント: `python3 docs/script/verify-docs.py` → OK（rule-4 見出し構成一致）。
+- **ドキュメント同期**: `docs/designs/m3.md` §2.1 にディレクトリ entry・複数行 TOML・`schema_version` トップレベルのみ・バイナリエンコーディング・クリーンアップの記述を追記。判断記録は `docs/handoff.md` §4 判断 6 に追記。`docs/plans.md` の M3 行を更新。`api/openapi.yaml` は変更なし。

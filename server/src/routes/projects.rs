@@ -190,15 +190,16 @@ pub async fn create_project(
     let imported = zip_import::import_zip(zip_bytes)
         .map_err(|e| map_zip_error(e, zip_bytes.len()))?;
 
-    // novnow 軽量検証（保管基盤への投入前）。
+    // novnow 軽量検証（保管基盤への投入前）。ディレクトリ entry も渡す。
     let snapshot: Vec<SnapshotFile> = imported
+        .files
         .iter()
         .map(|f| SnapshotFile {
             path: f.path.clone(),
             content: f.content.clone(),
         })
         .collect();
-    if let Err(verr) = verify::verify_snapshot(&snapshot) {
+    if let Err(verr) = verify::verify_snapshot(&snapshot, &imported.dirs) {
         return Err(ApiError::VerificationFailed(verr.to_string()));
     }
 
@@ -211,31 +212,69 @@ pub async fn create_project(
         .await
         .map_err(map_port_error)?;
 
-    // ファイルのコミット（保管単位へ投入）。
-    let new_files: Vec<NewFile> = imported
-        .iter()
-        .map(|f| {
-            let content = String::from_utf8_lossy(&f.content).into_owned();
-            NewFile {
-                path: f.path.clone(),
-                content,
-                encoding: FileEncoding::Text,
-            }
-        })
-        .collect();
-    state
-        .github_adapter
-        .commit_files(&shell.id, &shell.default_branch, &new_files)
-        .await
-        .map_err(map_port_error)?;
-
-    // 公開範囲の設定。
-    if visibility != shell.visibility {
+    // 保管単位作成後の工程（コミット・公開範囲設定）で失敗したら、中間状態を
+    // 残さないために保管単位を削除する（設計 §2.1）。削除自体が失敗した場合は
+    // その旨をエラーに含める。
+    let mut cleanup_failed: Option<String> = None;
+    let commit_result: Result<(), ApiError> = async {
+        // ファイルのコミット（保管単位へ投入）。
+        // UTF-8 として妥当なファイルは Text、そうでない（バイナリ相当）は
+        // Base64 でコミットし、内容を壊さない。黙って壊すことはしない。
+        let new_files: Vec<NewFile> = imported
+            .files
+            .iter()
+            .map(|f| {
+                let (encoding, content) = if std::str::from_utf8(&f.content).is_ok() {
+                    (
+                        FileEncoding::Text,
+                        String::from_utf8(f.content.clone()).unwrap(),
+                    )
+                } else {
+                    use base64::engine::general_purpose::STANDARD;
+                    use base64::Engine;
+                    (FileEncoding::Base64, STANDARD.encode(&f.content))
+                };
+                NewFile {
+                    path: f.path.clone(),
+                    content,
+                    encoding,
+                }
+            })
+            .collect();
         state
             .github_adapter
-            .set_visibility(&shell.id, visibility)
+            .commit_files(&shell.id, &shell.default_branch, &new_files)
             .await
             .map_err(map_port_error)?;
+
+        // 公開範囲の設定。
+        if visibility != shell.visibility {
+            state
+                .github_adapter
+                .set_visibility(&shell.id, visibility)
+                .await
+                .map_err(map_port_error)?;
+        }
+        Ok(())
+    }
+    .await;
+
+    if let Err(e) = commit_result {
+        // 中間状態の保管単位を消す。
+        if let Err(del_err) = state
+            .github_adapter
+            .delete_project_shell(&shell.id)
+            .await
+        {
+            cleanup_failed = Some(format!(
+                "保管単位の削除に失敗しました（{}）: {}",
+                del_err, shell.id
+            ));
+        }
+        return Err(match cleanup_failed {
+            Some(extra) => ApiError::Internal(format!("{extra} / 元のエラー: {e:?}")),
+            None => e,
+        });
     }
 
     // hub 登録（インメモリ登録簿）。
