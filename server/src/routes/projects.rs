@@ -598,6 +598,7 @@ mod tests {
             commit_timeout_secs: 120,
             port: 8080,
             hub_public_base: "http://localhost:4321".into(),
+            webhook_secret: None,
         };
         assert_eq!(
             published_url(&config, "prj_1"),

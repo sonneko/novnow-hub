@@ -15,6 +15,7 @@ pub mod registry;
 pub mod routes;
 pub mod session;
 pub mod verify;
+pub mod webhook;
 pub mod zip_import;
 
 use std::sync::Arc;
@@ -30,6 +31,7 @@ use crate::notifications::NotificationStore;
 use crate::registry::ProjectRegistry;
 use crate::routes::auth::StateStore;
 use crate::session::SessionStore;
+use crate::webhook::{LoggingRebuild, WebhookStore};
 
 /// 全ルーターを組み立てる。
 ///
@@ -152,6 +154,8 @@ pub fn build_router(state: AppState) -> Router {
 
     Router::new()
         .nest("/api/v1", api_v1)
+        // Webhook 受信（サーバー内部の受信口。API 契約には追加しない）。
+        .route("/internal/webhook", post(routes::webhook::receive))
         .with_state(state)
 }
 
@@ -178,6 +182,8 @@ pub fn build_app_state(config: Config) -> AppState {
         redirect_store: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
         projects: Arc::new(ProjectRegistry::new()),
         notifications: Arc::new(NotificationStore::new()),
+        webhook: Arc::new(WebhookStore::new()),
+        rebuild: Arc::new(LoggingRebuild),
     }
 }
 
@@ -508,6 +514,192 @@ mod tests {
         let page: serde_json::Value = serde_json::from_str(&body).unwrap();
         assert_eq!(page["items"].as_array().unwrap().len(), 0);
     }
+
+    // ============================================================================
+    // M4 Webhook: 署名検証と再生成ジョブの統合テスト（設計 §7.1）。
+    // ============================================================================
+
+    const TEST_WEBHOOK_SECRET: &str = "test-webhook-secret";
+
+    /// push イベントのペイロード（repository.full_name = shell_id 相当）。
+    fn push_payload(full_name: &str) -> Vec<u8> {
+        serde_json::json!({
+            "action": "created",
+            "repository": { "full_name": full_name, "default_branch": "main" },
+            "push_changes": [{ "sha": "abc" }]
+        })
+        .to_string()
+        .into_bytes()
+    }
+
+    fn webhook_request(body: &[u8], secret: Option<&str>, event: &str, signature: Option<&str>) -> Request<Body> {
+        let mut builder = Request::builder()
+            .method("POST")
+            .uri("/internal/webhook")
+            .header("content-type", "application/json")
+            .header("x-github-event", event);
+        if let Some(sig) = signature {
+            builder = builder.header("x-hub-signature-256", sig);
+        }
+        // secret は署名計算にのみ使う（ヘッダには出さない）。
+        let _ = secret;
+        builder.body(Body::from(body.to_vec())).unwrap()
+    }
+
+    fn signed_request(body: &[u8], secret: &str, event: &str) -> Request<Body> {
+        let sig = crate::webhook::sign(secret.as_bytes(), body);
+        webhook_request(body, Some(secret), event, Some(&sig))
+    }
+
+    /// Webhook 受信で署名が不正なら 401。
+    #[tokio::test]
+    async fn webhook_rejects_invalid_signature() {
+        let state = test_state();
+        let router = test_router(state);
+        let body = push_payload("octo/demo");
+        let req = webhook_request(&body, Some(TEST_WEBHOOK_SECRET), "push", Some("sha256=deadbeef"));
+        let resp = router.oneshot(req).await.unwrap();
+        let (status, _) = response_text(resp).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+    }
+
+    /// 署名ヘッダが無いなら 401。
+    #[tokio::test]
+    async fn webhook_rejects_missing_signature() {
+        let state = test_state();
+        let router = test_router(state);
+        let body = push_payload("octo/demo");
+        let req = webhook_request(&body, Some(TEST_WEBHOOK_SECRET), "push", None);
+        let resp = router.oneshot(req).await.unwrap();
+        let (status, _) = response_text(resp).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+    }
+
+    /// 署名検証成功后、登録済みリポジトリの公開ページ再生成ジョブが起票される。
+    #[tokio::test]
+    async fn webhook_accepts_valid_signature_and_enqueues_rebuild() {
+        use crate::test_support::{register_test_project, MockRebuild};
+        use crate::webhook::WebhookJobStatus;
+
+        let mut state = test_state();
+        register_test_project(&state, "prj_1", "octo/demo");
+        let mock = MockRebuild::new();
+        state.rebuild = std::sync::Arc::new(mock.clone());
+
+        // router は state を消費するので、共有する Arc を残すために clone する。
+        let router = test_router(state.clone());
+        let body = push_payload("octo/demo");
+        let req = signed_request(&body, TEST_WEBHOOK_SECRET, "push");
+        let resp = router.oneshot(req).await.unwrap();
+        let (status, body) = response_text(resp).await;
+        assert_eq!(status, StatusCode::ACCEPTED, "body={body}");
+        let body_json: serde_json::Value = serde_json::from_str(&body).unwrap();
+        let job_id = body_json["jobId"].as_str().unwrap().to_string();
+        assert!(!job_id.is_empty());
+
+        // 非同期ジョブが再生成を実行し、成功に至るまで待つ。
+        let mut status = None;
+        for _ in 0..200 {
+            if let Some(job) = state.webhook.get(&job_id) {
+                status = Some(job.status);
+                if job.status == WebhookJobStatus::Succeeded {
+                    break;
+                }
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        assert_eq!(status, Some(WebhookJobStatus::Succeeded));
+        assert_eq!(mock.recorded(), vec!["prj_1".to_string()]);
+    }
+
+    /// 登録簿に無いリポジトリは 404。
+    #[tokio::test]
+    async fn webhook_rejects_unknown_project() {
+        let state = test_state();
+        let router = test_router(state);
+        let body = push_payload("unknown/repo");
+        let req = signed_request(&body, TEST_WEBHOOK_SECRET, "push");
+        let resp = router.oneshot(req).await.unwrap();
+        let (status, _) = response_text(resp).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+    }
+
+    /// 再生成対象外（非 push）のイベントは受信自体は成功し、ジョブは起票されない。
+    #[tokio::test]
+    async fn webhook_ignores_non_push_event() {
+        use crate::test_support::register_test_project;
+        let state = test_state();
+        register_test_project(&state, "prj_1", "octo/demo");
+        let router = test_router(state.clone());
+        let body = push_payload("octo/demo");
+        let req = signed_request(&body, TEST_WEBHOOK_SECRET, "ping");
+        let resp = router.oneshot(req).await.unwrap();
+        let (status, body) = response_text(resp).await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(body.contains("skipped"));
+        assert!(state.webhook.list().is_empty());
+    }
+
+    /// 署名検証成功→再生成ジョブ起票→失敗→リトライの導線を検証する。
+    #[tokio::test]
+    async fn webhook_rebuild_failure_is_retryable() {
+        use crate::test_support::{register_test_project, MockRebuild};
+        use crate::webhook::{run_job, WebhookJobStatus};
+
+        let mut state = test_state();
+        register_test_project(&state, "prj_1", "octo/demo");
+        let mock = MockRebuild::new().failing();
+        state.rebuild = std::sync::Arc::new(mock.clone());
+
+        // 署名検証付き受信でジョブを起票。
+        let router = test_router(state.clone());
+        let body = push_payload("octo/demo");
+        let req = signed_request(&body, TEST_WEBHOOK_SECRET, "push");
+        let resp = router.oneshot(req).await.unwrap();
+        let (status, body) = response_text(resp).await;
+        assert_eq!(status, StatusCode::ACCEPTED);
+        let job_id = serde_json::from_str::<serde_json::Value>(&body)
+            .unwrap()["jobId"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        // 非同期ジョブが失敗するまで待つ。
+        let mut job = None;
+        for _ in 0..200 {
+            if let Some(j) = state.webhook.get(&job_id) {
+                if j.status == WebhookJobStatus::Failed {
+                    job = Some(j);
+                    break;
+                }
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        assert_eq!(job.as_ref().map(|j| j.status), Some(WebhookJobStatus::Failed));
+        assert!(job.as_ref().unwrap().error.is_some());
+
+        // 失敗ジョブを手動リトライ。再生成が成功するようにモックを直す。
+        *mock.fail.lock().unwrap() = false;
+        let retried = state.webhook.retry(&job_id).unwrap();
+        assert_eq!(retried.status, WebhookJobStatus::Pending);
+        assert_eq!(retried.attempts, 2);
+
+        // リトライしたジョブを再実行すると成功する。
+        let job = state.webhook.get(&job_id).unwrap();
+        run_job(
+            state.webhook.as_ref(),
+            state.rebuild.as_ref(),
+            job.job_id.clone(),
+            job.project_id.clone(),
+            job.repo_full_name.clone(),
+        )
+        .await;
+        assert_eq!(
+            state.webhook.get(&job_id).unwrap().status,
+            WebhookJobStatus::Succeeded
+        );
+    }
+
 
 
 }

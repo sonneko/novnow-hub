@@ -607,3 +607,43 @@ pub trait NotificationPort: Send + Sync {
         body: &str,
     ) -> impl std::future::Future<Output = Result<(), PortError>> + Send;
 }
+
+/// Webhook イベントの種別（hub 側語彙）。
+///
+/// GitHub の概念（イベント名等）はアダプター層で吸収し、ここには hub 語彙のみ
+/// を置く（設計 §7.1「アダプター層の背後に GitHub の概念を隠す」）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WebhookEventKind {
+    /// ブランチへの推送。公開ページの再生成対象。
+    Push,
+    /// その他のイベント（再生成対象外。受信自体は認める）。
+    Other,
+}
+
+/// 受信した Webhook イベント（hub 語彙）。
+///
+/// `repo_full_name` は保管単位の識別子（shell_id 相当）で、登録簿の
+/// `get_by_shell` でプロジェクトへ解決する。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WebhookEvent {
+    pub kind: WebhookEventKind,
+    pub repo_full_name: String,
+}
+
+/// 公開ページの再生成とキャッシュ失効（設計 §7.1）。
+///
+/// ドメイン側は「対象プロジェクトの公開ページを再生成し、キャッシュを失効
+/// させる」ことだけを知る。実際の再生成・CDN 失効の実装は適応層（この
+/// hub では hub 管理のロギング実装）に隔離する。
+///
+/// `dyn` で利用可能にするため、返り値はボックス化 future とする。
+pub trait RebuildPort: Send + Sync {
+    /// 対象プロジェクトの公開ページを再生成し、キャッシュを失効させる。
+    fn rebuild_public_page(
+        &self,
+        project_id: &str,
+        repo: &str,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<(), PortError>> + Send + '_>,
+    >;
+}
