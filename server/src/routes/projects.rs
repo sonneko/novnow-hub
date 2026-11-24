@@ -284,6 +284,7 @@ pub async fn create_project(
         project_id: project_id.clone(),
         title: title.clone(),
         description: description.clone(),
+        tags: Vec::new(),
         owner_handle: owner_handle.clone(),
         license: license.clone(),
         visibility,
@@ -373,6 +374,206 @@ fn map_port_error(e: crate::ports::PortError) -> ApiError {
         crate::ports::PortError::InvalidResponse => ApiError::Internal("外部基盤の応答が不正です".into()),
         crate::ports::PortError::Unknown => ApiError::Internal("不明なエラー".into()),
     }
+}
+
+/// 一覧・検索の既定ページサイズ（契約 `limit` の既定）。
+const DEFAULT_PAGE_LIMIT: usize = 20;
+/// 一覧・検索のページサイズ上限（契約 `limit` の上限）。
+const MAX_PAGE_LIMIT: usize = 100;
+
+/// 一覧・検索のレスポンス（契約の `Project` スキーマに準拠、camelCase）。
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectResponse {
+    pub id: String,
+    pub slug: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub owner_handle: String,
+    pub license: String,
+    pub visibility: String,
+    pub tags: Vec<String>,
+    pub derivative_policy: String,
+    pub derivative_count: i64,
+    pub default_branch_name: String,
+    pub etag: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub published_url: String,
+}
+
+/// 一覧・検索のページ（契約の `ProjectPage` スキーマに準拠、camelCase）。
+///
+/// `nextCursor` は次ページが無ければ `null`（契約 `type: [string, 'null']`）。
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectPageResponse {
+    pub items: Vec<ProjectResponse>,
+    pub next_cursor: Option<String>,
+}
+
+/// `ProjectRecord` をレスポンスに写像する（slug・publishedUrl は機械生成）。
+fn to_project_response(record: &registry::ProjectRecord, config: &crate::config::Config) -> ProjectResponse {
+    ProjectResponse {
+        id: record.project_id.clone(),
+        slug: slugify(&record.title),
+        title: record.title.clone(),
+        description: record.description.clone(),
+        owner_handle: record.owner_handle.clone(),
+        license: record.license.clone(),
+        visibility: registry::visibility_str(record.visibility).to_string(),
+        tags: record.tags.clone(),
+        derivative_policy: "allowed".to_string(),
+        derivative_count: 0,
+        default_branch_name: record.default_branch.clone(),
+        etag: record.etag.clone(),
+        created_at: iso8601(record.created_at),
+        updated_at: iso8601(record.updated_at),
+        published_url: published_url(config, &record.project_id),
+    }
+}
+
+fn to_page_response(
+    page: crate::project_index::Page,
+    config: &crate::config::Config,
+) -> ProjectPageResponse {
+    ProjectPageResponse {
+        items: page
+            .items
+            .iter()
+            .map(|r| to_project_response(r, config))
+            .collect(),
+        next_cursor: page.next_cursor,
+    }
+}
+
+/// `limit` クエリを検証してページサイズへ解決する（契約 `limit` の範囲）。
+fn resolve_limit(raw: Option<u32>) -> Result<usize, ApiError> {
+    match raw {
+        None => Ok(DEFAULT_PAGE_LIMIT),
+        Some(n) => {
+            if n < 1 || n > MAX_PAGE_LIMIT as u32 {
+                Err(ApiError::ValidationFailed(format!(
+                    "limit は 1 以上 {MAX_PAGE_LIMIT} 以下にしてください（{n}）"
+                )))
+            } else {
+                Ok(n as usize)
+            }
+        }
+    }
+}
+
+/// `GET /projects`（一覧、公開）。
+///
+/// 契約 `listProjects` に準拠。`security: []` で認証不要。
+/// 軽量インデックス（インメモリ登録簿）上でソート＋カーソルページネーションする。
+pub async fn list_projects(
+    State(state): State<AppState>,
+    axum::extract::Query(params): axum::extract::Query<ListQuery>,
+) -> Result<Json<ProjectPageResponse>, ApiError> {
+    let sort = match params.sort.as_deref() {
+        Some(raw) => crate::project_index::ListSort::parse(raw)
+            .ok_or_else(|| ApiError::ValidationFailed(format!("sort が不正です: {raw}"))),
+        None => Ok(crate::project_index::ListSort::Updated),
+    }?;
+    let limit = resolve_limit(params.limit)?;
+    if let Some(c) = &params.cursor {
+        if c.chars().count() > 512 {
+            return Err(ApiError::ValidationFailed(
+                "カーソルが長すぎます".into(),
+            ));
+        }
+    }
+    let records = state.projects.all();
+    let page =
+        crate::project_index::list(&records, sort, params.cursor.as_deref(), limit)
+            .map_err(ApiError::ValidationFailed)?;
+    Ok(Json(to_page_response(page, &state.config)))
+}
+
+/// `GET /search/projects`（検索、公開）。
+///
+/// 契約 `searchProjects` に準拠。`security: []` で認証不要。
+/// キーワード・ライセンス・タグを軽量インデックス上で絞り込む。
+pub async fn search_projects(
+    State(state): State<AppState>,
+    axum::extract::Query(params): axum::extract::Query<SearchQuery>,
+) -> Result<Json<ProjectPageResponse>, ApiError> {
+    // q は必須（契約 `minLength: 1`）。
+    let q = params.q.unwrap_or_default();
+    if q.trim().is_empty() {
+        return Err(ApiError::ValidationFailed("q を指定してください".into()));
+    }
+    if q.chars().count() > 200 {
+        return Err(ApiError::ValidationFailed(
+            "q は 200 文字以下にしてください".into(),
+        ));
+    }
+    // license は列挙値を検証。
+    if let Some(lic) = &params.license {
+        parse_license(lic)?;
+    }
+    if let Some(t) = &params.tag {
+        if t.chars().count() > 50 {
+            return Err(ApiError::ValidationFailed(
+                "タグは 50 文字以下にしてください".into(),
+            ));
+        }
+    }
+    let sort = match params.sort.as_deref() {
+        Some(raw) => crate::project_index::SearchSort::parse(raw)
+            .ok_or_else(|| ApiError::ValidationFailed(format!("sort が不正です: {raw}"))),
+        None => Ok(crate::project_index::SearchSort::Relevance),
+    }?;
+    let limit = resolve_limit(params.limit)?;
+    if let Some(c) = &params.cursor {
+        if c.chars().count() > 512 {
+            return Err(ApiError::ValidationFailed(
+                "カーソルが長すぎます".into(),
+            ));
+        }
+    }
+    let records = state.projects.all();
+    let page = crate::project_index::search(
+        &records,
+        &q,
+        params.license.as_deref(),
+        params.tag.as_deref(),
+        sort,
+        params.cursor.as_deref(),
+        limit,
+    )
+    .map_err(ApiError::ValidationFailed)?;
+    Ok(Json(to_page_response(page, &state.config)))
+}
+
+/// `GET /projects` のクエリ（契約 `listProjects`）。
+#[derive(Debug, serde::Deserialize)]
+pub struct ListQuery {
+    #[serde(default)]
+    pub sort: Option<String>,
+    #[serde(default)]
+    pub cursor: Option<String>,
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+/// `GET /search/projects` のクエリ（契約 `searchProjects`）。
+#[derive(Debug, serde::Deserialize)]
+pub struct SearchQuery {
+    #[serde(default)]
+    pub q: Option<String>,
+    #[serde(default)]
+    pub license: Option<String>,
+    #[serde(default)]
+    pub tag: Option<String>,
+    #[serde(default)]
+    pub sort: Option<String>,
+    #[serde(default)]
+    pub cursor: Option<String>,
+    #[serde(default)]
+    pub limit: Option<u32>,
 }
 
 #[cfg(test)]

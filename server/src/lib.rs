@@ -9,6 +9,7 @@ pub mod error;
 pub mod middleware;
 pub mod multipart;
 pub mod ports;
+pub mod project_index;
 pub mod registry;
 pub mod routes;
 pub mod session;
@@ -42,13 +43,18 @@ pub fn build_router(state: AppState) -> Router {
         .route("/auth/refresh", post(routes::auth::refresh))
         .route("/auth/logout", post(routes::auth::logout))
         .route("/auth/account", delete(routes::auth::account))
+        // プロジェクト一覧・検索（公開。仕様 §4.1・§4.2）
+        .route("/projects", get(routes::projects::list_projects))
+        .route("/search/projects", get(routes::projects::search_projects))
         // 公開フロー（POST /projects は require_auth 経由）
-        .route(
-            "/projects",
-            post(routes::projects::create_project).route_layer(
-                axum::middleware::from_fn_with_state(
-                    state.clone(),
-                    middleware::require_auth,
+        .merge(
+            Router::new().route(
+                "/projects",
+                post(routes::projects::create_project).route_layer(
+                    axum::middleware::from_fn_with_state(
+                        state.clone(),
+                        middleware::require_auth,
+                    ),
                 ),
             ),
         );
@@ -91,9 +97,10 @@ mod tests {
     use axum::http::StatusCode;
     use tower::ServiceExt;
 
+    use crate::app_state::AppState;
     use crate::ports::Identity;
     use crate::test_support::{
-        build_multipart, multipart_request, response_text, test_router, test_state,
+        build_multipart, get_request, multipart_request, response_text, test_router, test_state,
     };
 
     /// novnow 検証を通る最小 zip を生成する（stored 方式）。
@@ -194,5 +201,142 @@ mod tests {
             !body.contains("verification_failed"),
             "検証失敗が現れるべきではない: {body}"
         );
+    }
+
+    /// 軽量インデックス用のサンプルプロジェクトを登録簿へ登録する。
+    fn register_sample(state: &AppState, id: &str, title: &str, license: &str, updated: i64) {
+        use crate::ports::ProjectVisibility;
+        use crate::registry::{ProjectRecord, DEFAULT_BRANCH};
+        state.projects.register(ProjectRecord {
+            project_id: id.to_string(),
+            title: title.to_string(),
+            description: Some(format!("desc {title}")),
+            tags: Vec::new(),
+            owner_handle: format!("owner-{id}"),
+            license: license.to_string(),
+            visibility: ProjectVisibility::Public,
+            shell_id: format!("shell-{id}"),
+            default_branch: DEFAULT_BRANCH.to_string(),
+            etag: format!("etag-{id}"),
+            created_at: updated,
+            updated_at: updated,
+        });
+    }
+
+    fn state_with_samples() -> AppState {
+        let state = test_state();
+        register_sample(&state, "a", "Moonlit Garden", "cc-by", 100);
+        register_sample(&state, "b", "Star Voyage", "cc0", 200);
+        register_sample(&state, "c", "Deep Forest", "cc-by-sa", 300);
+        state
+    }
+
+    #[tokio::test]
+    async fn list_projects_returns_page_sorted_by_updated() {
+        let router = test_router(state_with_samples());
+        let req = get_request("/api/v1/projects?limit=10");
+        let resp = router.oneshot(req).await.unwrap();
+        let (status, body) = response_text(resp).await;
+        assert_eq!(status, StatusCode::OK);
+        let page: serde_json::Value = serde_json::from_str(&body).unwrap();
+        // 更新日時降順 → c, b, a。
+        let ids: Vec<&str> = page["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|it| it["id"].as_str().unwrap())
+            .collect();
+        assert_eq!(ids, vec!["c", "b", "a"]);
+        assert!(page["nextCursor"].is_null());
+        // camelCase フィールド名で契約に準拠。
+        assert_eq!(page["items"][0]["ownerHandle"].as_str().unwrap(), "owner-c");
+        assert!(page["items"][0]["publishedUrl"]
+            .as_str()
+            .unwrap()
+            .contains("/reading/?projectId=c"));
+    }
+
+    #[tokio::test]
+    async fn list_projects_cursor_pagination() {
+        let router = test_router(state_with_samples());
+        // 1 件ずつ。1 ページ目は c。
+        let req = get_request("/api/v1/projects?limit=1");
+        let resp = router.clone().oneshot(req).await.unwrap();
+        let (_, body) = response_text(resp).await;
+        let page: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(page["items"][0]["id"].as_str().unwrap(), "c");
+        let cursor = page["nextCursor"].as_str().unwrap().to_string();
+        assert!(!cursor.is_empty());
+
+        // 2 ページ目は b。
+        let req = get_request(&format!("/api/v1/projects?limit=1&cursor={cursor}"));
+        let resp = router.oneshot(req).await.unwrap();
+        let (_, body) = response_text(resp).await;
+        let page: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(page["items"][0]["id"].as_str().unwrap(), "b");
+    }
+
+    #[tokio::test]
+    async fn list_projects_rejects_invalid_sort() {
+        let router = test_router(state_with_samples());
+        let req = get_request("/api/v1/projects?sort=bogus");
+        let resp = router.oneshot(req).await.unwrap();
+        let (status, body) = response_text(resp).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert!(body.contains("validation_failed"));
+    }
+
+    #[tokio::test]
+    async fn list_projects_rejects_invalid_limit() {
+        let router = test_router(state_with_samples());
+        let req = get_request("/api/v1/projects?limit=0");
+        let resp = router.oneshot(req).await.unwrap();
+        let (status, body) = response_text(resp).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert!(body.contains("validation_failed"));
+    }
+
+    #[tokio::test]
+    async fn search_projects_by_keyword() {
+        let router = test_router(state_with_samples());
+        let req = get_request("/api/v1/search/projects?q=voyage&limit=10");
+        let resp = router.oneshot(req).await.unwrap();
+        let (status, body) = response_text(resp).await;
+        assert_eq!(status, StatusCode::OK);
+        let page: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(page["items"].as_array().unwrap().len(), 1);
+        assert_eq!(page["items"][0]["id"].as_str().unwrap(), "b");
+    }
+
+    #[tokio::test]
+    async fn search_projects_by_license_filter() {
+        let router = test_router(state_with_samples());
+        // cc-by は a のみ。
+        let req = get_request("/api/v1/search/projects?q=garden&license=cc-by&limit=10");
+        let resp = router.oneshot(req).await.unwrap();
+        let (status, body) = response_text(resp).await;
+        assert_eq!(status, StatusCode::OK);
+        let page: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(page["items"][0]["id"].as_str().unwrap(), "a");
+    }
+
+    #[tokio::test]
+    async fn search_projects_requires_q() {
+        let router = test_router(state_with_samples());
+        let req = get_request("/api/v1/search/projects?license=cc-by");
+        let resp = router.oneshot(req).await.unwrap();
+        let (status, body) = response_text(resp).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert!(body.contains("validation_failed"));
+    }
+
+    #[tokio::test]
+    async fn search_projects_rejects_invalid_license() {
+        let router = test_router(state_with_samples());
+        let req = get_request("/api/v1/search/projects?q=garden&license=bogus");
+        let resp = router.oneshot(req).await.unwrap();
+        let (status, body) = response_text(resp).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert!(body.contains("validation_failed"));
     }
 }

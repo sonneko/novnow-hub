@@ -83,6 +83,15 @@ pub fn multipart_request(path: &str, body: &[u8], token: Option<&str>) -> Reques
     builder.body(Body::from(body.to_vec())).unwrap()
 }
 
+/// GET リクエストを構築する（パスにクエリ文字列を含む）。
+pub fn get_request(path: &str) -> Request<Body> {
+    Request::builder()
+        .method("GET")
+        .uri(path)
+        .body(Body::empty())
+        .unwrap()
+}
+
 /// レスポンスボディを文字列として取得する。
 pub async fn response_text(response: axum::response::Response) -> (StatusCode, String) {
     let status = response.status();

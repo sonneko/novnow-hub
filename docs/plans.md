@@ -57,7 +57,7 @@
 - [x] 公開フロー: zip 取込 → novnow 軽量検証 → 保管単位作成 → hub 登録 → 公開ページ生成（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）— 実装済み。multipart/form-data パース（純粋 Rust 自前実装）、`POST /projects` ルート（`require_auth` 経由）、novnow 軽量検証（novnow 本体の仕様 §4.2・§4.3 と同一）、保管単位作成（ポート経由）、インメモリ hub 登録（ProjectRegistry）、公開ページ URL 生成（`{HUB_PUBLIC_BASE}/reading/?projectId=…`）。PR #42 で 5 件修正（zip ディレクトリ entry をファイル化しない・バイナリは Base64 で壊さない・保管単位作成後の失敗時は削除・複数行 TOML 値を読める・`schema_version` 検査はトップレベルのみ）。`cargo build`（警告 0）・`cargo test`（69 件）・`cargo clippy -D warnings` 通過。実機検証: サーバ起動で認証ゲート 401・`/meta` 200 を確認。
 - [x] 読者ビュー本体（`/reading` の API 接続・本文表示、設計 §3.2）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
 - [x] 公開ページへの事前描画と ETag キャッシュ（設計 §3.3）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
-- [ ] プロジェクト一覧・検索の最小実装（軽量インデックス、カーソルページネーション）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
+- [x] プロジェクト一覧・検索の最小実装（軽量インデックス、カーソルページネーション）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）— 実装済み。`GET /projects`（一覧、`sort`・`cursor`・`limit`）と `GET /search/projects`（検索、`q`・`license`・`tag`・`sort`・`cursor`・`limit`）を公開（認証不要、契約に準拠）。バックエンドはインメモリ登録簿のスナップショットを走査する軽量インデックス（`project_index`）でカーソルページネーション（`nextCursor`、総件数は返さない）を実装。公開作品のみ対象。`cargo build`（警告 0）・`cargo test`（92 件）・`cargo clippy -D warnings` 通過。
 - [x] 公開ウィザード UI（非エンジニア向け 4 ステップ）と公開完了画面（URL 提示）（PR #8 で実装・マージ済み）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）
 
 完了条件: 非エンジニアが zip をアップロードして公開でき、第三者が URL を開いて本文を読めること（本番相当環境）。
