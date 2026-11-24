@@ -231,3 +231,19 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
   - clippy: `cargo clippy --locked --all-targets -- -D warnings` → 通過。
   - ドキュメント: `python3 docs/script/verify-docs.py` → OK（rule-4 見出し構成一致）。
 - **ドキュメント同期**: `docs/designs/m3.md` §2.1 にディレクトリ entry・複数行 TOML・`schema_version` トップレベルのみ・バイナリエンコーディング・クリーンアップの記述を追記。判断記録は `docs/handoff.md` §4 判断 6 に追記。`docs/plans.md` の M3 行を更新。`api/openapi.yaml` は変更なし。
+
+[HIST-TAG: category=MILESTONE id=M3-PROJECT-LIST-SEARCH topics=m3,list,search,cursor,index]
+- **ブランチ**: `arena/3f2aec93-novnow-hub`（`main` @ `f81e797` = PR #42 マージコミット）。**マージは指示待ち（未マージ）**。
+- **作業**: M3 の残件「プロジェクト一覧・検索の最小実装（軽量インデックス、カーソルページネーション）」を実装。`docs/plans.md` の M3 で唯一の未チェック項目。
+- **変更内容**:
+  - `server/src/project_index.rs`（新規）: 一覧・検索の軽量インデックス（純粋関数）。ソート（更新順・新着順・派生数順）、キーワード・ライセンス・タグの絞り込み、カーソルページネーション（`nextCursor`、総件数は返さない）を実装。公開作品のみ対象。
+  - `server/src/registry.rs`: `ProjectRecord` に `tags` を追加（M3 では空配列で登録）。全件取得用 `all()` を追加。
+  - `server/src/routes/projects.rs`: `GET /projects`（一覧）と `GET /search/projects`（検索）を実装（認証不要、契約 `listProjects`/`searchProjects` に準拠、camelCase レスポンス）。クエリ検証（`sort`・`limit`・`q`・`license`・`tag`）と 400 エラー処理。
+  - `server/src/lib.rs`: ルータに `GET /projects`（公開）と `GET /search/projects`（公開）を登録。POST のみ `require_auth` 経由。
+  - `server/src/test_support.rs`: GET リクエストヘルパ `get_request` を追加。
+- **検証（実行で証明）**:
+  - ビルド: `cargo build --locked --all-targets` → 警告 0・エラー 0 で成功。
+  - テスト: `cargo test --locked --all-targets` → **92 件**成功（軽量インデックスの单元テストと一覧・検索の HTTP 統合テストを含む）。
+  - clippy: `cargo clippy --locked --all-targets -- -D warnings` → 通過。
+  - ドキュメント: `python3 docs/script/verify-docs.py` → OK（rule-4 見出し構成一致）。
+- **ドキュメント同期**: `docs/designs/m3.md` §4.1・§4.2 の状態を「実装完了」に更新。判断記録は `docs/handoff.md` §4 判断 7 に追記（軽量インデックス・カーソル・ソート・絞り込み範囲・タグ保持）。`docs/plans.md` の M3 一覧・検索項目をチェック済みに更新。`api/openapi.yaml` は変更なし。

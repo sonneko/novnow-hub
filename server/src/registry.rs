@@ -23,6 +23,11 @@ pub struct ProjectRecord {
     pub title: String,
     /// 説明（任意）。
     pub description: Option<String>,
+    /// タグ（任意。検索・絞り込み用の軽量インデックス）。
+    ///
+    /// 公開フローの multipart フォームにはタグ項目が無いため、M3 では空配列で
+    /// 登録する。後続でタグ入力が追加された際に本フィールドを populating する。
+    pub tags: Vec<String>,
     /// 作者ハンドル。
     pub owner_handle: String,
     /// ライセンス（`cc0`・`cc-by` 等。契約の列挙値）。
@@ -70,6 +75,14 @@ impl ProjectRegistry {
             .values()
             .find(|r| r.shell_id == shell_id)
             .cloned()
+    }
+
+    /// 登録簿の全件をスナップショットとして返す（軽量インデックス用）。
+    ///
+    /// インメモリ登録簿のため、一覧・検索は本コレクションを走査して実現する。
+    /// 後続で DB 導入時は本実装を差し替えのみで移行できる。
+    pub fn all(&self) -> Vec<ProjectRecord> {
+        self.records.read().unwrap().values().cloned().collect()
     }
 }
 
@@ -171,6 +184,7 @@ mod tests {
             project_id: project_id.to_string(),
             title: "t".to_string(),
             description: None,
+            tags: Vec::new(),
             owner_handle: "sora".to_string(),
             license: "cc-by".to_string(),
             visibility: ProjectVisibility::Public,
