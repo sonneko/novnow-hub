@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { apiClient } from '../../lib/api/client';
   import { messages, type Locale } from '../../lib/i18n';
-  import { chatPageHref, derivativesPageHref, readerPageHref } from '../../lib/links';
+  import { chatPageHref, derivativesPageHref, notificationsPageHref, readerPageHref } from '../../lib/links';
   import type { ShellPage } from '../../lib/pages';
   import DerivativesPage from '../pages/DerivativesPage.svelte';
   import SetupResolvePage from '../pages/SetupResolvePage.svelte';
@@ -14,6 +15,7 @@
   import IssuesPage from '../pages/IssuesPage.svelte';
   import IssueDetailPage from '../pages/IssueDetailPage.svelte';
   import ChatPage from '../pages/ChatPage.svelte';
+  import NotificationsPage from '../pages/NotificationsPage.svelte';
 
   interface Props {
     page: ShellPage;
@@ -26,7 +28,9 @@
   let detailNumber = $state(0);
   let setupUrl = $state('');
   let routeReady = $state(false);
+  let unreadCount = $state(0);
 
+  const notificationsHref = $derived(notificationsPageHref());
   const m = $derived(messages[locale]);
   const readerHref = $derived(projectId ? readerPageHref(projectId) : undefined);
   const derivativesHref = $derived(projectId ? derivativesPageHref(projectId) : undefined);
@@ -41,6 +45,7 @@
     if (page.kind === 'proposals' || page.kind === 'proposal') return m.collaboration.proposals.title;
     if (page.kind === 'issues' || page.kind === 'issue') return m.collaboration.issues.title;
     if (page.kind === 'chat') return m.collaboration.chat.title;
+    if (page.kind === 'notifications') return m.collaboration.notifications.title;
     return m.projects.title;
   }
 
@@ -66,6 +71,26 @@
       localStorage.setItem('novnow-theme', theme);
     } catch {
       // Storage may be unavailable; the current page theme still works.
+    }
+  }
+
+  async function loadUnreadCount() {
+    try {
+      const headers = import.meta.env.DEV ? { Authorization: 'Bearer mock-user-token' } : undefined;
+      const result = await apiClient.GET('/notifications', {
+        params: { query: { unreadOnly: true, limit: 1 } },
+        headers,
+      });
+      if (result.error) return;
+      const headerValue = result.response.headers.get('X-Unread-Count');
+      if (headerValue) {
+        const parsed = Number.parseInt(headerValue, 10);
+        unreadCount = Number.isNaN(parsed) ? 0 : parsed;
+        return;
+      }
+      unreadCount = (result.data?.items ?? []).filter((item) => !item.read).length;
+    } catch {
+      // 未読数の取得は補助情報。失敗しても他の表示は止めない。
     }
   }
 
@@ -96,6 +121,10 @@
     }
     applyLocale(storedLocale === 'en' ? 'en' : 'ja');
     theme = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+
+    void loadUnreadCount();
+    const pollTimer = setInterval(() => void loadUnreadCount(), 10_000);
+    return () => clearInterval(pollTimer);
   });
 </script>
 
@@ -130,6 +159,18 @@
     </nav>
 
     <div class="controls">
+      <a
+        class="control-button notification-bell"
+        href={notificationsHref}
+        aria-label={m.controls.notifications}
+      >
+        <span aria-hidden="true">🔔</span>
+        {#if unreadCount > 0}
+          <span class="badge notification-unread-badge" aria-label={m.collaboration.notifications.unreadBadge}>
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        {/if}
+      </a>
       <button
         type="button"
         class="control-button"
@@ -188,6 +229,8 @@
       {#if routeReady}<IssueDetailPage {projectId} number={detailNumber} {locale} {m} />{:else}<p role="status">{m.api.loading}</p>{/if}
     {:else if page.kind === 'chat'}
       {#if routeReady}<ChatPage {projectId} {locale} {m} />{:else}<p role="status">{m.api.loading}</p>{/if}
+    {:else if page.kind === 'notifications'}
+      <NotificationsPage {locale} {m} />
     {:else}
       <PublishWizard {locale} {m} />
     {/if}

@@ -530,3 +530,80 @@ pub trait CheckStatusPort: Send + Sync {
         ref_name: &str,
     ) -> impl std::future::Future<Output = Result<Vec<CheckStatus>, PortError>> + Send;
 }
+
+/// 通知の種別（契約 `Notification.kind` の hub 側語彙）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NotificationKind {
+    DerivativeCreated,
+    ProposalMerged,
+    ProposalAutomergeFailed,
+    ProposalComment,
+    IssueCreated,
+    IssueComment,
+    Mention,
+    JobFinished,
+    PublishRebuilt,
+}
+
+impl NotificationKind {
+    /// 契約 `Notification.kind` の文字列表記。
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            NotificationKind::DerivativeCreated => "derivative_created",
+            NotificationKind::ProposalMerged => "proposal_merged",
+            NotificationKind::ProposalAutomergeFailed => "proposal_automerge_failed",
+            NotificationKind::ProposalComment => "proposal_comment",
+            NotificationKind::IssueCreated => "issue_created",
+            NotificationKind::IssueComment => "issue_comment",
+            NotificationKind::Mention => "mention",
+            NotificationKind::JobFinished => "job_finished",
+            NotificationKind::PublishRebuilt => "publish_rebuilt",
+        }
+    }
+}
+
+/// 通知（hub 管理ストアに保存。契約 `Notification` に対応）。
+#[derive(Debug, Clone)]
+pub struct Notification {
+    pub id: String,
+    pub kind: NotificationKind,
+    pub project_id: Option<String>,
+    pub project_slug: Option<String>,
+    pub title: String,
+    pub body: String,
+    pub read: bool,
+    /// 発生時刻（epoch 秒）。
+    pub created_at: i64,
+}
+
+/// 通知の取得・既読化・ファンアウト（設計 §6）。hub 管理ストアで実装する。
+pub trait NotificationPort: Send + Sync {
+    /// 通知一覧を返す（カーソルページネーション）。
+    fn list_notifications(
+        &self,
+        user_id: &str,
+        kind: Option<NotificationKind>,
+        unread_only: bool,
+        cursor: Option<&str>,
+        limit: usize,
+    ) -> impl std::future::Future<Output = Result<(Vec<Notification>, Option<String>), PortError>> + Send;
+
+    /// 指定 ID を既読化、または全既読化する。
+    fn mark_read(
+        &self,
+        user_id: &str,
+        ids: &[String],
+        all: bool,
+    ) -> impl std::future::Future<Output = Result<(), PortError>> + Send;
+
+    /// ドメインイベントから通知をファンアウトする（設計 §6.2）。
+    fn emit(
+        &self,
+        user_id: &str,
+        kind: NotificationKind,
+        project_id: Option<&str>,
+        project_slug: Option<&str>,
+        title: &str,
+        body: &str,
+    ) -> impl std::future::Future<Output = Result<(), PortError>> + Send;
+}

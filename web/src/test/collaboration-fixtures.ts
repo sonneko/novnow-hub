@@ -3,6 +3,8 @@ import type {
   CommentPageData,
   Issue,
   IssuePageData,
+  Notification,
+  NotificationPageData,
   Proposal,
   ProposalDiff,
   ProposalPageData,
@@ -50,6 +52,32 @@ export const automergeStateFixture = {
   requireNoConflicts: true,
   etag: 'automerge-etag-1',
 } satisfies AutomergeState;
+
+export const notificationFixture = {
+  id: 'notif-1',
+  kind: 'proposal_merged',
+  projectId: 'project-1',
+  projectSlug: 'moonlit-garden',
+  title: '変更提案 #24 が取り込まれました',
+  body: '場面描写を追加 の提案がマージされました。',
+  read: false,
+  createdAt: '2026-10-13T12:30:00Z',
+} satisfies Notification;
+
+export const notificationUnreadFixture = {
+  ...notificationFixture,
+  id: 'notif-2',
+  kind: 'issue_comment',
+  title: '課題 #7 にコメントがありました',
+  body: 'mizu がコメントを追加しました。',
+  read: false,
+  createdAt: '2026-10-13T13:00:00Z',
+} satisfies Notification;
+
+export const notificationPageFixture = {
+  items: [notificationFixture, notificationUnreadFixture],
+  nextCursor: null,
+} satisfies NotificationPageData;
 
 export const issueFixture = {
   number: 7,

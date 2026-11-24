@@ -8,6 +8,7 @@ use crate::config::Config;
 use crate::registry::SharedProjectRegistry;
 use crate::routes::auth::StateStore;
 use crate::session::SharedSessionStore;
+use crate::notifications::SharedNotificationStore;
 
 /// 全ルーターで共有する状態。
 #[derive(Clone)]
@@ -22,4 +23,6 @@ pub struct AppState {
     pub redirect_store: Arc<RwLock<HashMap<String, String>>>,
     /// インメモリのプロジェクト登録簿（判断: `REF:docs/handoff.md` §4 判断 2）。
     pub projects: SharedProjectRegistry,
+    /// 通知の hub 管理ストア（設計 §6）。
+    pub notifications: SharedNotificationStore,
 }
