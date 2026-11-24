@@ -5,6 +5,7 @@
 //! GitHub の型（Repository 等）は `pub` に出さない。
 
 pub mod client;
+pub mod webhook;
 
 #[cfg(test)]
 mod m4_contract_test;

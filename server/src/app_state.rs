@@ -9,6 +9,7 @@ use crate::registry::SharedProjectRegistry;
 use crate::routes::auth::StateStore;
 use crate::session::SharedSessionStore;
 use crate::notifications::SharedNotificationStore;
+use crate::webhook::{SharedRebuild, SharedWebhookStore};
 
 /// 全ルーターで共有する状態。
 #[derive(Clone)]
@@ -25,4 +26,8 @@ pub struct AppState {
     pub projects: SharedProjectRegistry,
     /// 通知の hub 管理ストア（設計 §6）。
     pub notifications: SharedNotificationStore,
+    /// Webhook 受信の再生成ジョブストア（設計 §7.1）。
+    pub webhook: SharedWebhookStore,
+    /// 公開ページ再生成ポート（設計 §7.1、既定はロギング実装）。
+    pub rebuild: SharedRebuild,
 }

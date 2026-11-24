@@ -330,3 +330,24 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
   - server: `cargo clippy --locked --all-targets -- -D warnings` → 通過。
   - `python3 docs/script/verify-docs.py` → 実行検証。
 - **ドキュメント同期**: `docs/handoff.md` §4 判断 11 に通知実装の判断（通知エンドポイント 2 件の対応・`/notifications/settings` 未実装・`unreadOnly` の camelCase クエリ・未読件数ヘッダ・インメモリストア・ファンアウト対象）を追記。`docs/designs/m4.md` §6.1/§6.2 の状態を「実装完了」に更新。`docs/plans.md` の M4 通知項目をチェック済みに更新し進捗サマリを更新。`docs/history.md` に本エントリを追記。`api/openapi.yaml` は変更なし。
+
+### [HIST:MILESTONE:M4-WEBHOOK] 2026-11-24 M4 GitHub Webhook 受信（署名検証）による公開ページ再生成とキャッシュ失効（PR #47 マージコミット起点）
+
+[HIST-TAG: category=MILESTONE id=M4-WEBHOOK topics=m4,webhook,hmac,signature,rebuild,cache,backend,cargo]
+- **ブランチ**: `arena/m4-webhook-novnow-hub`（`main` @ `117150a` = PR #47 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチへの push は行わない。
+- **作業**: M4 残件「GitHub Webhook 受信（署名検証）による公開ページ再生成とキャッシュ失効」を実装。仕様 `docs/specifications/m4.md` §7、設計 `docs/designs/m4.md` §7.1、計画書 `docs/plans.md#m4-collaboration`、API 契約 `api/openapi.yaml` に準拠（**権威の順位は API 契約を正**）。
+- **変更内容（server）**:
+  - `server/src/webhook.rs`: HMAC-SHA256 署名の生成・検証（定数時間比較、`sha2` で手実装）、`WebhookStore`（再生成ジョブの起票・状態遷移・`retry` による手動再実行）、`LoggingRebuild`（既定の `RebuildPort` 実装）、`receive_webhook`（署名検証→イベント解析→プロジェクト解決→ジョブ起票）と `run_job`（非同期ジョブ実行）を新規作成。
+  - `server/src/adapters/github/webhook.rs`: GitHub ペイロードの受信解析（`X-GitHub-Event` + `repository.full_name` → hub 語彙の `WebhookEvent`）。GitHub の概念はアダプター層で吸収。
+  - `server/src/routes/webhook.rs`: **サーバー内部の受信口** `POST /internal/webhook`（契約外）。署名検証に失敗は 401、未設定は 500、未知プロジェクトは 404。成功時は再生成ジョブを非同期起票し 202 で応答。
+  - `server/src/ports.rs`: `WebhookEventKind`／`WebhookEvent`／`RebuildPort` trait（`dyn` 互換のボックス化 future）を追加。
+  - `server/src/app_state.rs` / `server/src/lib.rs`: `AppState.webhook`（ジョブストア）と `AppState.rebuild`（再生成ポート）を追加し、`POST /internal/webhook` ルートを配線。`config.rs` に `HUB_WEBHOOK_SECRET` を追加。`routes/mod.rs` に `pub mod webhook;` を追加。
+- **フォローアップ（PR #47 レビュー由来）**: 通知ファンアウト先は現状アクター本人のみで、関係者への通知は購読・参加者モデルが無いため実装しない（無理に購読モデルを新設しない。判断 12 に記録）。`docs/handoff.md` §2 の「現在のブランチ」「直近のマージ済み PR」「現在の状態」を PR #47 マージ後に更新。
+- **検証（実行で証明）**:
+  - server: `cargo build --locked --all-targets` → エラー 0・警告 0。
+  - server: `cargo test --locked --all-targets` → **131 件**成功、0 失敗（うち Webhook 統合 5 件: 署名成功/失敗・未署名・未知プロジェクト・非 push・失敗リトライ、および単体 13 件）。
+  - server: `cargo clippy --locked --all-targets -- -D warnings` → 通過。
+  - web: `cd web && npm run check` → Vitest **47 件**成功（17 ファイル）、`astro check` 0 errors（変更なし・基線維持）。
+  - web: `cd web && npm run build` → **12 ページ**生成、成功（変更なし・基線維持）。
+  - `python3 docs/script/verify-docs.py` → 実行検証。
+- **ドキュメント同期**: `docs/handoff.md` §4 判断 12 に Webhook 実装の判断（内部受信口・署名検証・アダプター層への GitHub 概念・対象イベント・非同期ジョブ・リトライ・通知先範囲）を追記。`docs/designs/m4.md` §7.1 の状態を「実装完了」に更新。`docs/plans.md` の M4 Webhook 項目をチェック済みに更新し進捗サマリを更新。`docs/history.md` に本エントリを追記。`api/openapi.yaml` は変更なし。

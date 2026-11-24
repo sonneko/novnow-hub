@@ -30,6 +30,7 @@ pub fn test_config() -> Config {
         commit_timeout_secs: 120,
         port: 8080,
         hub_public_base: "http://localhost:4321".into(),
+        webhook_secret: Some("test-webhook-secret".into()),
     }
 }
 
@@ -445,4 +446,60 @@ async fn check_runs(State(mock): State<MockGitHub>, req: Request<Body>) -> Respo
             "html_url": "https://github.com/octo/demo/runs/1"
         }]
     }))
+}
+
+// ============================================================================
+// M4 Webhook: 公開ページ再生成ポートのモック（記録＋制御可能）。
+// ルート→ジョブ→再生成の写像を、非同期ジョブを検証するために使う。
+// ============================================================================
+
+use std::future::Future;
+use std::pin::Pin;
+
+use crate::ports::{PortError, RebuildPort};
+
+/// テスト用の再生成ポート。
+///
+/// - `calls`: 呼出の記録（projectId）。
+/// - `fail`: true のとき再生成を失敗させる。
+#[derive(Clone, Default)]
+pub struct MockRebuild {
+    pub calls: Arc<Mutex<Vec<String>>>,
+    pub fail: Arc<Mutex<bool>>,
+}
+
+impl MockRebuild {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// 再生成を失敗させる。
+    pub fn failing(self) -> Self {
+        *self.fail.lock().unwrap() = true;
+        self
+    }
+
+    /// 記録された呼出を返す。
+    pub fn recorded(&self) -> Vec<String> {
+        self.calls.lock().unwrap().clone()
+    }
+}
+
+impl RebuildPort for MockRebuild {
+    fn rebuild_public_page(
+        &self,
+        project_id: &str,
+        _repo: &str,
+    ) -> Pin<Box<dyn Future<Output = Result<(), PortError>> + Send + '_>> {
+        let project_id = project_id.to_string();
+        let calls = self.calls.clone();
+        let fail = self.fail.clone();
+        Box::pin(async move {
+            calls.lock().unwrap().push(project_id);
+            if *fail.lock().unwrap() {
+                return Err(PortError::Unavailable);
+            }
+            Ok(())
+        })
+    }
 }

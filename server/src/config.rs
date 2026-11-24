@@ -39,6 +39,9 @@ pub struct Config {
     /// 公開ページのベース URL（`publishedUrl` の生成に使う）。
     /// 既定はローカル開発用の `http://localhost:4321`（判断: `REF:docs/handoff.md` §4 判断 1）。
     pub hub_public_base: String,
+    /// Webhook 署名検証用の秘密（`X-Hub-Signature-256` の HMAC-SHA256 鍵）。
+    /// 未設定なら Webhook 受信は `MissingSecret` で拒否する。
+    pub webhook_secret: Option<String>,
 }
 
 impl Config {
@@ -75,6 +78,7 @@ impl Config {
             port: get("HUB_PORT").and_then(|v| v.parse().ok()).unwrap_or(8080),
             hub_public_base: get("HUB_PUBLIC_BASE")
                 .unwrap_or_else(|| "http://localhost:4321".to_string()),
+            webhook_secret: get("HUB_WEBHOOK_SECRET"),
         }
     }
 
