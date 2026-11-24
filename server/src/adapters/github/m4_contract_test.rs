@@ -7,6 +7,7 @@
 //! 一致することを検証する。GitHub の概念はポートの背後に隠れ、hub 側の
 //! 型のみが返ることを確認する。
 
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -22,7 +23,7 @@ use super::client::{GitHubClient, OAuthConfig, Token};
 use super::GitHubAdapter;
 use crate::ports::{
     AutomergeConfig, AutomergePort, AutomergeStateKind, CheckStatusPort, CheckState, IssuePort,
-    IssueUpdate, ProposalPort, ReviewVerdict,
+    IssueUpdate, ProposalPort, ProposalState, ReviewVerdict,
 };
 
 /// 発信されたリクエストの記録。
@@ -37,13 +38,53 @@ struct Recorded {
 #[derive(Clone)]
 struct MockState {
     recorded: Arc<Mutex<Vec<Recorded>>>,
+    /// 返す Pull Request の固定フィクサ（state 絞り込み・状態テスト用）。
+    prs: Arc<Mutex<Vec<serde_json::Value>>>,
+    /// PR 番号ごとのレビュー（承認数の算出用）。
+    reviews: Arc<Mutex<HashMap<i64, Vec<serde_json::Value>>>>,
 }
 
 impl MockState {
     fn new() -> Self {
+        // 既定の 1 件（オープン・未承認）。
+        let pr = serde_json::json!({
+            "number": 7,
+            "title": "T",
+            "body": "B",
+            "state": "open",
+            "user": {"login": "alice"},
+            "base": {"ref": "main"},
+            "head": {"ref": "feat"},
+            "merged": false,
+            "additions": 5,
+            "deletions": 2,
+            "changed_files": 1,
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-02T00:00:00Z"
+        });
+        let mut reviews = HashMap::new();
+        reviews.insert(
+            7,
+            vec![
+                serde_json::json!({"state": "APPROVED"}),
+                serde_json::json!({"state": "COMMENTED"}),
+            ],
+        );
         Self {
             recorded: Arc::new(Mutex::new(Vec::new())),
+            prs: Arc::new(Mutex::new(vec![pr])),
+            reviews: Arc::new(Mutex::new(reviews)),
         }
+    }
+
+    /// PR の固定フィクサを差し替える。
+    fn set_prs(&self, prs: Vec<serde_json::Value>) {
+        *self.prs.lock().unwrap() = prs;
+    }
+
+    /// PR 番号ごとのレビューを差し替える。
+    fn set_reviews(&self, reviews: HashMap<i64, Vec<serde_json::Value>>) {
+        *self.reviews.lock().unwrap() = reviews;
     }
 }
 
@@ -161,58 +202,69 @@ async fn create_pull(State(state): State<MockState>, req: Request<Body>) -> Resp
 }
 
 async fn list_pulls(State(state): State<MockState>, req: Request<Body>) -> Response {
+    // クエリの state（open/closed/all）は req を消費する前に取得する。
+    let want = req
+        .uri()
+        .query()
+        .and_then(|q| {
+            q.split('&').find_map(|kv| {
+                let (k, v) = kv.split_once('=')?;
+                if k == "state" {
+                    Some(v.to_string())
+                } else {
+                    None
+                }
+            })
+        })
+        .unwrap_or_else(|| "all".to_string());
     let (method, path, _) = read_body(req).await;
     state.recorded.lock().unwrap().push(Recorded {
         method: method.to_string(),
         path,
         body: None,
     });
-    json_response(
-        StatusCode::OK,
-        serde_json::json!([{
-            "number": 7,
-            "title": "T",
-            "body": "B",
-            "state": "open",
-            "user": {"login": "alice"},
-            "base": {"ref": "main"},
-            "head": {"ref": "feat"},
-            "merged": false,
-            "additions": 5,
-            "deletions": 2,
-            "changed_files": 1,
-            "created_at": "2026-01-01T00:00:00Z",
-            "updated_at": "2026-01-02T00:00:00Z"
-        }]),
-    )
+    let prs = state.prs.lock().unwrap().clone();
+    let filtered: Vec<serde_json::Value> = prs
+        .into_iter()
+        .filter(|p| match want.as_str() {
+            "open" => p["state"] == "open",
+            "closed" => p["state"] == "closed",
+            _ => true,
+        })
+        .collect();
+    json_response(StatusCode::OK, serde_json::json!(filtered))
 }
 
 async fn get_pull(State(state): State<MockState>, req: Request<Body>) -> Response {
     let (method, path, _) = read_body(req).await;
-    let n = path.rsplit('/').next().unwrap_or("0").parse::<i64>().unwrap_or(0);
+    let n: i64 = path.rsplit('/').next().unwrap_or("0").parse().unwrap_or(0);
     state.recorded.lock().unwrap().push(Recorded {
         method: method.to_string(),
         path,
         body: None,
     });
-    json_response(
-        StatusCode::OK,
-        serde_json::json!({
-            "number": n,
-            "title": "T",
-            "body": "B",
-            "state": "open",
-            "user": {"login": "alice"},
-            "base": {"ref": "main"},
-            "head": {"ref": "feat"},
-            "merged": false,
-            "additions": 5,
-            "deletions": 2,
-            "changed_files": 1,
-            "created_at": "2026-01-01T00:00:00Z",
-            "updated_at": "2026-01-02T00:00:00Z"
-        }),
-    )
+    let prs = state.prs.lock().unwrap().clone();
+    let pr = prs
+        .into_iter()
+        .find(|p| p["number"].as_i64() == Some(n))
+        .unwrap_or_else(|| {
+            serde_json::json!({
+                "number": n,
+                "title": "T",
+                "body": "B",
+                "state": "open",
+                "user": {"login": "alice"},
+                "base": {"ref": "main"},
+                "head": {"ref": "feat"},
+                "merged": false,
+                "additions": 5,
+                "deletions": 2,
+                "changed_files": 1,
+                "created_at": "2026-01-01T00:00:00Z",
+                "updated_at": "2026-01-02T00:00:00Z"
+            })
+        });
+    json_response(StatusCode::OK, pr)
 }
 
 async fn update_pull(State(state): State<MockState>, req: Request<Body>) -> Response {
@@ -264,15 +316,22 @@ async fn pull_files(State(state): State<MockState>, req: Request<Body>) -> Respo
 
 async fn pull_reviews(State(state): State<MockState>, req: Request<Body>) -> Response {
     let (method, path, _) = read_body(req).await;
+    let n: i64 = path
+        .rsplit('/')
+        .nth(1)
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
     state.recorded.lock().unwrap().push(Recorded {
         method: method.to_string(),
         path,
         body: None,
     });
-    json_response(
-        StatusCode::OK,
-        serde_json::json!([{"state": "APPROVED"}, {"state": "COMMENTED"}]),
-    )
+    let reviews = state.reviews.lock().unwrap().clone();
+    let list = reviews
+        .get(&n)
+        .cloned()
+        .unwrap_or_else(|| vec![serde_json::json!({"state": "COMMENTED"})]);
+    json_response(StatusCode::OK, serde_json::json!(list))
 }
 
 async fn post_review(State(state): State<MockState>, req: Request<Body>) -> Response {
@@ -707,5 +766,121 @@ async fn token_missing_is_permission_denied() {
         .await
         .expect_err("トークン未設定は失敗する");
     assert!(matches!(err, crate::ports::PortError::PermissionDenied));
+}
+
+/// PR の固定フィクサを生成する（状態テスト用）。
+fn pr_fixture(number: i64, state: &str, merged: bool) -> serde_json::Value {
+    serde_json::json!({
+        "number": number,
+        "title": format!("PR {number}"),
+        "body": "B",
+        "state": state,
+        "user": {"login": "alice"},
+        "base": {"ref": "main"},
+        "head": {"ref": format!("feat-{number}")},
+        "merged": merged,
+        "additions": 1,
+        "deletions": 0,
+        "changed_files": 1,
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-02T00:00:00Z"
+    })
+}
+
+/// (a) list_proposals は hub の ProposalState（open/approved/merged/closed）で
+/// 正しく絞り込む。GitHub 側で絞れない approved/merged は写像後の state で
+/// 絞り込み、closed 取得に混ざる merged は除外する。
+#[tokio::test]
+async fn list_proposals_filters_by_hub_state() {
+    let (base_url, state) = start_mock().await;
+    // 4 件: オープン+承認済み(10)・オープン+未承認(11)・マージ済み(12)・クローズ(13)。
+    state.set_prs(vec![
+        pr_fixture(10, "open", false),
+        pr_fixture(11, "open", false),
+        pr_fixture(12, "closed", true),
+        pr_fixture(13, "closed", false),
+    ]);
+    let mut reviews = HashMap::new();
+    reviews.insert(10, vec![serde_json::json!({"state": "APPROVED"})]);
+    reviews.insert(11, vec![serde_json::json!({"state": "COMMENTED"})]);
+    reviews.insert(12, vec![serde_json::json!({"state": "COMMENTED"})]);
+    reviews.insert(13, vec![serde_json::json!({"state": "COMMENTED"})]);
+    state.set_reviews(reviews);
+    let adapter = build_adapter(&base_url);
+
+    let numbers = |props: Vec<crate::ports::Proposal>| -> Vec<u64> {
+        props.iter().map(|p| p.number).collect()
+    };
+
+    // open: 未承認の 11 のみ。
+    let props = adapter
+        .list_proposals("octo/demo", Some(ProposalState::Open))
+        .await
+        .expect("list open");
+    assert_eq!(numbers(props), vec![11]);
+
+    // approved: 承認済みの 10 のみ。
+    let props = adapter
+        .list_proposals("octo/demo", Some(ProposalState::Approved))
+        .await
+        .expect("list approved");
+    assert_eq!(numbers(props), vec![10]);
+
+    // merged: マージ済みの 12 のみ（クローズ取得から proper に絞る）。
+    let props = adapter
+        .list_proposals("octo/demo", Some(ProposalState::Merged))
+        .await
+        .expect("list merged");
+    assert_eq!(numbers(props), vec![12]);
+
+    // closed: 未マージのクローズ 13 のみ（マージ済み 12 は混ざらない）。
+    let props = adapter
+        .list_proposals("octo/demo", Some(ProposalState::Closed))
+        .await
+        .expect("list closed");
+    assert_eq!(numbers(props), vec![13]);
+
+    // 絞り込みなし: 全 4 件。
+    let props = adapter
+        .list_proposals("octo/demo", None)
+        .await
+        .expect("list all");
+    let mut all = numbers(props);
+    all.sort_unstable();
+    assert_eq!(all, vec![10, 11, 12, 13]);
+}
+
+/// (b) get_automerge_state は PR の状態に応じて正しい状態を返す。
+#[tokio::test]
+async fn get_automerge_state_reflects_proposal_state() {
+    let (base_url, state) = start_mock().await;
+    // マージ済み(20)・クローズ済み(21)・オープン(22)。
+    state.set_prs(vec![
+        pr_fixture(20, "closed", true),
+        pr_fixture(21, "closed", false),
+        pr_fixture(22, "open", false),
+    ]);
+    let adapter = build_adapter(&base_url);
+
+    // マージ済み → Merged。
+    let st = adapter
+        .get_automerge_state("octo/demo", 20)
+        .await
+        .expect("merged");
+    assert_eq!(st.state, AutomergeStateKind::Merged);
+
+    // クローズ済み（未マージ）→ Canceled。
+    let st = adapter
+        .get_automerge_state("octo/demo", 21)
+        .await
+        .expect("closed");
+    assert_eq!(st.state, AutomergeStateKind::Canceled);
+
+    // オープン → Reserved。
+    let st = adapter
+        .get_automerge_state("octo/demo", 22)
+        .await
+        .expect("open");
+    assert_eq!(st.state, AutomergeStateKind::Reserved);
 }
 
