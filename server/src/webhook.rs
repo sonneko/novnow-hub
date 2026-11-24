@@ -13,8 +13,6 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
-use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
-use base64::Engine;
 use sha2::{Digest, Sha256};
 
 use crate::adapters::github::webhook::parse_webhook_event;
@@ -66,11 +64,37 @@ fn hmac_sha256(key: &[u8], msg: &[u8]) -> [u8; 32] {
     out
 }
 
-/// 署名文字列を生成する（`sha256=<base64>` 形式）。GitHub の
-/// `X-Hub-Signature-256` と同じ形式。
+/// バイト列を 16 進文字列へ変換する（小文字）。
+fn to_hex(bytes: &[u8]) -> String {
+    let mut s = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        s.push_str(&format!("{b:02x}"));
+    }
+    s
+}
+
+/// 16 進文字列をバイト列へ変換する（大文字・小文字両方を受け付ける）。
+fn from_hex(s: &str) -> Option<Vec<u8>> {
+    if !s.len().is_multiple_of(2) {
+        return None;
+    }
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len() / 2);
+    let mut i = 0;
+    while i < bytes.len() {
+        let hi = (bytes[i] as char).to_digit(16)?;
+        let lo = (bytes[i + 1] as char).to_digit(16)?;
+        out.push((hi * 16 + lo) as u8);
+        i += 2;
+    }
+    Some(out)
+}
+
+/// 署名文字列を生成する（`sha256=<hex>` 形式）。GitHub の
+/// `X-Hub-Signature-256` と同じ形式（16 進ダイジェスト）。
 pub fn sign(secret: &[u8], body: &[u8]) -> String {
     let mac = hmac_sha256(secret, body);
-    format!("sha256={}", BASE64_STANDARD.encode(mac))
+    format!("sha256={}", to_hex(&mac))
 }
 
 /// 定数時間比較。
@@ -85,13 +109,14 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     diff == 0
 }
 
-/// 署名を検証する。`X-Hub-Signature-256` の値（`sha256=<base64>`）と
-/// ボディから計算した署名を比較する。
+/// 署名を検証する。`X-Hub-Signature-256` の値（`sha256=<hex>`）と
+/// ボディから計算した署名を比較する。base64 形式は受け付けない
+/// （GitHub は 16 進ダイジェストを送る）。
 pub fn verify_signature(secret: &[u8], body: &[u8], signature: &str) -> bool {
-    let Some(b64) = signature.strip_prefix("sha256=") else {
+    let Some(hex) = signature.strip_prefix("sha256=") else {
         return false;
     };
-    let Ok(provided) = BASE64_STANDARD.decode(b64) else {
+    let Some(provided) = from_hex(hex) else {
         return false;
     };
     let computed = hmac_sha256(secret, body);
@@ -386,7 +411,26 @@ mod tests {
     fn verify_rejects_bad_format() {
         let secret = b"s";
         assert!(!verify_signature(secret, &body("x"), "not-a-signature"));
-        assert!(!verify_signature(secret, &body("x"), "sha256=!!!notbase64!!!"));
+        // 16 進でない（base64 等の他の形式）は受け付けない。
+        assert!(!verify_signature(secret, &body("x"), "sha256=!!!nothex!!!"));
+        // 16 進文字列でも長さが偶数でない/文字が不正なら拒否。
+        assert!(!verify_signature(secret, &body("x"), "sha256=abc"));
+        assert!(!verify_signature(secret, &body("x"), "sha256=zz"));
+    }
+
+    /// GitHub 公式ドキュメント「Validating webhook deliveries」のテストベクタ。
+    /// HMAC-SHA256 の手実装が GitHub の既知の答えと一致することを実行で証明する。
+    /// 秘密 `It's a Secret to Everybody`、ボディ `Hello, World!` の署名は
+    /// `sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17`。
+    #[test]
+    fn github_official_test_vector() {
+        let secret = b"It's a Secret to Everybody";
+        let msg = body("Hello, World!");
+        let expected = "sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17";
+        // 生成した署名が GitHub の既知の答えと一致する。
+        assert_eq!(sign(secret, &msg), expected);
+        // その署名で検証が成功する。
+        assert!(verify_signature(secret, &msg, expected));
     }
 
     #[test]

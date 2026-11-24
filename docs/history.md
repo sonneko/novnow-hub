@@ -351,3 +351,21 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
   - web: `cd web && npm run build` → **12 ページ**生成、成功（変更なし・基線維持）。
   - `python3 docs/script/verify-docs.py` → 実行検証。
 - **ドキュメント同期**: `docs/handoff.md` §4 判断 12 に Webhook 実装の判断（内部受信口・署名検証・アダプター層への GitHub 概念・対象イベント・非同期ジョブ・リトライ・通知先範囲）を追記。`docs/designs/m4.md` §7.1 の状態を「実装完了」に更新。`docs/plans.md` の M4 Webhook 項目をチェック済みに更新し進捗サマリを更新。`docs/history.md` に本エントリを追記。`api/openapi.yaml` は変更なし。
+
+### [HIST:MILESTONE:M4-WEBHOOK-SIG-FIX] 2026-11-24 M4 Webhook 署名形式の不具合修正（base64 → 16 進、PR #48 レビュー由来）
+
+[HIST-TAG: category=MILESTONE id=M4-WEBHOOK-SIG-FIX topics=m4,webhook,signature,hmac,hex,fix,backend,cargo]
+- **ブランチ**: `arena/m4-webhook-signature-fix-novnow-hub`（`main` @ `4f00630` = PR #48 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチへの push は行わない。
+- **作業**: PR #48 レビューで見つかった Webhook 署名形式の不具合を修正。PR #48 では `sign`/`verify_signature` を `sha256=<base64>` 形式で生成・検証していたが、GitHub が実際に送る `X-Hub-Signature-256` は **`sha256=<16 進ダイジェスト>`** 形式である（GitHub 公式ドキュメント「Validating webhook deliveries」: "GitHub uses an HMAC hex digest"）。base64 形式のままでは本物の GitHub Webhook がすべて 401 で拒否され本番で動かないため、16 進形式に修正した。
+- **変更内容（server）**:
+  - `server/src/webhook.rs`: `sign`/`verify_signature` を **16 進形式**（`sha256=<hex>`）に変更。`to_hex`/`from_hex` ヘルパーを追加し、base64 依存（`base64` クレートの import）を除去。base64 形式は受け付けない。
+  - `server/src/webhook.rs` テスト: **GitHub 公式テストベクタ**（秘密 `It's a Secret to Everybody`、ボディ `Hello, World!` → `sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17`）を追加し、HMAC-SHA256 の手実装の正しさを実行で証明。
+  - `server/src/lib.rs` 統合テスト: **16 進署名で受信成功（202・ジョブ起票）**と **base64 署名を 401 で拒否**するテストを追加。
+- **ドキュメント訂正**: `docs/handoff.md` §4 判断 12(b) の `X-Hub-Signature-256`（`sha256=<base64>`）を `sha256=<hex>`（16 進ダイジェスト）に訂正し、修正の根拠を追記。`server/src/webhook.rs` のコメントも 16 進形式に訂正。`docs/designs/m4.md` §7.1 は base64 記述がなく変更不要。`docs/plans.md` の M4 Webhook 項目はチェック済みのまま。`docs/history.md` に本エントリを追記。`api/openapi.yaml` は変更なし。
+- **検証（実行で証明）**:
+  - server: `cargo build --locked --all-targets` → エラー 0・**警告 0**。
+  - server: `cargo test --locked --all-targets` → **134 件**成功、0 失敗。**GitHub 公式テストベクタ `github_official_test_vector` が通過**（手実装の HMAC-SHA256 が GitHub の既知の答えと一致）。16 進署名成功・base64 署名拒否の統合テストも通過。
+  - server: `cargo clippy --locked --all-targets -- -D warnings` → 通過。
+  - web: `cd web && npm run check` → Vitest **47 件**成功（17 ファイル）、`astro check` 0 errors（変更なし・基線維持）。
+  - web: `cd web && npm run build` → **12 ページ**生成、成功（変更なし・基線維持）。
+  - `python3 docs/script/verify-docs.py` → 実行検証。
