@@ -1,4 +1,12 @@
-import type { CommentPageData, Issue, IssuePageData, Proposal, ProposalDiff, ProposalPageData } from '../lib/api/types';
+import type {
+  AutomergeState,
+  CommentPageData,
+  Issue,
+  IssuePageData,
+  Proposal,
+  ProposalDiff,
+  ProposalPageData,
+} from '../lib/api/types';
 
 export const proposalFixture = {
   number: 24,
@@ -34,6 +42,14 @@ export const proposalDiffFixture = {
   ],
   novnowDiagnosticsDelta: { introduced: 0, resolved: 1 },
 } satisfies ProposalDiff;
+
+export const automergeStateFixture = {
+  state: 'reserved',
+  requiredApprovals: 1,
+  requiredChecks: ['novnow 形式チェック'],
+  requireNoConflicts: true,
+  etag: 'automerge-etag-1',
+} satisfies AutomergeState;
 
 export const issueFixture = {
   number: 7,

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import ProposalDetailPage from './ProposalDetailPage.svelte';
 import { messages } from '../../lib/i18n';
 import {
+  automergeStateFixture,
   commentPageFixture,
   proposalDiffFixture,
   proposalFixture,
@@ -12,11 +13,12 @@ import { server } from '../../test/server';
 
 const proposalUrl = 'http://hub.test/api/v1/projects/project-1/proposals/24';
 
-function useProposalHandlers(onReview: (body: unknown, authorization: string | null) => void, reviewResponse = { ...proposalFixture, state: 'approved', approvalCount: 1 }) {
+function useProposalHandlers(onReview: (body: unknown, authorization: string | null) => void, reviewResponse = { ...proposalFixture, state: 'approved', approvalCount: 1 }, automerge = automergeStateFixture) {
   server.use(
     http.get(proposalUrl, () => HttpResponse.json(proposalFixture)),
     http.get(`${proposalUrl}/diff`, () => HttpResponse.json(proposalDiffFixture)),
     http.get(`${proposalUrl}/comments`, () => HttpResponse.json(commentPageFixture)),
+    http.get(`${proposalUrl}/automerge`, () => HttpResponse.json(automerge)),
     http.post(`${proposalUrl}/approve`, async ({ request }) => {
       onReview(await request.json(), request.headers.get('Authorization'));
       return HttpResponse.json(reviewResponse);
@@ -89,5 +91,67 @@ describe('ProposalDetailPage', () => {
     await waitFor(() => expect(thread.textContent).toContain('次の場面にもつながります。'));
     expect(thread.textContent).toContain('mizu');
     expect(thread.textContent).toContain('14 行目');
+  });
+
+  it('shows the auto-merge status and conditions from the contract endpoint', async () => {
+    useProposalHandlers(() => {}, undefined, automergeStateFixture);
+
+    renderPage();
+
+    const panel = await screen.findByRole('region', { name: '自動マージ' });
+    await waitFor(() => expect(panel.textContent).toContain('予約済み'));
+    expect(panel.textContent).toContain('novnow 形式チェック');
+    // 予約済みは取消可能で、再予約は不可。
+    expect(screen.getByRole('button', { name: '予約を取り消す' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '自動マージを予約' })).toBeNull();
+  });
+
+  it('reserves auto-merge with the required approvals through the contract endpoint', async () => {
+    let putBody: unknown;
+    let putAuth: string | null = null;
+    let putIfMatch: string | null = null;
+    server.use(
+      http.get(proposalUrl, () => HttpResponse.json(proposalFixture)),
+      http.get(`${proposalUrl}/diff`, () => HttpResponse.json(proposalDiffFixture)),
+      http.get(`${proposalUrl}/comments`, () => HttpResponse.json(commentPageFixture)),
+      http.get(`${proposalUrl}/automerge`, () => HttpResponse.json({ ...automergeStateFixture, state: 'none' })),
+      http.put(`${proposalUrl}/automerge`, async ({ request }) => {
+        putBody = await request.json();
+        putAuth = request.headers.get('Authorization');
+        putIfMatch = request.headers.get('If-Match');
+        return HttpResponse.json({ ...automergeStateFixture, state: 'reserved' });
+      }),
+    );
+
+    renderPage();
+    const input = (await screen.findByLabelText('承認数')) as HTMLInputElement;
+    fireEvent.input(input, { target: { value: '2' } });
+    fireEvent.click(screen.getByRole('button', { name: '自動マージを予約' }));
+
+    await waitFor(() => expect(putBody).toEqual({ requiredApprovals: 2 }));
+    expect(putAuth).toBe('Bearer mock-user-token');
+    expect(putIfMatch).toBe(automergeStateFixture.etag);
+    expect(await screen.findByText('予約済み')).toBeTruthy();
+  });
+
+  it('cancels a reserved auto-merge through the contract endpoint', async () => {
+    let deleted = false;
+    server.use(
+      http.get(proposalUrl, () => HttpResponse.json(proposalFixture)),
+      http.get(`${proposalUrl}/diff`, () => HttpResponse.json(proposalDiffFixture)),
+      http.get(`${proposalUrl}/comments`, () => HttpResponse.json(commentPageFixture)),
+      http.get(`${proposalUrl}/automerge`, () => HttpResponse.json(automergeStateFixture)),
+      http.delete(`${proposalUrl}/automerge`, () => {
+        deleted = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    renderPage();
+    const cancelButton = await screen.findByRole('button', { name: '予約を取り消す' });
+    fireEvent.click(cancelButton);
+
+    await waitFor(() => expect(deleted).toBe(true));
+    expect(await screen.findByText(/予約を取り消しました/, {}, { timeout: 3000 })).toBeTruthy();
   });
 });

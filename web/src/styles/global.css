@@ -1033,6 +1033,61 @@ textarea {
   color: var(--color-text) !important;
 }
 
+.button-secondary {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+}
+
+.automerge-panel {
+  margin-block: 1.25rem 0;
+}
+
+.automerge-help {
+  margin-top: 0;
+  color: var(--color-muted);
+}
+
+.automerge-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.automerge-reason {
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.45rem;
+  background: var(--color-danger-soft, #fdecea);
+  color: var(--color-text) !important;
+}
+
+.automerge-conditions h3 {
+  margin-block: 0.85rem 0.4rem;
+}
+
+.automerge-conditions ul {
+  margin-block: 0;
+  padding-left: 1.15rem;
+}
+
+.automerge-check-list {
+  margin-top: 0.25rem;
+}
+
+.automerge-form {
+  display: grid;
+  gap: 0.65rem;
+  align-items: end;
+  margin-top: 0.9rem;
+}
+
+.automerge-form .button {
+  justify-self: start;
+}
+
+.automerge-panel > .button-secondary {
+  margin-top: 0.9rem;
+}
+
 .issue-detail h1 {
   margin-block: 0.75rem 1rem;
 }

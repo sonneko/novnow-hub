@@ -3,7 +3,7 @@
   import type { Locale, Messages } from '../../lib/i18n';
   import { apiClient } from '../../lib/api/client';
   import { mapApiFailure, type ApiFailure } from '../../lib/api/errors';
-  import type { Proposal, ProposalDiff } from '../../lib/api/types';
+  import type { AutomergeState, Proposal, ProposalDiff } from '../../lib/api/types';
   import { proposalListHref, projectPageHref } from '../../lib/links';
   import CommentThread from './CommentThread.svelte';
 
@@ -26,6 +26,17 @@
   let reviewBody = $state('');
   let submitting = $state(false);
   let reviewSent = $state(false);
+  let automerge = $state<AutomergeState>();
+  let automergeFailure = $state<ApiFailure>();
+  let automergeNotice = $state<'reserved' | 'canceled'>();
+  let automergeApprovals = $state(1);
+  let automergeSubmitting = $state(false);
+
+  const automergeStates = $derived(m.collaboration.proposals.automerge.states);
+  /** 予約できる状態: 未予約（none）か取消後（canceled）か失敗後（failed）。 */
+  const canReserve = $derived(automerge !== undefined && (automerge.state === 'none' || automerge.state === 'canceled' || automerge.state === 'failed'));
+  /** 取消できる状態: 予約済みか評価中。 */
+  const canCancel = $derived(automerge !== undefined && (automerge.state === 'reserved' || automerge.state === 'armed'));
 
   function formatDate(value: string): string {
     const date = new Date(value);
@@ -43,11 +54,14 @@
       return;
     }
     try {
-      const [proposalResult, diffResult] = await Promise.allSettled([
+      const [proposalResult, diffResult, automergeResult] = await Promise.allSettled([
         apiClient.GET('/projects/{projectId}/proposals/{number}', {
           params: { path: { projectId, number } },
         }),
         apiClient.GET('/projects/{projectId}/proposals/{number}/diff', {
+          params: { path: { projectId, number } },
+        }),
+        apiClient.GET('/projects/{projectId}/proposals/{number}/automerge', {
           params: { path: { projectId, number } },
         }),
       ]);
@@ -70,6 +84,16 @@
         diffFailure = mapApiFailure(diffResult.value.error, diffResult.value.response.status);
       } else {
         diff = diffResult.value.data;
+      }
+
+      // 自動マージ状態は表示補助なので、失敗しても提案本体の表示は止めない。
+      if (automergeResult.status === 'rejected') {
+        automergeFailure = 'upstream-unavailable';
+      } else if (automergeResult.value.error) {
+        automergeFailure = mapApiFailure(automergeResult.value.error, automergeResult.value.response.status);
+      } else {
+        automerge = automergeResult.value.data;
+        automergeApprovals = automerge.requiredApprovals ?? 1;
       }
       state = 'ready';
     } catch {
@@ -101,6 +125,67 @@
       reviewFailure = 'upstream-unavailable';
     } finally {
       submitting = false;
+    }
+  }
+
+  async function reserveAutomerge(event: SubmitEvent) {
+    event.preventDefault();
+    if (automergeSubmitting) return;
+    automergeSubmitting = true;
+    automergeFailure = undefined;
+    automergeNotice = undefined;
+    try {
+      const result = await apiClient.PUT('/projects/{projectId}/proposals/{number}/automerge', {
+        params: { path: { projectId, number } },
+        headers: automerge
+          ? (import.meta.env.DEV ? { Authorization: 'Bearer mock-user-token', 'If-Match': automerge.etag ?? undefined } : { 'If-Match': automerge.etag ?? undefined })
+          : import.meta.env.DEV
+            ? { Authorization: 'Bearer mock-user-token' }
+            : undefined,
+        body: {
+          requiredApprovals: Math.max(0, Math.min(10, Math.floor(Number(automergeApprovals) || 1))),
+        },
+      });
+      if (result.error) {
+        automergeFailure = mapApiFailure(result.error, result.response.status);
+      } else if (result.data) {
+        automerge = result.data;
+        automergeNotice = 'reserved';
+      }
+    } catch {
+      automergeFailure = 'upstream-unavailable';
+    } finally {
+      automergeSubmitting = false;
+    }
+  }
+
+  async function cancelAutomerge() {
+    if (automergeSubmitting) return;
+    automergeSubmitting = true;
+    automergeFailure = undefined;
+    automergeNotice = undefined;
+    try {
+      const result = await apiClient.DELETE('/projects/{projectId}/proposals/{number}/automerge', {
+        params: { path: { projectId, number } },
+        headers: import.meta.env.DEV ? { Authorization: 'Bearer mock-user-token' } : undefined,
+      });
+      if (result.error) {
+        automergeFailure = mapApiFailure(result.error, result.response.status);
+      } else {
+        const refreshed = await apiClient.GET('/projects/{projectId}/proposals/{number}/automerge', {
+          params: { path: { projectId, number } },
+        });
+        if (refreshed.error) {
+          automergeFailure = mapApiFailure(refreshed.error, refreshed.response.status);
+        } else {
+          automerge = refreshed.data;
+        }
+        automergeNotice = 'canceled';
+      }
+    } catch {
+      automergeFailure = 'upstream-unavailable';
+    } finally {
+      automergeSubmitting = false;
     }
   }
 
@@ -157,6 +242,82 @@
             </li>
           {/each}
         </ul>
+      {/if}
+    </section>
+
+    <section class="panel automerge-panel" aria-labelledby="proposal-automerge-heading">
+      <h2 id="proposal-automerge-heading">{m.collaboration.proposals.automerge.title}</h2>
+      <p class="automerge-help">{m.collaboration.proposals.automerge.help}</p>
+      {#if automerge}
+        <p class="automerge-status">
+          {m.collaboration.proposals.automerge.statusLabel}:
+          <span class="badge">{automergeStates[automerge.state]}</span>
+        </p>
+        {#if automerge.state === 'failed' && automerge.reason}
+          <p class="automerge-reason" role="alert">
+            {m.collaboration.proposals.automerge.failedReason}: {automerge.reason}
+          </p>
+        {/if}
+        <div class="automerge-conditions">
+          <h3>{m.collaboration.proposals.automerge.conditions}</h3>
+          <ul>
+            <li>
+              {m.collaboration.proposals.automerge.requiredApprovals}:
+              <strong>{automerge.requiredApprovals ?? 1}</strong>
+            </li>
+            <li>
+              {m.collaboration.proposals.automerge.requiredChecks}:
+              {#if automerge.requiredChecks && automerge.requiredChecks.length > 0}
+                <ul class="automerge-check-list">
+                  {#each automerge.requiredChecks as check (check)}<li>{check}</li>{/each}
+                </ul>
+              {:else}0 件{/if}
+            </li>
+            <li>
+              {m.collaboration.proposals.automerge.requireNoConflicts}:
+              <span class="badge">
+                {automerge.requireNoConflicts ? m.collaboration.proposals.automerge.conflictsRequired : m.collaboration.proposals.automerge.conflictsNotRequired}
+              </span>
+            </li>
+          </ul>
+        </div>
+      {:else if automergeFailure}
+        <p role="alert">{m.api.errors[automergeFailure]}</p>
+      {:else}
+        <p role="status">{m.api.loading}</p>
+      {/if}
+
+      {#if canReserve}
+        <form class="automerge-form" onsubmit={reserveAutomerge}>
+          <label for="automerge-approvals">{m.collaboration.proposals.automerge.approvalsLabel}</label>
+          <input
+            id="automerge-approvals"
+            type="number"
+            min="0"
+            max="10"
+            step="1"
+            bind:value={automergeApprovals}
+          />
+          <button class="button button-primary" type="submit" disabled={automergeSubmitting}>
+            {automergeSubmitting ? m.collaboration.proposals.submitting : m.collaboration.proposals.automerge.reserve}
+          </button>
+        </form>
+      {/if}
+
+      {#if canCancel}
+        <button class="button button-secondary" type="button" onclick={cancelAutomerge} disabled={automergeSubmitting}>
+          {automergeSubmitting ? m.collaboration.proposals.submitting : m.collaboration.proposals.automerge.cancel}
+        </button>
+      {/if}
+
+      {#if automergeNotice === 'reserved'}
+        <p class="review-success" role="status">{m.collaboration.proposals.automerge.reserved}</p>
+      {/if}
+      {#if automergeNotice === 'canceled'}
+        <p class="review-success" role="status">{m.collaboration.proposals.automerge.canceled}</p>
+      {/if}
+      {#if automergeFailure}
+        <p role="alert">{m.api.errors[automergeFailure]}</p>
       {/if}
     </section>
 

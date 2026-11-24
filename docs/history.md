@@ -265,7 +265,7 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
   - ドキュメント: `python3 docs/script/verify-docs.py` → 要確認。
 - **ドキュメント同期**: 判断記録は `docs/handoff.md` §4 判断 8 に追記（権威順位・GitHub 概念隠蔽・承認数算出・自動マージ状態取得・`requireNoConflicts`・インラインコメント対象外・診断差分の既定値・mock サーバーによる契約テスト）。`docs/plans.md` の M4 第 1 項目と進捗サマリを更新。`api/openapi.yaml` は変更なし。
 
-### [HIST:MILESTONE:M4-COLLAB-ROUTES] 2026-11-26 M4 コラボレーションの HTTP ルート配線と PR #44 フォローアップ修正
+### [HIST:MILESTONE:M4-COLLAB-ROUTES] 2026-11-24 M4 コラボレーションの HTTP ルート配線と PR #44 フォローアップ修正
 
 [HIST-TAG: category=MILESTONE id=M4-COLLAB-ROUTES topics=m4,routes,http,proposal,issue,automerge,followup,clippy]
 - **ブランチ**: `arena/m4-collab-routes-novnow-hub`（`main` @ `9ce75ba` = PR #44 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチへの push は行わない。
@@ -283,3 +283,21 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
   - clippy: `cargo clippy --locked --all-targets -- -D warnings` → 通過。
   - ドキュメント: `python3 docs/script/verify-docs.py` → OK。
 - **ドキュメント同期**: 判断記録は `docs/handoff.md` §4 判断 9 に追記（CheckStatus の verify 系配線を見送り・認可範囲・projectId 解決・カーソルページネーション・二段絞り込み・状態判定・承認済み判定）。`docs/plans.md` の M4 ルート配線項目と進捗サマリを更新。`api/openapi.yaml` は変更なし。
+
+### [HIST:MILESTONE:M4-AUTOMERGE-UI] 2026-11-24 M4 自動マージの予約・取消・状態表示 UI（PR #45 ルート使用）
+
+[HIST-TAG: category=MILESTONE id=M4-AUTOMERGE-UI topics=m4,automerge,ui,proposal,frontend,vitest]
+- **ブランチ**: `arena/m4-automerge-ui-novnow-hub`（`main` @ `d375ca7` = PR #45 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチへの push は行わない。
+- **作業**: M4 残件「自動マージの予約・取消・状態表示 UI」を実装。仕様 `docs/specifications/m4.md`、設計 `docs/designs/m4.md` §4.1、計画書 `docs/plans.md#m4-collaboration`、API 契約 `api/openapi.yaml` に準拠（契約を正）。
+- **変更内容**:
+  - `web/src/lib/api/types.ts`: `AutomergeState` 型を追加（契約スキーマの直接参照）。
+  - `web/src/lib/i18n.ts`: 提案の自動マージセクションを追加（ja/en）。状態ラベル（条件未達／予約済み／評価中／取り込み済み／競合で失敗／取り消し済み）・予約条件・操作ボタン・結果メッセージを定義。
+  - `web/src/components/pages/ProposalDetailPage.svelte`: 提案詳細に自動マージの状態表示セクションを追加。GET で状態・予約条件を取得し、予約（PUT `/projects/{projectId}/proposals/{number}/automerge`、`If-Match` 付き）・取消（DELETE 同パス）を操作可能にした。予約は承認数を入力し条件（承認数・必須チェック・競合なし）を表示。操作は発火記録とともに残す（設計 §4.1）。フロントエンドは hub API 契約のみに依存し GitHub 概念を漏らさない。
+  - `web/src/styles/global.css`: 自動マージセクションのスタイルを追加。
+  - `web/src/test/collaboration-fixtures.ts`: `automergeStateFixture` を追加。
+  - `web/src/components/pages/ProposalDetailPage.test.ts`: 自動マージの状態表示・予約（PUT のボディ・認証・`If-Match`）・取消（DELETE）の統合テスト 3 件を追加。
+- **検証（実行で証明）**:
+  - `cd web && npm run check` → `check:api` 成功・Vitest **43 件**成功（16 ファイル、うち ProposalDetailPage は 3 → 6 件）・`astro check` 0 errors。
+  - `cd web && npm run build` → **11 ページ**生成、成功。
+  - ドキュメント: `python3 docs/script/verify-docs.py` → 要確認。
+- **ドキュメント同期**: 判断記録は `docs/handoff.md` §4 判断 10 に追記（状態ラベルの写像・`If-Match`・取消後の再取得・発火記録はサーバー側・フロントエンドは契約のみ依存）。`docs/plans.md` の M4 自動マージ項目をチェック済みに更新し進捗サマリを更新。`docs/history.md` の `M4-COLLAB-ROUTES` 見出し日付を `2026-11-26` → `2026-11-24` に訂正。`api/openapi.yaml` は変更なし。
