@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/svelte';
+import { render, screen, waitFor, within } from '@testing-library/svelte';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import AppShell from './AppShell.svelte';
@@ -46,5 +46,25 @@ describe('AppShell M5 routes', () => {
 
     expect(await screen.findByRole('heading', { name: messages.ja.setupResolve.resultTitle })).toBeTruthy();
     expect(resolvedUrl).toBe(projectFixture.publishedUrl);
+  });
+
+  it('shows the notification bell with an unread badge from the contract header', async () => {
+    window.history.replaceState({}, '', '/projects/');
+    server.use(
+      http.get('http://hub.test/api/v1/notifications', () =>
+        new HttpResponse(JSON.stringify({ items: [], nextCursor: null }), {
+          status: 200,
+          headers: { 'X-Unread-Count': '2' },
+        }),
+      ),
+    );
+
+    render(AppShell, { page: { kind: 'projects' } });
+
+    const bell = await screen.findByRole('link', { name: messages.ja.controls.notifications });
+    expect(bell.getAttribute('href')).toBe('/notifications/');
+    await waitFor(() =>
+      expect(within(bell).getByText('2')).toBeTruthy(),
+    );
   });
 });

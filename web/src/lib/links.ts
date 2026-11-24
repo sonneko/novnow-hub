@@ -33,3 +33,7 @@ export function issueDetailHref(projectId: string, number: number): string {
 export function chatPageHref(projectId: string): string {
   return `/collaboration/chat/?projectId=${encodeURIComponent(projectId)}`;
 }
+
+export function notificationsPageHref(): string {
+  return '/notifications/';
+}

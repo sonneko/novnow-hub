@@ -9,7 +9,7 @@
 //! の読み取り（変更提案・課題・自動マージ状態の取得）は公開、書き込み系は
 //! 認証必須とする（ルーター側で `require_auth` ミドルウェアを適用する）。
 
-use axum::extract::{Path, Query, State};
+use axum::extract::{Extension, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
@@ -17,10 +17,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::app_state::AppState;
 use crate::error::ApiError;
+use crate::middleware::RequestIdentity;
 use crate::ports::{
     AutomergeConfig, AutomergePort, AutomergeState, AutomergeStateKind, CheckState, Comment,
-    FileStatus, Issue, IssuePort, IssueState, IssueUpdate, MergeResult, PortError, Proposal,
-    ProposalDiff, ProposalPort, ProposalState, ReviewVerdict,
+    FileStatus, Issue, IssuePort, IssueState, IssueUpdate, MergeResult, NotificationKind,
+    NotificationPort, PortError, Proposal, ProposalDiff, ProposalPort, ProposalState, ReviewVerdict,
 };
 
 // ---------------------------------------------------------------------------
@@ -41,6 +42,95 @@ fn resolve_shell(state: &AppState, project_id: &str) -> Result<String, ApiError>
         .get(project_id)
         .map(|r| r.shell_id)
         .ok_or_else(|| ApiError::NotFound(format!("プロジェクトが見つかりません: {project_id}")))
+}
+
+/// 認証済みのアクター（利用者 ID）を取得する。
+fn actor_user_id(identity: &RequestIdentity) -> Result<String, ApiError> {
+    identity
+        .session
+        .identity
+        .as_ref()
+        .map(|u| u.id.clone())
+        .ok_or_else(|| ApiError::AuthenticationRequired("利用者の情報がありません".into()))
+}
+
+/// コメント投稿のファンアウト（契約 `proposal_comment`／`issue_comment`）。
+async fn fanout_comment(
+    state: &AppState,
+    identity: &RequestIdentity,
+    project_id: &str,
+    shell_id: &str,
+    number: u64,
+    is_proposal: bool,
+) -> Result<(), ApiError> {
+    let actor = actor_user_id(identity)?;
+    let (kind, label) = if is_proposal {
+        (NotificationKind::ProposalComment, "変更提案")
+    } else {
+        (NotificationKind::IssueComment, "課題")
+    };
+    state
+        .notifications
+        .emit(
+            &actor,
+            kind,
+            Some(project_id),
+            Some(shell_id),
+            &format!("{label} #{number} にコメント"),
+            "コメントを投稿しました。",
+        )
+        .await
+        .map_err(map_port_error)?;
+    Ok(())
+}
+
+/// 取り込みのファンアウト（契約 `proposal_merged`）。
+async fn fanout_merge(
+    state: &AppState,
+    identity: &RequestIdentity,
+    project_id: &str,
+    shell_id: &str,
+    number: u64,
+) -> Result<(), ApiError> {
+    let actor = actor_user_id(identity)?;
+    state
+        .notifications
+        .emit(
+            &actor,
+            NotificationKind::ProposalMerged,
+            Some(project_id),
+            Some(shell_id),
+            &format!("変更提案 #{number} が取り込まれました"),
+            "提案がマージされました。",
+        )
+        .await
+        .map_err(map_port_error)?;
+    Ok(())
+}
+
+/// 課題作成のファンアウト（契約 `issue_created`）。
+async fn fanout_issue(
+    state: &AppState,
+    identity: &RequestIdentity,
+    project_id: &str,
+    shell_id: &str,
+    action: &str,
+    title: &str,
+) -> Result<(), ApiError> {
+    let actor = actor_user_id(identity)?;
+    state
+        .notifications
+        .emit(
+            &actor,
+            NotificationKind::IssueCreated,
+            Some(project_id),
+            Some(shell_id),
+            &format!("課題「{title}」を{action}しました"),
+            "課題を操作しました。",
+        )
+        .await
+        .map_err(map_port_error)?;
+    Ok(())
 }
 
 /// ポートエラーを API エラーへ写像する。
@@ -644,6 +734,7 @@ pub async fn list_proposal_comments(
 pub async fn comment_proposal(
     State(state): State<AppState>,
     Path((project_id, number)): Path<(String, u64)>,
+    Extension(identity_ext): Extension<RequestIdentity>,
     Json(req): Json<CommentProposalRequest>,
 ) -> Result<(StatusCode, Json<CommentResponse>), ApiError> {
     let shell_id = resolve_shell(&state, &project_id)?;
@@ -657,6 +748,7 @@ pub async fn comment_proposal(
         .comment_proposal(&shell_id, number, &req.body, req.path.as_deref(), req.line)
         .await
         .map_err(map_port_error)?;
+    fanout_comment(&state, &identity_ext, &project_id, &shell_id, number, true).await?;
     Ok((StatusCode::CREATED, Json(to_comment_response(&comment))))
 }
 
@@ -687,6 +779,7 @@ pub async fn review_proposal(
 pub async fn merge_proposal(
     State(state): State<AppState>,
     Path((project_id, number)): Path<(String, u64)>,
+    Extension(identity_ext): Extension<RequestIdentity>,
 ) -> Result<Json<MergeResultResponse>, ApiError> {
     let shell_id = resolve_shell(&state, &project_id)?;
     let result: MergeResult = state
@@ -694,6 +787,7 @@ pub async fn merge_proposal(
         .merge_proposal(&shell_id, number)
         .await
         .map_err(map_port_error)?;
+    fanout_merge(&state, &identity_ext, &project_id, &shell_id, number).await?;
     Ok(Json(MergeResultResponse {
         merged: result.merged,
         sha: result.sha,
@@ -809,6 +903,7 @@ pub async fn list_issues(
 pub async fn open_issue(
     State(state): State<AppState>,
     Path(project_id): Path<String>,
+    Extension(identity_ext): Extension<RequestIdentity>,
     Json(req): Json<OpenIssueRequest>,
 ) -> Result<(StatusCode, Json<IssueResponse>), ApiError> {
     let shell_id = resolve_shell(&state, &project_id)?;
@@ -833,6 +928,7 @@ pub async fn open_issue(
         .open_issue(&shell_id, title, &req.body, &req.labels)
         .await
         .map_err(map_port_error)?;
+    fanout_issue(&state, &identity_ext, &project_id, &shell_id, "作成", &req.title).await?;
     Ok((StatusCode::CREATED, Json(to_issue_response(&issue))))
 }
 
@@ -897,6 +993,7 @@ pub async fn list_issue_comments(
 pub async fn comment_issue(
     State(state): State<AppState>,
     Path((project_id, number)): Path<(String, u64)>,
+    Extension(identity_ext): Extension<RequestIdentity>,
     Json(req): Json<CommentIssueRequest>,
 ) -> Result<(StatusCode, Json<CommentResponse>), ApiError> {
     let shell_id = resolve_shell(&state, &project_id)?;
@@ -910,6 +1007,7 @@ pub async fn comment_issue(
         .comment_issue(&shell_id, number, &req.body)
         .await
         .map_err(map_port_error)?;
+    fanout_comment(&state, &identity_ext, &project_id, &shell_id, number, false).await?;
     Ok((StatusCode::CREATED, Json(to_comment_response(&comment))))
 }
 
@@ -935,7 +1033,7 @@ mod tests {
     use axum::http::{Method, Request, StatusCode};
     use tower::ServiceExt;
 
-    use crate::ports::Identity;
+    use crate::ports::{Identity, NotificationKind, NotificationPort};
     use crate::test_support::{
         register_test_project, response_text, test_router, test_state_with_github_base, MockGitHub,
     };
@@ -1405,6 +1503,56 @@ mod tests {
         let page: serde_json::Value = serde_json::from_str(&body).unwrap();
         assert_eq!(page["items"].as_array().unwrap().len(), 1);
         assert!(page["nextCursor"].is_null());
+    }
+
+    #[tokio::test]
+    async fn merge_proposal_fans_out_notification() {
+        let mock = MockGitHub::new();
+        let base_url = mock.start().await;
+        mock.set_prs(vec![serde_json::json!({
+            "number": 7, "title": "T7", "body": "B", "state": "closed",
+            "user": {"login": "alice"}, "base": {"ref": "main"}, "head": {"ref": "feat"},
+            "merged": true, "merge_commit_sha": "abc123",
+            "additions": 5, "deletions": 2, "changed_files": 1,
+            "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-02T00:00:00Z"
+        })]);
+
+        let state = test_state_with_github_base(&base_url);
+        state
+            .github_adapter
+            .set_token(crate::adapters::github::client::Token::new("test-token".into()));
+        register_test_project(&state, "prj_1", "octo/demo");
+        let notifications = state.notifications.clone();
+        let identity = Identity {
+            id: "u-1".into(),
+            handle: "sora".into(),
+            display_name: "sora".into(),
+            avatar_url: None,
+        };
+        let session = state.sessions.create_with_identity("u-1", Some(identity));
+        let token = session.session_id.clone();
+        let router = test_router(state);
+
+        let resp = router
+            .oneshot(json_request(
+                Method::POST,
+                "/api/v1/projects/prj_1/proposals/7/merge",
+                None,
+                Some(&token),
+            ))
+            .await
+            .unwrap();
+        let (status, _) = response_text(resp).await;
+        assert_eq!(status, StatusCode::OK, "マージが成功する前提");
+
+        let (items, _next) = notifications
+            .list_notifications("u-1", None, false, None, 100)
+            .await
+            .unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].kind, NotificationKind::ProposalMerged);
+        assert_eq!(items[0].project_id.as_deref(), Some("prj_1"));
+        assert!(!items[0].read);
     }
 
     #[tokio::test]

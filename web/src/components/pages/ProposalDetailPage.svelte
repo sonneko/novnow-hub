@@ -176,11 +176,12 @@
           params: { path: { projectId, number } },
         });
         if (refreshed.error) {
+          // 再取得失敗時は notice を立てず、失敗のみを表示する。
           automergeFailure = mapApiFailure(refreshed.error, refreshed.response.status);
         } else {
           automerge = refreshed.data;
+          automergeNotice = 'canceled';
         }
-        automergeNotice = 'canceled';
       }
     } catch {
       automergeFailure = 'upstream-unavailable';

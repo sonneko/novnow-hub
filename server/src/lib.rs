@@ -8,6 +8,7 @@ pub mod config;
 pub mod error;
 pub mod middleware;
 pub mod multipart;
+pub mod notifications;
 pub mod ports;
 pub mod project_index;
 pub mod registry;
@@ -25,6 +26,7 @@ use crate::adapters::github::client::{GitHubClient, OAuthConfig};
 use crate::adapters::github::GitHubAdapter;
 use crate::app_state::AppState;
 use crate::config::Config;
+use crate::notifications::NotificationStore;
 use crate::registry::ProjectRegistry;
 use crate::routes::auth::StateStore;
 use crate::session::SessionStore;
@@ -130,6 +132,22 @@ pub fn build_router(state: AppState) -> Router {
                     state.clone(),
                     middleware::require_auth,
                 )),
+        )
+        // M4 通知センター（設計 §6.1、認証必須）。
+        .merge(
+            Router::new()
+                .route(
+                    "/notifications",
+                    get(routes::notifications::list_notifications),
+                )
+                .route(
+                    "/notifications/read",
+                    post(routes::notifications::mark_notifications_read),
+                )
+                .route_layer(axum::middleware::from_fn_with_state(
+                    state.clone(),
+                    middleware::require_auth,
+                )),
         );
 
     Router::new()
@@ -159,6 +177,7 @@ pub fn build_app_state(config: Config) -> AppState {
         verifier_store: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
         redirect_store: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
         projects: Arc::new(ProjectRegistry::new()),
+        notifications: Arc::new(NotificationStore::new()),
     }
 }
 
@@ -167,7 +186,8 @@ pub(crate) mod test_support;
 
 #[cfg(test)]
 mod tests {
-    use axum::http::StatusCode;
+    use axum::body::Body;
+    use axum::http::{Request, StatusCode};
     use tower::ServiceExt;
 
     use crate::app_state::AppState;
@@ -175,6 +195,25 @@ mod tests {
     use crate::test_support::{
         build_multipart, get_request, multipart_request, response_text, test_router, test_state,
     };
+
+    fn authed_get(path: &str, token: &str) -> Request<Body> {
+        Request::builder()
+            .method("GET")
+            .uri(path)
+            .header("authorization", format!("Bearer {token}"))
+            .body(Body::empty())
+            .unwrap()
+    }
+
+    fn authed_post(path: &str, token: &str, body: serde_json::Value) -> Request<Body> {
+        Request::builder()
+            .method("POST")
+            .uri(path)
+            .header("authorization", format!("Bearer {token}"))
+            .header("content-type", "application/json")
+            .body(Body::from(body.to_string()))
+            .unwrap()
+    }
 
     /// novnow 検証を通る最小 zip を生成する（stored 方式）。
     fn valid_zip() -> Vec<u8> {
@@ -412,4 +451,63 @@ mod tests {
         assert_eq!(status, StatusCode::BAD_REQUEST);
         assert!(body.contains("validation_failed"));
     }
+    #[tokio::test]
+    async fn notifications_require_auth() {
+        let router = test_router(test_state());
+        let resp = router
+            .oneshot(Request::builder().method("GET").uri("/api/v1/notifications").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        let (status, _) = response_text(resp).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn list_and_mark_notifications() {
+        use crate::ports::{Identity, NotificationKind, NotificationPort};
+        let state = test_state();
+        let identity = Identity {
+            id: "u-1".into(),
+            handle: "sora".into(),
+            display_name: "sora".into(),
+            avatar_url: None,
+        };
+        let session = state.sessions.create_with_identity("u-1", Some(identity));
+        let token = session.session_id.clone();
+        state
+            .notifications
+            .emit("u-1", NotificationKind::ProposalMerged, Some("prj_1"), Some("octo/demo"), "取り込み", "マージ")
+            .await
+            .unwrap();
+        let router = test_router(state);
+
+        // 一覧（未読 1 件、X-Unread-Count ヘッダ）。
+        let resp = router.clone().oneshot(authed_get("/api/v1/notifications", &token)).await.unwrap();
+        let (status, body) = response_text(resp).await;
+        assert_eq!(status, StatusCode::OK);
+        let page: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(page["items"].as_array().unwrap().len(), 1);
+        assert_eq!(page["items"][0]["kind"].as_str().unwrap(), "proposal_merged");
+
+        // 全既読化 → 204。
+        let resp = router
+            .clone()
+            .oneshot(authed_post("/api/v1/notifications/read", &token, serde_json::json!({"all": true})))
+            .await
+            .unwrap();
+        let (status, _) = response_text(resp).await;
+        assert_eq!(status, StatusCode::NO_CONTENT);
+
+        // 未読のみ → 空。
+        let resp = router
+            .oneshot(authed_get("/api/v1/notifications?unreadOnly=true", &token))
+            .await
+            .unwrap();
+        let (status, body) = response_text(resp).await;
+        assert_eq!(status, StatusCode::OK);
+        let page: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(page["items"].as_array().unwrap().len(), 0);
+    }
+
+
 }

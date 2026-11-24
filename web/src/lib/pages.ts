@@ -9,4 +9,5 @@ export type ShellPage =
   | { kind: 'proposal'; projectId?: string; number?: number }
   | { kind: 'issues'; projectId?: string }
   | { kind: 'issue'; projectId?: string; number?: number }
-  | { kind: 'chat'; projectId?: string };
+  | { kind: 'chat'; projectId?: string }
+  | { kind: 'notifications' };

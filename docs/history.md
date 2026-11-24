@@ -301,3 +301,32 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
   - `cd web && npm run build` → **11 ページ**生成、成功。
   - ドキュメント: `python3 docs/script/verify-docs.py` → 要確認。
 - **ドキュメント同期**: 判断記録は `docs/handoff.md` §4 判断 10 に追記（状態ラベルの写像・`If-Match`・取消後の再取得・発火記録はサーバー側・フロントエンドは契約のみ依存）。`docs/plans.md` の M4 自動マージ項目をチェック済みに更新し進捗サマリを更新。`docs/history.md` の `M4-COLLAB-ROUTES` 見出し日付を `2026-11-26` → `2026-11-24` に訂正。`api/openapi.yaml` は変更なし。
+
+### [HIST:MILESTONE:M4-NOTIFICATIONS] 2026-11-24 M4 通知センター・未読バッジ・ドメインイベントからの通知ファンアウト（PR #46 マージコミット起点）
+
+[HIST-TAG: category=MILESTONE id=M4-NOTIFICATIONS topics=m4,notifications,badge,fanout,backend,frontend,vitest,cargo]
+- **ブランチ**: `arena/m4-notifications-novnow-hub`（`main` @ `7455b4c` = PR #46 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチへの push は行わない。
+- **作業**: M4 残件「通知センターと未読バッジ、ドメインイベントからの通知ファンアウト」を実装。仕様 `docs/specifications/m4.md`、設計 `docs/designs/m4.md` §6、計画書 `docs/plans.md#m4-collaboration`、API 契約 `api/openapi.yaml` に準拠（**権威の順位は API 契約を正**）。
+- **変更内容（server）**:
+  - `server/src/ports.rs`: 通知型（`NotificationKind` 列挙 9 種・`as_str()`、`Notification` 型）と `NotificationPort` trait（`list_notifications`/`mark_read`/`emit`）を追加。
+  - `server/src/notifications.rs`: インメモリ通知ストア `NotificationStore` と `NotificationPort` 実装（カーソルページ・種別/未読フィルタ・既読化・`unread_count`）を新規作成。
+  - `server/src/routes/notifications.rs`: `GET /notifications`（`kind`/`unreadOnly`/`Cursor`/`Limit`、200 で `X-Unread-Count`）と `POST /notifications/read`（`ids`（最大 200）または `all`、204）のハンドラを新規作成。`X-Unread-Count` ヘッダを付与（匿名は付与しない）。
+  - `server/src/routes/collab.rs`: 提案のコメント・マージ、課題の作成・コメントの書き込み成功后に操作者を含めて通知をファンアウト（`actor_user_id` ヘルパーと `fanout_comment`/`fanout_merge`/`fanout_issue`）。書き込みハンドラ 4 件に `Extension<RequestIdentity>` を追加。
+  - `server/src/app_state.rs` / `server/src/lib.rs`: `AppState.notifications` と通知ルート（`require_auth` 付き）を配線。`routes/mod.rs` に `pub mod notifications;` を追加。
+- **変更内容（web）**:
+  - `web/src/lib/api/types.ts` / `links.ts` / `pages.ts`: 通知型 `Notification`/`NotificationPageData`、`notificationsPageHref`、`ShellPage` の通知分岐を追加。
+  - `web/src/lib/i18n.ts`: 通知の nav・controls・9 種の kind ラベル（ja/en）を追加。
+  - `web/src/components/pages/NotificationsPage.svelte`: 通知一覧（種別/未読フィルタ・単件/全件既読化・続き読み込み）を新規作成。
+  - `web/src/pages/notifications/index.astro`: 通知センターの Astro ルートを新規作成。
+  - `web/src/components/shell/AppShell.svelte`: 通知ベル＋未読バッジ（10 秒ポーリング、`X-Unread-Count` 優先）を追加。
+  - `web/src/styles/global.css` / `web/src/test/collaboration-fixtures.ts`: 通知スタイルとフィクスチャ 3 種を追加。
+  - `web/src/components/pages/NotificationsPage.test.ts` / `web/src/components/shell/AppShell.test.ts`: 通知一覧と通知ベルのテストを追加。
+- **フォローアップ（PR #46 レビュー由来）**: `docs/handoff.md` §2 と `docs/plans.md` の「（PR 作成待ち）」を PR #46 作成済みに合わせて修正。`cancelAutomerge` の DELETE 成功後の再 GET 失敗時は notice `canceled` を立たず failure のみとする不整合修正。
+- **検証（実行で証明）**:
+  - web: `cd web && npm run check` → Vitest **47 件**成功（17 ファイル）、`astro check` **0 errors**。
+  - web: `cd web && npm run build` → **12 ページ**生成、成功。
+  - server: `cargo build --locked --all-targets` → エラー 0・警告 0。
+  - server: `cargo test --locked --all-targets` → **113 件**成功、0 失敗（うち統合テスト 3 件: `notifications_require_auth`・`list_and_mark_notifications`・`merge_proposal_fans_out_notification`）。
+  - server: `cargo clippy --locked --all-targets -- -D warnings` → 通過。
+  - `python3 docs/script/verify-docs.py` → 実行検証。
+- **ドキュメント同期**: `docs/handoff.md` §4 判断 11 に通知実装の判断（通知エンドポイント 2 件の対応・`/notifications/settings` 未実装・`unreadOnly` の camelCase クエリ・未読件数ヘッダ・インメモリストア・ファンアウト対象）を追記。`docs/designs/m4.md` §6.1/§6.2 の状態を「実装完了」に更新。`docs/plans.md` の M4 通知項目をチェック済みに更新し進捗サマリを更新。`docs/history.md` に本エントリを追記。`api/openapi.yaml` は変更なし。

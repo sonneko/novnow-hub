@@ -18,3 +18,5 @@ export type ChatMessage = components['schemas']['ChatMessage'];
 export type ChatMessagePage = components['schemas']['ChatMessagePage'];
 export type ApiComment = components['schemas']['Comment'];
 export type CommentPageData = components['schemas']['CommentPage'];
+export type Notification = components['schemas']['Notification'];
+export type NotificationPageData = components['schemas']['NotificationPage'];
