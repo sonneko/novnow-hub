@@ -13,7 +13,7 @@
 | M1 仕様策定 | 完了 | 仕様書・API 契約（OpenAPI 3.1）・マイルストーン計画の策定 | `REF:docs/plans.md#m1-specs` |
 | M2 フロントエンド基盤 | 完了 | Astro／Svelte、API 型生成、OpenAPI モック、アプリシェル、CI 拡張（契約スキーマ検証 + Prism モックのスモークテストを docs ジョブに追加済み） | `REF:docs/plans.md#m2-frontend-mock` |
 | M3 公開と閲覧 | 進行中 | 読者ビュー・公開ページの静的シェル事前描画・ETag キャッシュ・公開ウィザード UI・バックエンド骨格（Rust + Axum）・GitHub アダプター最小実装・公開フロー本体（multipart 取込・novnow 軽量検証・保管単位作成・hub 登録・公開ページ生成）を実装。検索は未完了 | `REF:docs/plans.md#m3-thin-slice` |
-| M4 コラボレーション | 進行中 | Proposal／Issue UI と SQLite ChatPort 参照実装・チャット UI、ProposalPort／IssuePort／AutomergePort／CheckStatusPort の GitHub 実装と契約テストを実装。自動マージ予約 UI・通知等は未完了 | `REF:docs/plans.md#m4-collaboration` |
+| M4 コラボレーション | 進行中 | Proposal／Issue UI と SQLite ChatPort 参照実装・チャット UI、ProposalPort／IssuePort／AutomergePort／CheckStatusPort の GitHub 実装と契約テスト、提案系／課題系／automerge 系の HTTP ルート配線を実装。自動マージ予約 UI・通知等は未完了 | `REF:docs/plans.md#m4-collaboration` |
 | M5 novnow 特化機能 | 進行中 | セットアップ URL 発行・解決を実装。派生・診断等は未完了 | `REF:docs/plans.md#m5-novnow-features` |
 <!-- SYNC:END project-status -->
 
@@ -64,7 +64,8 @@
 
 <a id="m4-collaboration"></a>
 ### M4: コラボレーション（変更提案・課題・自動マージ・チャット・通知）（仕様・設計策定済み）
-- [x] ProposalPort／IssuePort／AutomergePort／CheckStatusPort の GitHub 実装と契約テスト（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）。`server/src/ports.rs` に 4 ポートと hub ドメイン型を定義し、`server/src/adapters/github/client.rs` に GitHub REST API（Pull Requests／Issues／Check Runs／Auto-merge）の呼び出しを追加、`server/src/adapters/github/mod.rs` に GitHub 実装を追加。ローカル mock GitHub API サーバー（axum）による契約テスト 5 件を追加（GitHub 応答形状→hub 型の写像と発信リクエストの REST 契約一致を検証）。検証: `cargo build` 警告 0・`cargo test` 97 件成功・`cargo clippy -D warnings` 通過（PR 作成待ち）
+- [x] ProposalPort／IssuePort／AutomergePort／CheckStatusPort の GitHub 実装と契約テスト（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）。`server/src/ports.rs` に 4 ポートと hub ドメイン型を定義し、`server/src/adapters/github/client.rs` に GitHub REST API（Pull Requests／Issues／Check Runs／Auto-merge）の呼び出しを追加、`server/src/adapters/github/mod.rs` に GitHub 実装を追加。ローカル mock GitHub API サーバー（axum）による契約テスト 5 件を追加（GitHub 応答形状→hub 型の写像と発信リクエストの REST 契約一致を検証）。検証: `cargo build` 警告 0・`cargo test` 97 件成功・`cargo clippy -D warnings` 通過（PR #44 としてマージ済み）
+- [x] 4 ポートの HTTP ルート配線（提案系・課題系・automerge 系）と PR #44 レビュー由来のフォローアップ修正（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md、契約: REF:api/openapi.yaml）。`server/src/routes/collab.rs` を作成し、`build_router` に提案 9・自動マージ 3・課題 7 のルートを登録（読み取りは公開、書き込みは `require_auth`）。`projectId`→`shell_id` 解決・カーソルページネーションを実装。フォローアップ修正として `list_proposals` の二段絞り込みと `get_automerge_state` の状態判定、`map_pr` の承認済み判定を追加し契約テストを拡張。CheckStatusPort の verify 系（`/verify`、`/verify/latest`、`/diagnostics`、`/jobs/{jobId}`）は novnow 妥当性検証で別責務のため配線見送り（判断記録: `REF:docs/handoff.md` 判断 9）。ルート統合テスト 11 件を追加。検証: `cargo build` 警告 0・`cargo test` 110 件成功（うち統合 11・契約 7）・`cargo clippy -D warnings` 通過（PR 作成待ち）
 - [x] 変更提案 UI（一覧・詳細・差分・レビュー）と課題 UI（PR #16 で実装済み）（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
 - [ ] 自動マージの予約・取消・状態表示（GitHub の auto-merge または cron 評価）（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
 - [x] ChatPort の hub 管理ストア実装とチャット UI（Phase 1 は 5 秒間隔の短間隔ポーリング）（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）

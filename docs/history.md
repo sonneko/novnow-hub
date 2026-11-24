@@ -248,6 +248,8 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
   - ドキュメント: `python3 docs/script/verify-docs.py` → OK（rule-4 見出し構成一致）。
 - **ドキュメント同期**: `docs/designs/m3.md` §4.1・§4.2 の状態を「実装完了」に更新。判断記録は `docs/handoff.md` §4 判断 7 に追記（軽量インデックス・カーソル・ソート・絞り込み範囲・タグ保持）。`docs/plans.md` の M3 一覧・検索項目をチェック済みに更新。`api/openapi.yaml` は変更なし。
 
+### [HIST:MILESTONE:M4-COLLAB-PORTS] 2026-11-24 M4 コラボレーションポートの GitHub 実装と契約テスト（PR #44）
+
 [HIST-TAG: category=MILESTONE id=M4-COLLAB-PORTS topics=m4,proposal,issue,automerge,check,ports,github,contract-test]
 - **ブランチ**: `arena/m4-collab-ports-novnow-hub`（`main` @ `604a1ad` = PR #43 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチ `arena/3f2aec93-novnow-hub` への push は行わない。
 - **作業**: M4 の最初の項目「ProposalPort／IssuePort／AutomergePort／CheckStatusPort の GitHub 実装と契約テスト」を実装。仕様 `docs/specifications/m4.md`、設計 `docs/designs/m4.md`、計画書 `docs/plans.md#m4-collaboration`、API 契約 `api/openapi.yaml` に準拠。
@@ -262,3 +264,22 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
   - clippy: `cargo clippy --locked --all-targets -- -D warnings` → 通過。
   - ドキュメント: `python3 docs/script/verify-docs.py` → 要確認。
 - **ドキュメント同期**: 判断記録は `docs/handoff.md` §4 判断 8 に追記（権威順位・GitHub 概念隠蔽・承認数算出・自動マージ状態取得・`requireNoConflicts`・インラインコメント対象外・診断差分の既定値・mock サーバーによる契約テスト）。`docs/plans.md` の M4 第 1 項目と進捗サマリを更新。`api/openapi.yaml` は変更なし。
+
+### [HIST:MILESTONE:M4-COLLAB-ROUTES] 2026-11-26 M4 コラボレーションの HTTP ルート配線と PR #44 フォローアップ修正
+
+[HIST-TAG: category=MILESTONE id=M4-COLLAB-ROUTES topics=m4,routes,http,proposal,issue,automerge,followup,clippy]
+- **ブランチ**: `arena/m4-collab-routes-novnow-hub`（`main` @ `9ce75ba` = PR #44 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチへの push は行わない。
+- **作業**: M4 の 2 項目「4 ポートの HTTP ルート配線」と PR #44 レビュー由来のフォローアップ修正を実装。API 契約 `api/openapi.yaml` に準拠。
+- **変更内容**:
+  - `server/src/routes/collab.rs`（新規）: 提案系 9・自動マージ 3・課題系 7 のハンドラを実装。`projectId`→`shell_id` 解決（未登録は 404）・`map_port_error`・`resolve_limit`／`resolve_cursor`／`paginate`（オフセット）等のヘルパーと camelCase のリクエスト／レスポンス型を定義。
+  - `server/src/routes/mod.rs`・`server/src/lib.rs`: collab ルーターを `build_router` に登録。読み取り系は公開、書き込み系は `require_auth` ミドルウェアで認証必須。
+  - `server/src/adapters/github/mod.rs`: フォローアップ修正。(a) `list_proposals` を GitHub 側 state と写像後の hub `ProposalState` で二段絞り込み。(b) `get_automerge_state` を PR 状態に応じて `merged`／`canceled`／`reserved` を返すよう修正。`map_pr` に承認済み判定（承認数≥要件）を追加。
+  - `server/src/adapters/github/m4_contract_test.rs`: 上記修正の契約テスト 2 件（`list_proposals_filters_by_hub_state`、`get_automerge_state_reflects_proposal_state`）を追加。MockState に `prs`／`reviews` を追加。
+  - `server/src/test_support.rs`: ルート統合テスト用に mock GitHub API サーバー（`MockGitHub`）と全 REST ルートハンドラ、`test_config_with_github_base`／`test_state_with_github_base`／`register_test_project` を追加。リクエスト記録はメソッド＋パス＋クエリとする。
+  - `server/src/routes/collab.rs`（テスト）: axum テスト用ルーター経由の HTTP 統合テスト 11 件（一覧・state フィルタ・作成認証・詳細＋差分・コメント・レビュー／マージ／クローズ・自動マージ・課題・書き込み認証・ページネーション・未登録 404）を追加。
+- **検証（実行で証明）**:
+  - ビルド: `cargo build --locked --all-targets` → 警告 0・エラー 0 で成功。
+  - テスト: `cargo test --locked --all-targets` → **110 件**成功（うちルート統合テスト 11 件・M4 契約テスト 7 件）。
+  - clippy: `cargo clippy --locked --all-targets -- -D warnings` → 通過。
+  - ドキュメント: `python3 docs/script/verify-docs.py` → OK。
+- **ドキュメント同期**: 判断記録は `docs/handoff.md` §4 判断 9 に追記（CheckStatus の verify 系配線を見送り・認可範囲・projectId 解決・カーソルページネーション・二段絞り込み・状態判定・承認済み判定）。`docs/plans.md` の M4 ルート配線項目と進捗サマリを更新。`api/openapi.yaml` は変更なし。

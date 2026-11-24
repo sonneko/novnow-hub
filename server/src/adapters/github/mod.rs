@@ -274,15 +274,20 @@ fn map_pr(
     pr: &PrJson,
     reviews: &[ReviewJson],
 ) -> Proposal {
+    let required_approvals: u64 = 1;
     let approval_count = reviews
         .iter()
         .filter(|r| r.state == "APPROVED")
         .count() as u64;
+    // hub の ProposalState は GitHub の open/closed と merged フラグ、承認数から判定する。
+    // - マージ済み（merged フラグ）は Merged。
+    // - クローズ済みで未マージは Closed。
+    // - オープンで承認数が要件を満たしていれば Approved、そうでなければ Open。
     let state = match pr.state.as_str() {
-        "open" if pr.merged => ProposalState::Merged,
-        "open" => ProposalState::Open,
-        "closed" if pr.merged => ProposalState::Merged,
+        _ if pr.merged => ProposalState::Merged,
         "closed" => ProposalState::Closed,
+        "open" if approval_count >= required_approvals => ProposalState::Approved,
+        "open" => ProposalState::Open,
         _ => ProposalState::Open,
     };
     Proposal {
@@ -304,7 +309,7 @@ fn map_pr(
         },
         checks: Vec::new(),
         approval_count,
-        required_approvals: 1,
+        required_approvals,
         automerge: None,
         created_at: pr.created_at.as_deref().map(parse_ts).unwrap_or(0),
         updated_at: pr.updated_at.as_deref().map(parse_ts).unwrap_or(0),
@@ -422,10 +427,16 @@ impl ProposalPort for GitHubAdapter {
     ) -> Result<Vec<Proposal>, PortError> {
         let token = self.token()?;
         let repo = self.client.get_repo(&token, shell_id).await.map_err(|e| map_client_error(&e))?;
+        // GitHub 側で絞れる範囲だけ絞って取得し、残りは写像後の hub の
+        // `ProposalState` で絞り込む。マージ済み PR は GitHub では closed として
+        // 扱われるため、closed 取得の結果から Merged を除外する。
+        // - Open / Approved: オープンな PR を取得。
+        // - Merged / Closed: クローズな PR を取得。
+        // - None: 全件取得（絞り込みなし）。
         let gh_state = match state {
-            Some(ProposalState::Open) => "open",
-            Some(ProposalState::Closed) => "closed",
-            Some(ProposalState::Approved) | Some(ProposalState::Merged) | None => "all",
+            Some(ProposalState::Open) | Some(ProposalState::Approved) => "open",
+            Some(ProposalState::Merged) | Some(ProposalState::Closed) => "closed",
+            None => "all",
         };
         let prs = self
             .client
@@ -439,7 +450,15 @@ impl ProposalPort for GitHubAdapter {
                 .list_pull_reviews(&token, &repo.full_name, pr.number as u64)
                 .await
                 .map_err(|e| map_client_error(&e))?;
-            result.push(map_pr(&repo.full_name, pr, &reviews));
+            let proposal = map_pr(&repo.full_name, pr, &reviews);
+            // GitHub 側で絞れない hub 状態（approved / merged）と、closed 取得に
+            // 混ざる merged を、写像後の state で正しく絞り込む。
+            if let Some(want) = state {
+                if proposal.state != want {
+                    continue;
+                }
+            }
+            result.push(proposal);
         }
         Ok(result)
     }
@@ -727,10 +746,18 @@ impl AutomergePort for GitHubAdapter {
         shell_id: &str,
         number: u64,
     ) -> Result<AutomergeState, PortError> {
-        // GitHub は予約状態の取得 API を提供しない。pull の状態から評価する。
+        // GitHub は予約状態を直接読む API を提供しない。pull の状態から評価する。
+        // - マージ済み → Merged。
+        // - クローズ済み（未マージ）→ Canceled（予約は失われる）。
+        // - オープン／承認済み → Reserved（予約済みとして扱う）。
         let proposal = self.get_proposal(shell_id, number).await?;
+        let state = match proposal.state {
+            ProposalState::Merged => AutomergeStateKind::Merged,
+            ProposalState::Closed => AutomergeStateKind::Canceled,
+            ProposalState::Open | ProposalState::Approved => AutomergeStateKind::Reserved,
+        };
         Ok(AutomergeState {
-            state: AutomergeStateKind::Reserved,
+            state,
             required_approvals: proposal.required_approvals,
             required_checks: Vec::new(),
             require_no_conflicts: true,

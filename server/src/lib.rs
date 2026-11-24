@@ -57,6 +57,79 @@ pub fn build_router(state: AppState) -> Router {
                     ),
                 ),
             ),
+        )
+        // M4 コラボレーション：変更提案・課題・自動マージ（公開読み取り）。
+        .merge(
+            Router::new()
+                .route(
+                    "/projects/{projectId}/proposals",
+                    get(routes::collab::list_proposals),
+                )
+                .route(
+                    "/projects/{projectId}/proposals/{number}",
+                    get(routes::collab::get_proposal),
+                )
+                .route(
+                    "/projects/{projectId}/proposals/{number}/diff",
+                    get(routes::collab::get_proposal_diff),
+                )
+                .route(
+                    "/projects/{projectId}/proposals/{number}/automerge",
+                    get(routes::collab::get_automerge_state),
+                )
+                .route("/projects/{projectId}/issues", get(routes::collab::list_issues))
+                .route(
+                    "/projects/{projectId}/issues/{number}",
+                    get(routes::collab::get_issue),
+                ),
+        )
+        // M4 コラボレーション：書き込み系（認証必須）。
+        .merge(
+            Router::new()
+                .route(
+                    "/projects/{projectId}/proposals",
+                    post(routes::collab::open_proposal),
+                )
+                .route(
+                    "/projects/{projectId}/proposals/{number}/comments",
+                    get(routes::collab::list_proposal_comments)
+                        .post(routes::collab::comment_proposal),
+                )
+                .route(
+                    "/projects/{projectId}/proposals/{number}/approve",
+                    post(routes::collab::review_proposal),
+                )
+                .route(
+                    "/projects/{projectId}/proposals/{number}/merge",
+                    post(routes::collab::merge_proposal),
+                )
+                .route(
+                    "/projects/{projectId}/proposals/{number}/close",
+                    post(routes::collab::close_proposal),
+                )
+                .route(
+                    "/projects/{projectId}/proposals/{number}/automerge",
+                    axum::routing::put(routes::collab::reserve_automerge)
+                        .delete(routes::collab::cancel_automerge),
+                )
+                .route("/projects/{projectId}/issues", post(routes::collab::open_issue))
+                .route(
+                    "/projects/{projectId}/issues/{number}",
+                    axum::routing::patch(routes::collab::update_issue),
+                )
+                .route(
+                    "/projects/{projectId}/issues/{number}/comments",
+                    get(routes::collab::list_issue_comments)
+                        .post(routes::collab::comment_issue),
+                )
+                .route(
+                    "/projects/{projectId}/issues/{number}/close",
+                    post(routes::collab::close_issue),
+                )
+                .route_layer(axum::middleware::from_fn_with_state(
+                    state.clone(),
+                    middleware::require_auth,
+                )),
         );
 
     Router::new()
