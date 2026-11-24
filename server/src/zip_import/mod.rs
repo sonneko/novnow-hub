@@ -78,6 +78,33 @@ pub struct ImportedFile {
     pub content: Vec<u8>,
 }
 
+/// 取込結果。ファイルとディレクトリの一覧を分けて返す。
+///
+/// ディレクトリ entry（名前の末尾が `/` のもの）はファイルとして扱わず、
+/// `dirs` にまとめる。通常の zip（`zip -r`・Finder・Windows 圧縮・
+/// Python `shutil.make_archive` 等）はディレクトリ entry を含むため、
+/// これをファイル化すると Git ツリーに同一名が blob と tree で併存し
+/// GitHub の Git Data API が 422 で失敗する。そのためディレクトリ entry
+/// は展開結果のファイル一覧へ含めない（コミット対象にもしない）。
+#[derive(Debug, Clone)]
+pub struct ImportedArchive {
+    /// 展開済みのファイル一覧（ディレクトリ entry は含まない）。
+    pub files: Vec<ImportedFile>,
+    /// ディレクトリ entry の一覧（末尾 `/` なしの正規化パス）。
+    pub dirs: Vec<String>,
+}
+
+/// zip 取込のノイズ（コミット対象から除外するパスの先頭）。
+///
+/// `__MACOSX/`（macOS の Finder 由来）と `.DS_Store`（macOS のメタデータ）は
+/// 未知ファイルとして検証では無視されるが、コミットに含めるとゴミを残す
+/// ため展開結果から除外する。
+fn is_noise_path(path: &str) -> bool {
+    path == ".DS_Store"
+        || path.starts_with("__MACOSX/")
+        || path.split('/').any(|seg| seg == "__MACOSX" || seg == ".DS_Store")
+}
+
 /// CRC-32（IEEE 802.3）表。
 fn crc32_table() -> [u32; 256] {
     let mut table = [0u32; 256];
@@ -134,7 +161,7 @@ struct CentralEntry {
 }
 
 /// zip を解析し、許可リストを満たすファイルを展開して返す。
-pub fn import_zip(data: &[u8]) -> Result<Vec<ImportedFile>, ZipError> {
+pub fn import_zip(data: &[u8]) -> Result<ImportedArchive, ZipError> {
     if data.len() > MAX_UPLOAD_BYTES {
         return Err(ZipError::TooLarge);
     }
@@ -198,12 +225,32 @@ pub fn import_zip(data: &[u8]) -> Result<Vec<ImportedFile>, ZipError> {
     }
 
     let mut files = Vec::with_capacity(entries.len());
+    let mut dirs: Vec<String> = Vec::new();
     let mut total_uncompressed: u64 = 0;
     for entry in entries {
+        // ディレクトリ entry は末尾が `/`。Unix モードのディレクトリも判定する。
+        let raw_name = std::str::from_utf8(&entry.filename).ok();
+        let is_dir = raw_name.map(|n| n.ends_with('/')).unwrap_or(false)
+            || (entry.version_made_by >> 8 == 3
+                && (entry.external_attrs >> 16) & 0o170000 == 0o040000);
+
         let path = validate_and_normalize_name(&entry.filename)?;
 
-        // ディレクトリ entry は無視（novnow の実体はファイル）。
+        // ルート直下の空 entry（`/` のみ）は無視。
         if path.is_empty() {
+            continue;
+        }
+
+        // ノイズ（`__MACOSX/`・`.DS_Store`）は展開結果から除外する。
+        if is_noise_path(&path) {
+            continue;
+        }
+
+        // ディレクトリ entry はファイルとして扱わず、dirs に分類する。
+        if is_dir {
+            if !dirs.contains(&path) {
+                dirs.push(path);
+            }
             continue;
         }
 
@@ -247,7 +294,7 @@ pub fn import_zip(data: &[u8]) -> Result<Vec<ImportedFile>, ZipError> {
         files.push(ImportedFile { path, content });
     }
 
-    Ok(files)
+    Ok(ImportedArchive { files, dirs })
 }
 
 /// ローカルヘッダからデータを切り出して展開する。
@@ -358,12 +405,12 @@ fn read_eocd(data: &[u8], eocd: usize) -> Result<(usize, u16), ZipError> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     /// Python の zipfile 相当で生成した zip の byte 列を返す。
     /// `entries` は (ファイル名, 展開後内容, 圧縮後内容, 圧縮方式)。
-    fn make_zip(entries: &[(&str, &[u8], &[u8], u16)]) -> Vec<u8> {
+    pub(crate) fn make_zip(entries: &[(&str, &[u8], &[u8], u16)]) -> Vec<u8> {
         let mut buf = Vec::new();
         let mut central = Vec::new();
         for (name, content, compressed, method) in entries {
@@ -425,11 +472,11 @@ mod tests {
             ("project.toml", b"[project]\nname = \"t\"\n", b"[project]\nname = \"t\"\n", 0),
             ("body/main.txt", b"hello", b"hello", 0),
         ]);
-        let files = import_zip(&zip).expect("正常な zip は展開できる");
-        assert_eq!(files.len(), 2);
-        assert_eq!(files[0].path, "project.toml");
-        assert_eq!(files[1].path, "body/main.txt");
-        assert_eq!(files[1].content, b"hello");
+        let archive = import_zip(&zip).expect("正常な zip は展開できる");
+        assert_eq!(archive.files.len(), 2);
+        assert_eq!(archive.files[0].path, "project.toml");
+        assert_eq!(archive.files[1].path, "body/main.txt");
+        assert_eq!(archive.files[1].content, b"hello");
     }
 
     // 固定ハフマンの DEFLATE エントリ（Python zlib で生成した既知ベクトル）。
@@ -452,18 +499,18 @@ mod tests {
     fn imports_deflate_fixed_huffman_entry() {
         // 既知の zip（固定ハフマン）に対し、展開結果が zlib の平文と一致すること。
         let zip = make_zip(&[("fox.txt", FOX_TEXT, FOX_DEFLATE, 8)]);
-        let files = import_zip(&zip).expect("固定ハフマンの zip は展開できる");
-        assert_eq!(files.len(), 1);
-        assert_eq!(files[0].content, FOX_TEXT);
+        let archive = import_zip(&zip).expect("固定ハフマンの zip は展開できる");
+        assert_eq!(archive.files.len(), 1);
+        assert_eq!(archive.files[0].content, FOX_TEXT);
     }
 
     #[test]
     fn imports_deflate_dynamic_huffman_entry() {
         // 既知の zip（動的ハフマン）に対し、展開結果が zlib の平文と一致すること。
         let zip = make_zip(&[("alpha.txt", ALPHABET, ALPHABET_DEFLATE, 8)]);
-        let files = import_zip(&zip).expect("動的ハフマンの zip は展開できる");
-        assert_eq!(files.len(), 1);
-        assert_eq!(files[0].content, ALPHABET);
+        let archive = import_zip(&zip).expect("動的ハフマンの zip は展開できる");
+        assert_eq!(archive.files.len(), 1);
+        assert_eq!(archive.files[0].content, ALPHABET);
     }
 
     #[test]
@@ -498,5 +545,93 @@ mod tests {
         let zip = make_zip(&[("a.txt", b"x", b"x", 0)]);
         let err = import_zip(&zip[..zip.len() - 5]).expect_err("切断 zip は拒否");
         assert!(matches!(err, ZipError::InvalidArchive(_)));
+    }
+
+    #[test]
+    fn directory_entries_are_not_files() {
+        // 通常の zip（`zip -r` 相当）はディレクトリ entry を含む。
+        // ディレクトリ entry はファイルとして扱わず、dirs に分類すること。
+        let zip = make_zip(&[
+            ("contents/", b"", b"", 0),
+            ("contents/01.cnov", b"body", b"body", 0),
+            ("project.toml", b"schema_version = 2\n", b"schema_version = 2\n", 0),
+        ]);
+        let archive = import_zip(&zip).expect("ディレクトリ entry 含む zip は展開できる");
+        // files に `contents` という幽霊ファイルが無いこと。
+        assert!(
+            !archive.files.iter().any(|f| f.path == "contents"),
+            "ディレクトリ entry がファイル化されていないこと"
+        );
+        assert_eq!(archive.files.len(), 2);
+        // dirs に `contents` が含まれること。
+        assert!(archive.dirs.contains(&"contents".to_string()));
+    }
+
+    #[test]
+    fn empty_directory_entry_is_collected_as_dir() {
+        // 空のディレクトリ entry（`contents/` のみ）も dirs に分類する。
+        let zip = make_zip(&[("contents/", b"", b"", 0)]);
+        let archive = import_zip(&zip).expect("空ディレクトリ entry 含む zip は展開できる");
+        assert!(archive.files.is_empty());
+        assert_eq!(archive.dirs, vec!["contents".to_string()]);
+    }
+
+    #[test]
+    fn noise_entries_are_excluded() {
+        // `__MACOSX/`・`.DS_Store` は展開結果から除外する。
+        let zip = make_zip(&[
+            ("__MACOSX/", b"", b"", 0),
+            ("__MACOSX/._project.toml", b"junk", b"junk", 0),
+            (".DS_Store", b"junk", b"junk", 0),
+            ("project.toml", b"schema_version = 2\n", b"schema_version = 2\n", 0),
+        ]);
+        let archive = import_zip(&zip).expect("ノイズ含む zip は展開できる");
+        assert_eq!(archive.files.len(), 1);
+        assert_eq!(archive.files[0].path, "project.toml");
+        assert!(archive.dirs.is_empty());
+    }
+
+    #[test]
+    fn real_zip_with_dir_entries_passes_full_verify() {
+        // 本物の zip（`zip -r` 相当：ディレクトリ entry を含む）を
+        // import_zip → verify_snapshot の一連の流れで検証する。
+        // 必須ディレクトリ contents/（空可）はディレクトリ entry のみで受理される。
+        let zip = make_zip(&[
+            ("contents/", b"", b"", 0),
+            ("plots/", b"", b"", 0),
+            ("project.toml", b"schema_version = 2\n", b"schema_version = 2\n", 0),
+            (
+                "characters.md",
+                "# キャラ\n".as_bytes(),
+                "# キャラ\n".as_bytes(),
+                0,
+            ),
+            (
+                "words.md",
+                "# 単語\n".as_bytes(),
+                "# 単語\n".as_bytes(),
+                0,
+            ),
+            ("materials/index.json", b"{}\n", b"{}\n", 0),
+            ("plots/all.cnov", b"plot\n", b"plot\n", 0),
+        ]);
+        let archive = import_zip(&zip).expect("ディレクトリ entry 含む本物 zip は展開できる");
+        // ディレクトリ entry が幽霊ファイル化されていないこと。
+        assert!(!archive.files.iter().any(|f| f.path == "contents"));
+        assert!(!archive.files.iter().any(|f| f.path == "plots"));
+        // ディレクトリ entry は dirs に分類されていること。
+        assert!(archive.dirs.contains(&"contents".to_string()));
+        assert!(archive.dirs.contains(&"plots".to_string()));
+        // 展開結果を軽量検証に渡し、必須ディレクトリ検査を通過すること。
+        let snapshot: Vec<crate::verify::SnapshotFile> = archive
+            .files
+            .iter()
+            .map(|f| crate::verify::SnapshotFile {
+                path: f.path.clone(),
+                content: f.content.clone(),
+            })
+            .collect();
+        crate::verify::verify_snapshot(&snapshot, &archive.dirs)
+            .expect("ディレクトリ entry 含む本物 zip は軽量検証を通過する");
     }
 }

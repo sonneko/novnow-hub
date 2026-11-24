@@ -36,6 +36,9 @@ pub struct Config {
     pub commit_timeout_secs: u64,
     /// 待受ポート（既定 8080）。
     pub port: u16,
+    /// 公開ページのベース URL（`publishedUrl` の生成に使う）。
+    /// 既定はローカル開発用の `http://localhost:4321`（判断: `REF:docs/handoff.md` §4 判断 1）。
+    pub hub_public_base: String,
 }
 
 impl Config {
@@ -70,6 +73,8 @@ impl Config {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(120),
             port: get("HUB_PORT").and_then(|v| v.parse().ok()).unwrap_or(8080),
+            hub_public_base: get("HUB_PUBLIC_BASE")
+                .unwrap_or_else(|| "http://localhost:4321".to_string()),
         }
     }
 
@@ -107,6 +112,7 @@ mod tests {
         assert_eq!(c.read_timeout_secs, 5);
         assert_eq!(c.write_timeout_secs, 30);
         assert_eq!(c.commit_timeout_secs, 120);
+        assert_eq!(c.hub_public_base, "http://localhost:4321");
     }
 
     #[test]

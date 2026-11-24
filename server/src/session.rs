@@ -13,6 +13,7 @@ use rand::Rng;
 use serde::Serialize;
 
 use crate::config::Config;
+use crate::ports::Identity;
 
 /// セッションの状態。
 #[derive(Debug, Clone)]
@@ -31,6 +32,11 @@ pub struct Session {
     pub revoked: bool,
     /// このセッションを作った利用者の ID。
     pub user_id: String,
+    /// このセッションに紐付く利用者の情報（ハンドル・表示名）。
+    ///
+    /// 判断（`REF:docs/handoff.md` §4 判断 3）により、公開フローで
+    /// `ownerHandle` と保管単位名が必要なため保持する。
+    pub identity: Option<Identity>,
 }
 
 /// クライアントへ返すトークン対（契約の `TokenPair` スキーマに準拠）。
@@ -97,8 +103,13 @@ impl SessionStore {
         self.verify_access(&session_id)
     }
 
-    /// 新しいセッションを作成する。
+    /// 新しいセッションを作成する（利用者 ID のみ）。
     pub fn create(&self, user_id: &str) -> Session {
+        self.create_with_identity(user_id, None)
+    }
+
+    /// 新しいセッションを作成し、利用者の Identity を紐付ける。
+    pub fn create_with_identity(&self, user_id: &str, identity: Option<Identity>) -> Session {
         let mut rng = rand::thread_rng();
         let session_id = random_token(&mut rng);
         let refresh_token = random_token(&mut rng);
@@ -112,6 +123,7 @@ impl SessionStore {
                 + Duration::from_secs(self.config.refresh_token_ttl_secs as u64),
             revoked: false,
             user_id: user_id.to_string(),
+            identity,
         };
         self.sessions
             .write()
@@ -199,6 +211,7 @@ impl SessionStore {
                 + Duration::from_secs(self.config.refresh_token_ttl_secs as u64),
             revoked: false,
             user_id: session.user_id.clone(),
+            identity: session.identity.clone(),
         };
         sessions.insert(new_session_id, new_session.clone());
         Ok(new_session)
