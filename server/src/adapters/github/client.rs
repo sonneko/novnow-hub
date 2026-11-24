@@ -520,6 +520,490 @@ impl GitHubClient {
             .map_err(|e| ClientError::InvalidResponse(format!("ボディ解析失敗: {e}")))?;
         Ok(payload["object"]["sha"].as_str().map(|s| s.to_string()))
     }
+
+    // ---- M4: Pull Requests（変更提案） ----
+
+    /// Pull Request を作成。
+    pub async fn create_pull(
+        &self,
+        token: &Token,
+        full_name: &str,
+        title: &str,
+        body: &str,
+        head: &str,
+        base: &str,
+    ) -> Result<PrJson, ClientError> {
+        let response = self
+            .send_with_retry(|| {
+                self.inner
+                    .post(format!("{}/repos/{full_name}/pulls", self.base_url))
+                    .headers(self.headers(Some(token.as_str())))
+                    .timeout(self.timeout_write)
+                    .json(&serde_json::json!({
+                        "title": title,
+                        "body": body,
+                        "head": head,
+                        "base": base,
+                    }))
+            })
+            .await?;
+        let response = check_success(response)?;
+        response
+            .json::<PrJson>()
+            .await
+            .map_err(|e| ClientError::InvalidResponse(format!("ボディ解析失敗: {e}")))
+    }
+
+    /// Pull Request を取得。
+    pub async fn get_pull(
+        &self,
+        token: &Token,
+        full_name: &str,
+        number: u64,
+    ) -> Result<PrJson, ClientError> {
+        let response = self
+            .send_with_retry(|| {
+                self.inner
+                    .get(format!("{}/repos/{full_name}/pulls/{number}", self.base_url))
+                    .headers(self.headers(Some(token.as_str())))
+                    .timeout(self.timeout_read)
+            })
+            .await?;
+        let response = check_success(response)?;
+        response
+            .json::<PrJson>()
+            .await
+            .map_err(|e| ClientError::InvalidResponse(format!("ボディ解析失敗: {e}")))
+    }
+
+    /// Pull Request の一覧（state フィルタ）。
+    pub async fn list_pulls(
+        &self,
+        token: &Token,
+        full_name: &str,
+        state: Option<&str>,
+    ) -> Result<Vec<PrJson>, ClientError> {
+        let url = match state {
+            Some(s) if !s.is_empty() => {
+                format!("{}/repos/{full_name}/pulls?state={s}", self.base_url)
+            }
+            _ => format!("{}/repos/{full_name}/pulls", self.base_url),
+        };
+        let response = self
+            .send_with_retry(|| {
+                self.inner
+                    .get(url.clone())
+                    .headers(self.headers(Some(token.as_str())))
+                    .timeout(self.timeout_read)
+            })
+            .await?;
+        let response = check_success(response)?;
+        response
+            .json::<Vec<PrJson>>()
+            .await
+            .map_err(|e| ClientError::InvalidResponse(format!("ボディ解析失敗: {e}")))
+    }
+
+    /// Pull Request の差分ファイル一覧。
+    pub async fn list_pull_files(
+        &self,
+        token: &Token,
+        full_name: &str,
+        number: u64,
+    ) -> Result<Vec<PrFile>, ClientError> {
+        let response = self
+            .send_with_retry(|| {
+                self.inner
+                    .get(format!(
+                        "{}/repos/{full_name}/pulls/{number}/files",
+                        self.base_url
+                    ))
+                    .headers(self.headers(Some(token.as_str())))
+                    .timeout(self.timeout_read)
+            })
+            .await?;
+        let response = check_success(response)?;
+        response
+            .json::<Vec<PrFile>>()
+            .await
+            .map_err(|e| ClientError::InvalidResponse(format!("ボディ解析失敗: {e}")))
+    }
+
+    /// Pull Request のレビュー一覧（承認数の算出用）。
+    pub async fn list_pull_reviews(
+        &self,
+        token: &Token,
+        full_name: &str,
+        number: u64,
+    ) -> Result<Vec<ReviewJson>, ClientError> {
+        let response = self
+            .send_with_retry(|| {
+                self.inner
+                    .get(format!(
+                        "{}/repos/{full_name}/pulls/{number}/reviews",
+                        self.base_url
+                    ))
+                    .headers(self.headers(Some(token.as_str())))
+                    .timeout(self.timeout_read)
+            })
+            .await?;
+        let response = check_success(response)?;
+        response
+            .json::<Vec<ReviewJson>>()
+            .await
+            .map_err(|e| ClientError::InvalidResponse(format!("ボディ解析失敗: {e}")))
+    }
+
+    /// Pull Request へレビューを記録。
+    pub async fn create_pull_review(
+        &self,
+        token: &Token,
+        full_name: &str,
+        number: u64,
+        event: &str,
+        body: Option<&str>,
+    ) -> Result<(), ClientError> {
+        let mut body_json = serde_json::json!({ "event": event });
+        if let Some(b) = body {
+            body_json["body"] = serde_json::json!(b);
+        }
+        let response = self
+            .send_with_retry(|| {
+                self.inner
+                    .post(format!(
+                        "{}/repos/{full_name}/pulls/{number}/reviews",
+                        self.base_url
+                    ))
+                    .headers(self.headers(Some(token.as_str())))
+                    .timeout(self.timeout_write)
+                    .json(&body_json)
+            })
+            .await?;
+        check_success(response)?;
+        Ok(())
+    }
+
+    /// Pull Request をマージ。
+    pub async fn merge_pull(
+        &self,
+        token: &Token,
+        full_name: &str,
+        number: u64,
+    ) -> Result<MergeJson, ClientError> {
+        let response = self
+            .send_with_retry(|| {
+                self.inner
+                    .post(format!(
+                        "{}/repos/{full_name}/pulls/{number}/merge",
+                        self.base_url
+                    ))
+                    .headers(self.headers(Some(token.as_str())))
+                    .timeout(self.timeout_write)
+                    .json(&serde_json::json!({ "merge_method": "merge" }))
+            })
+            .await?;
+        let response = check_success(response)?;
+        response
+            .json::<MergeJson>()
+            .await
+            .map_err(|e| ClientError::InvalidResponse(format!("ボディ解析失敗: {e}")))
+    }
+
+    /// Pull Request の状態を更新（クローズ等）。
+    pub async fn update_pull(
+        &self,
+        token: &Token,
+        full_name: &str,
+        number: u64,
+        state: &str,
+    ) -> Result<PrJson, ClientError> {
+        let response = self
+            .send_with_retry(|| {
+                self.inner
+                    .patch(format!("{}/repos/{full_name}/pulls/{number}", self.base_url))
+                    .headers(self.headers(Some(token.as_str())))
+                    .timeout(self.timeout_write)
+                    .json(&serde_json::json!({ "state": state }))
+            })
+            .await?;
+        let response = check_success(response)?;
+        response
+            .json::<PrJson>()
+            .await
+            .map_err(|e| ClientError::InvalidResponse(format!("ボディ解析失敗: {e}")))
+    }
+
+    /// Pull Request の会話コメント一覧（PR は Issue として扱う）。
+    pub async fn list_issue_comments(
+        &self,
+        token: &Token,
+        full_name: &str,
+        number: u64,
+    ) -> Result<Vec<CommentJson>, ClientError> {
+        let response = self
+            .send_with_retry(|| {
+                self.inner
+                    .get(format!(
+                        "{}/repos/{full_name}/issues/{number}/comments",
+                        self.base_url
+                    ))
+                    .headers(self.headers(Some(token.as_str())))
+                    .timeout(self.timeout_read)
+            })
+            .await?;
+        let response = check_success(response)?;
+        response
+            .json::<Vec<CommentJson>>()
+            .await
+            .map_err(|e| ClientError::InvalidResponse(format!("ボディ解析失敗: {e}")))
+    }
+
+    // ---- M4: Issues（課題） ----
+
+    /// Issue を作成。
+    pub async fn create_issue(
+        &self,
+        token: &Token,
+        full_name: &str,
+        title: &str,
+        body: &str,
+        labels: &[String],
+    ) -> Result<IssueJson, ClientError> {
+        let response = self
+            .send_with_retry(|| {
+                self.inner
+                    .post(format!("{}/repos/{full_name}/issues", self.base_url))
+                    .headers(self.headers(Some(token.as_str())))
+                    .timeout(self.timeout_write)
+                    .json(&serde_json::json!({
+                        "title": title,
+                        "body": body,
+                        "labels": labels,
+                    }))
+            })
+            .await?;
+        let response = check_success(response)?;
+        response
+            .json::<IssueJson>()
+            .await
+            .map_err(|e| ClientError::InvalidResponse(format!("ボディ解析失敗: {e}")))
+    }
+
+    /// Issue を取得。
+    pub async fn get_issue(
+        &self,
+        token: &Token,
+        full_name: &str,
+        number: u64,
+    ) -> Result<IssueJson, ClientError> {
+        let response = self
+            .send_with_retry(|| {
+                self.inner
+                    .get(format!("{}/repos/{full_name}/issues/{number}", self.base_url))
+                    .headers(self.headers(Some(token.as_str())))
+                    .timeout(self.timeout_read)
+            })
+            .await?;
+        let response = check_success(response)?;
+        response
+            .json::<IssueJson>()
+            .await
+            .map_err(|e| ClientError::InvalidResponse(format!("ボディ解析失敗: {e}")))
+    }
+
+    /// Issue の一覧（state・label フィルタ）。
+    pub async fn list_issues(
+        &self,
+        token: &Token,
+        full_name: &str,
+        state: Option<&str>,
+        label: Option<&str>,
+    ) -> Result<Vec<IssueJson>, ClientError> {
+        let mut url = format!("{}/repos/{full_name}/issues", self.base_url);
+        let mut params: Vec<String> = Vec::new();
+        if let Some(s) = state {
+            if !s.is_empty() {
+                params.push(format!("state={s}"));
+            }
+        }
+        if let Some(l) = label {
+            if !l.is_empty() {
+                params.push(format!("labels={l}"));
+            }
+        }
+        if !params.is_empty() {
+            url.push_str(&format!("?{}", params.join("&")));
+        }
+        let response = self
+            .send_with_retry(|| {
+                self.inner
+                    .get(url.clone())
+                    .headers(self.headers(Some(token.as_str())))
+                    .timeout(self.timeout_read)
+            })
+            .await?;
+        let response = check_success(response)?;
+        response
+            .json::<Vec<IssueJson>>()
+            .await
+            .map_err(|e| ClientError::InvalidResponse(format!("ボディ解析失敗: {e}")))
+    }
+
+    /// Issue を更新。
+    pub async fn update_issue(
+        &self,
+        token: &Token,
+        full_name: &str,
+        number: u64,
+        body: &serde_json::Value,
+    ) -> Result<IssueJson, ClientError> {
+        let response = self
+            .send_with_retry(|| {
+                self.inner
+                    .patch(format!("{}/repos/{full_name}/issues/{number}", self.base_url))
+                    .headers(self.headers(Some(token.as_str())))
+                    .timeout(self.timeout_write)
+                    .json(body)
+            })
+            .await?;
+        let response = check_success(response)?;
+        response
+            .json::<IssueJson>()
+            .await
+            .map_err(|e| ClientError::InvalidResponse(format!("ボディ解析失敗: {e}")))
+    }
+
+    /// Issue へコメント。
+    pub async fn create_issue_comment(
+        &self,
+        token: &Token,
+        full_name: &str,
+        number: u64,
+        body: &str,
+    ) -> Result<CommentJson, ClientError> {
+        let response = self
+            .send_with_retry(|| {
+                self.inner
+                    .post(format!(
+                        "{}/repos/{full_name}/issues/{number}/comments",
+                        self.base_url
+                    ))
+                    .headers(self.headers(Some(token.as_str())))
+                    .timeout(self.timeout_write)
+                    .json(&serde_json::json!({ "body": body }))
+            })
+            .await?;
+        let response = check_success(response)?;
+        response
+            .json::<CommentJson>()
+            .await
+            .map_err(|e| ClientError::InvalidResponse(format!("ボディ解析失敗: {e}")))
+    }
+
+    // ---- M4: Check Runs（チェック状態） ----
+
+    /// コミットのチェックラン一覧。
+    pub async fn list_check_runs(
+        &self,
+        token: &Token,
+        full_name: &str,
+        ref_name: &str,
+    ) -> Result<Vec<CheckRunJson>, ClientError> {
+        let response = self
+            .send_with_retry(|| {
+                self.inner
+                    .get(format!(
+                        "{}/repos/{full_name}/commits/{ref_name}/check-runs",
+                        self.base_url
+                    ))
+                    .headers(self.headers(Some(token.as_str())))
+                    .timeout(self.timeout_read)
+            })
+            .await?;
+        let response = check_success(response)?;
+        let payload: CheckRunsResponse = response
+            .json()
+            .await
+            .map_err(|e| ClientError::InvalidResponse(format!("ボディ解析失敗: {e}")))?;
+        Ok(payload.check_runs)
+    }
+
+    // ---- M4: Auto-merge（自動マージ） ----
+
+    /// 自動マージを予約。
+    pub async fn set_automerge(
+        &self,
+        token: &Token,
+        full_name: &str,
+        number: u64,
+        required_approvals: u64,
+        required_checks: &[String],
+        // GitHub の自動マージは競合のある PR をマージしないため、`require_no_conflicts`
+        // は GitHub 側の仕組みによって満たされる。明示的なフラグは存在しない。
+        _require_no_conflicts: bool,
+    ) -> Result<(), ClientError> {
+        let required_status_checks = if required_checks.is_empty() {
+            serde_json::json!(null)
+        } else {
+            serde_json::json!({
+                "strict": true,
+                "contexts": required_checks,
+            })
+        };
+        let response = self
+            .send_with_retry(|| {
+                self.inner
+                    .put(format!(
+                        "{}/repos/{full_name}/pulls/{number}/merge",
+                        self.base_url
+                    ))
+                    .headers(self.headers(Some(token.as_str())))
+                    .timeout(self.timeout_write)
+                    .json(&serde_json::json!({
+                        "merge_method": "merge",
+                        "required_status_checks": required_status_checks,
+                        "required_approvals": required_approvals,
+                        "required_pull_request_reviews": {
+                            "dismissal_restrictions": null,
+                            "dismiss_stale_reviews": false,
+                            "require_code_owner_reviews": false,
+                            "required_approving_review_count": required_approvals,
+                        },
+                        "allow_update_by_squash": true,
+                        "allow_update_by_rebase": true,
+                    }))
+            })
+            .await?;
+        check_success(response)?;
+        Ok(())
+    }
+
+    /// 自動マージを取消。
+    pub async fn delete_automerge(
+        &self,
+        token: &Token,
+        full_name: &str,
+        number: u64,
+    ) -> Result<(), ClientError> {
+        let response = self
+            .send_with_retry(|| {
+                self.inner
+                    .delete(format!(
+                        "{}/repos/{full_name}/pulls/{number}/merge",
+                        self.base_url
+                    ))
+                    .headers(self.headers(Some(token.as_str())))
+                    .timeout(self.timeout_write)
+            })
+            .await?;
+        // 204 成功。既に予約が無い場合も GitHub は成功を返す。
+        let status = response.status();
+        if status.is_success() {
+            Ok(())
+        } else {
+            Err(Self::map_status(status))
+        }
+    }
 }
 
 fn check_success(response: reqwest::Response) -> Result<reqwest::Response, ClientError> {
@@ -595,6 +1079,143 @@ pub struct FileEntry {
 pub enum FileEncoding {
     Text,
     Base64,
+}
+
+// ---- M4: GitHub の Pull Request／Issue／Check Run 応答型 ----
+
+/// Pull Request のユーザー。
+#[derive(Debug, Deserialize)]
+pub struct PrUser {
+    pub login: String,
+}
+
+/// Pull Request の ref（base／head）。
+#[derive(Debug, Deserialize)]
+pub struct PrRef {
+    #[serde(rename = "ref")]
+    pub ref_name: String,
+}
+
+/// Pull Request の応答（M4 で必要な項目のみ）。
+#[derive(Debug, Deserialize)]
+pub struct PrJson {
+    pub number: i64,
+    pub title: String,
+    #[serde(default)]
+    pub body: String,
+    pub state: String,
+    #[serde(default)]
+    pub user: Option<PrUser>,
+    pub base: PrRef,
+    pub head: PrRef,
+    #[serde(default)]
+    pub merged: bool,
+    #[serde(default)]
+    pub mergeable: Option<bool>,
+    #[serde(default)]
+    pub mergeable_state: Option<String>,
+    #[serde(default)]
+    pub additions: u64,
+    #[serde(default)]
+    pub deletions: u64,
+    #[serde(default)]
+    pub changed_files: u64,
+    #[serde(default)]
+    pub created_at: Option<String>,
+    #[serde(default)]
+    pub updated_at: Option<String>,
+}
+
+/// Pull Request の差分ファイル。
+#[derive(Debug, Deserialize)]
+pub struct PrFile {
+    pub filename: String,
+    pub status: String,
+    #[serde(default)]
+    pub additions: u64,
+    #[serde(default)]
+    pub deletions: u64,
+    #[serde(default)]
+    pub patch: Option<String>,
+}
+
+/// レビューの応答（承認数の算出用）。
+#[derive(Debug, Deserialize)]
+pub struct ReviewJson {
+    pub state: String,
+}
+
+/// マージ結果の応答。
+#[derive(Debug, Deserialize)]
+pub struct MergeJson {
+    pub merged: bool,
+    pub sha: String,
+    #[serde(default)]
+    pub merged_at: Option<String>,
+}
+
+/// コメントの応答。
+#[derive(Debug, Deserialize)]
+pub struct CommentJson {
+    pub id: i64,
+    #[serde(default)]
+    pub user: Option<PrUser>,
+    pub body: String,
+    #[serde(default)]
+    pub path: Option<String>,
+    #[serde(default)]
+    pub line: Option<i64>,
+    pub created_at: String,
+}
+
+/// ラベル。
+#[derive(Debug, Deserialize)]
+pub struct LabelJson {
+    pub name: String,
+}
+
+/// Issue の応答（M4 で必要な項目のみ）。
+#[derive(Debug, Deserialize)]
+pub struct IssueJson {
+    pub number: i64,
+    pub title: String,
+    #[serde(default)]
+    pub body: String,
+    pub state: String,
+    #[serde(default)]
+    pub labels: Vec<LabelJson>,
+    #[serde(default)]
+    pub user: Option<PrUser>,
+    #[serde(default)]
+    pub assignee: Option<PrUser>,
+    #[serde(default)]
+    pub created_at: Option<String>,
+    #[serde(default)]
+    pub updated_at: Option<String>,
+    /// Issues API の一覧は Pull Request も返す。PR は `pull_request` キーで識別し
+    /// 除外する。
+    #[serde(default)]
+    pub pull_request: Option<serde_json::Value>,
+}
+
+/// チェックラン一覧の応答。
+#[derive(Debug, Deserialize)]
+pub struct CheckRunsResponse {
+    #[serde(default)]
+    pub total_count: i64,
+    #[serde(default)]
+    pub check_runs: Vec<CheckRunJson>,
+}
+
+/// チェックラン。
+#[derive(Debug, Deserialize)]
+pub struct CheckRunJson {
+    pub name: String,
+    pub status: String,
+    #[serde(default)]
+    pub conclusion: Option<String>,
+    #[serde(default)]
+    pub html_url: Option<String>,
 }
 
 #[cfg(test)]

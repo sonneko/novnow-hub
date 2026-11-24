@@ -194,3 +194,339 @@ pub trait ContentPort: Send + Sync {
         path: Option<&str>,
     ) -> impl std::future::Future<Output = Result<String, PortError>> + Send;
 }
+
+// ============================================================================
+// M4 コラボレーション（設計 REF:docs/designs/m4.md §2・§3・§4）。
+// 変更提案・課題・自動マージ・チェック状態を操作するポート。GitHub の概念
+// （Pull Request・Issue 等）はここに漏れず、hub の語彙のみで記述する。
+// ============================================================================
+
+/// 変更提案の状態（hub 語彙、契約 `Proposal.state`）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProposalState {
+    /// オープン。
+    Open,
+    /// 承認済み。
+    Approved,
+    /// 取り込み済み。
+    Merged,
+    /// 却下・クローズ。
+    Closed,
+}
+
+/// チェックの状態（hub 語彙、契約 `Check.state`）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CheckState {
+    Pending,
+    Success,
+    Failure,
+    Neutral,
+    Skipped,
+}
+
+/// 1 件のチェック状態。
+#[derive(Debug, Clone)]
+pub struct CheckStatus {
+    pub name: String,
+    pub state: CheckState,
+    pub details_url: Option<String>,
+}
+
+/// 差分統計（契約 `DiffStats`）。
+#[derive(Debug, Clone, Copy, Default)]
+pub struct DiffStats {
+    pub additions: u64,
+    pub deletions: u64,
+    pub changed_files: u64,
+}
+
+/// 自動マージの状態（hub 語彙、契約 `AutomergeState.state`）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutomergeStateKind {
+    None,
+    Reserved,
+    Armed,
+    Merged,
+    Failed,
+    Canceled,
+}
+
+/// 自動マージの予約状態。
+#[derive(Debug, Clone)]
+pub struct AutomergeState {
+    pub state: AutomergeStateKind,
+    pub required_approvals: u64,
+    pub required_checks: Vec<String>,
+    pub require_no_conflicts: bool,
+    pub reason: Option<String>,
+    /// If-Match 用の版識別子。
+    pub etag: String,
+}
+
+/// 自動マージの予約条件。
+#[derive(Debug, Clone)]
+pub struct AutomergeConfig {
+    pub required_approvals: u64,
+    pub required_checks: Vec<String>,
+    pub require_no_conflicts: bool,
+}
+
+/// 変更提案（契約 `Proposal`）。
+#[derive(Debug, Clone)]
+pub struct Proposal {
+    pub number: u64,
+    pub title: String,
+    pub body: String,
+    pub state: ProposalState,
+    pub author_handle: String,
+    pub base_ref: String,
+    pub head_ref: String,
+    pub diff_stats: DiffStats,
+    pub checks: Vec<CheckStatus>,
+    pub approval_count: u64,
+    pub required_approvals: u64,
+    pub automerge: Option<AutomergeState>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+/// 差分のファイル状態（契約 `ProposalDiff.files[].status`）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FileStatus {
+    Added,
+    Modified,
+    Deleted,
+    Renamed,
+}
+
+/// 差分の 1 ファイル。
+#[derive(Debug, Clone)]
+pub struct ProposalFile {
+    pub path: String,
+    pub status: FileStatus,
+    pub additions: u64,
+    pub deletions: u64,
+    pub hunks: Vec<String>,
+}
+
+/// novnow 診断差分（契約 `ProposalDiff.novnowDiagnosticsDelta`）。
+#[derive(Debug, Clone, Copy, Default)]
+pub struct DiagnosticsDelta {
+    pub introduced: u64,
+    pub resolved: u64,
+}
+
+/// 変更提案の差分（契約 `ProposalDiff`）。
+#[derive(Debug, Clone)]
+pub struct ProposalDiff {
+    pub number: u64,
+    pub files: Vec<ProposalFile>,
+    pub novnow_diagnostics_delta: DiagnosticsDelta,
+}
+
+/// コメント（契約 `Comment`）。インラインコメントは path・line を伴う。
+#[derive(Debug, Clone)]
+pub struct Comment {
+    pub id: String,
+    pub author_handle: String,
+    pub body: String,
+    pub path: Option<String>,
+    pub line: Option<u64>,
+    pub created_at: i64,
+}
+
+/// レビューの判定（契約 `reviewProposal.verdict`）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReviewVerdict {
+    Approve,
+    Dismiss,
+    RequestChanges,
+}
+
+/// マージ結果（契約 `MergeResult`）。
+#[derive(Debug, Clone)]
+pub struct MergeResult {
+    pub merged: bool,
+    pub sha: String,
+    pub merged_at: Option<i64>,
+}
+
+/// 課題の状態（hub 語彙、契約 `Issue.state`）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IssueState {
+    Open,
+    Closed,
+}
+
+/// 課題（契約 `Issue`）。
+#[derive(Debug, Clone)]
+pub struct Issue {
+    pub number: u64,
+    pub title: String,
+    pub body: String,
+    pub state: IssueState,
+    pub labels: Vec<String>,
+    pub author_handle: String,
+    pub assignee_handle: Option<String>,
+    pub linked_proposal_number: Option<u64>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+/// 課題の更新内容（契約 `IssueUpdate`）。
+#[derive(Debug, Clone, Default)]
+pub struct IssueUpdate {
+    pub title: Option<String>,
+    pub body: Option<String>,
+    pub labels: Option<Vec<String>>,
+    pub assignee_handle: Option<Option<String>>,
+    pub state: Option<IssueState>,
+}
+
+/// 変更提案の操作（設計 §2.1）。GitHub の Pull Request を代理操作する。
+pub trait ProposalPort: Send + Sync {
+    fn open_proposal(
+        &self,
+        shell_id: &str,
+        title: &str,
+        body: &str,
+        head_ref: &str,
+        base_ref: &str,
+    ) -> impl std::future::Future<Output = Result<Proposal, PortError>> + Send;
+
+    fn get_proposal(
+        &self,
+        shell_id: &str,
+        number: u64,
+    ) -> impl std::future::Future<Output = Result<Proposal, PortError>> + Send;
+
+    fn list_proposals(
+        &self,
+        shell_id: &str,
+        state: Option<ProposalState>,
+    ) -> impl std::future::Future<Output = Result<Vec<Proposal>, PortError>> + Send;
+
+    fn diff_proposal(
+        &self,
+        shell_id: &str,
+        number: u64,
+    ) -> impl std::future::Future<Output = Result<ProposalDiff, PortError>> + Send;
+
+    fn comment_proposal(
+        &self,
+        shell_id: &str,
+        number: u64,
+        body: &str,
+        path: Option<&str>,
+        line: Option<u64>,
+    ) -> impl std::future::Future<Output = Result<Comment, PortError>> + Send;
+
+    fn review_proposal(
+        &self,
+        shell_id: &str,
+        number: u64,
+        verdict: ReviewVerdict,
+        body: Option<&str>,
+    ) -> impl std::future::Future<Output = Result<Proposal, PortError>> + Send;
+
+    fn merge_proposal(
+        &self,
+        shell_id: &str,
+        number: u64,
+    ) -> impl std::future::Future<Output = Result<MergeResult, PortError>> + Send;
+
+    fn close_proposal(
+        &self,
+        shell_id: &str,
+        number: u64,
+    ) -> impl std::future::Future<Output = Result<Proposal, PortError>> + Send;
+
+    fn list_proposal_comments(
+        &self,
+        shell_id: &str,
+        number: u64,
+    ) -> impl std::future::Future<Output = Result<Vec<Comment>, PortError>> + Send;
+}
+
+/// 課題の操作（設計 §3.1）。GitHub の Issue を代理操作する。
+pub trait IssuePort: Send + Sync {
+    fn open_issue(
+        &self,
+        shell_id: &str,
+        title: &str,
+        body: &str,
+        labels: &[String],
+    ) -> impl std::future::Future<Output = Result<Issue, PortError>> + Send;
+
+    fn get_issue(
+        &self,
+        shell_id: &str,
+        number: u64,
+    ) -> impl std::future::Future<Output = Result<Issue, PortError>> + Send;
+
+    fn list_issues(
+        &self,
+        shell_id: &str,
+        state: Option<IssueState>,
+        label: Option<&str>,
+    ) -> impl std::future::Future<Output = Result<Vec<Issue>, PortError>> + Send;
+
+    fn update_issue(
+        &self,
+        shell_id: &str,
+        number: u64,
+        update: &IssueUpdate,
+    ) -> impl std::future::Future<Output = Result<Issue, PortError>> + Send;
+
+    fn comment_issue(
+        &self,
+        shell_id: &str,
+        number: u64,
+        body: &str,
+    ) -> impl std::future::Future<Output = Result<Comment, PortError>> + Send;
+
+    fn close_issue(
+        &self,
+        shell_id: &str,
+        number: u64,
+        state: IssueState,
+    ) -> impl std::future::Future<Output = Result<Issue, PortError>> + Send;
+
+    fn list_issue_comments(
+        &self,
+        shell_id: &str,
+        number: u64,
+    ) -> impl std::future::Future<Output = Result<Vec<Comment>, PortError>> + Send;
+}
+
+/// 自動マージの操作（設計 §4.1）。GitHub の自動マージ機構を代理操作する。
+pub trait AutomergePort: Send + Sync {
+    fn reserve_automerge(
+        &self,
+        shell_id: &str,
+        number: u64,
+        config: &AutomergeConfig,
+    ) -> impl std::future::Future<Output = Result<AutomergeState, PortError>> + Send;
+
+    fn cancel_automerge(
+        &self,
+        shell_id: &str,
+        number: u64,
+    ) -> impl std::future::Future<Output = Result<(), PortError>> + Send;
+
+    fn get_automerge_state(
+        &self,
+        shell_id: &str,
+        number: u64,
+    ) -> impl std::future::Future<Output = Result<AutomergeState, PortError>> + Send;
+}
+
+/// チェック状態の取得（設計 §2.2）。GitHub の Check Runs／Statuses を代理する。
+pub trait CheckStatusPort: Send + Sync {
+    /// 指定リファレンスのチェック状態を返す。
+    fn get_check_status(
+        &self,
+        shell_id: &str,
+        ref_name: &str,
+    ) -> impl std::future::Future<Output = Result<Vec<CheckStatus>, PortError>> + Send;
+}

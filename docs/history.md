@@ -247,3 +247,18 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
   - clippy: `cargo clippy --locked --all-targets -- -D warnings` → 通過。
   - ドキュメント: `python3 docs/script/verify-docs.py` → OK（rule-4 見出し構成一致）。
 - **ドキュメント同期**: `docs/designs/m3.md` §4.1・§4.2 の状態を「実装完了」に更新。判断記録は `docs/handoff.md` §4 判断 7 に追記（軽量インデックス・カーソル・ソート・絞り込み範囲・タグ保持）。`docs/plans.md` の M3 一覧・検索項目をチェック済みに更新。`api/openapi.yaml` は変更なし。
+
+[HIST-TAG: category=MILESTONE id=M4-COLLAB-PORTS topics=m4,proposal,issue,automerge,check,ports,github,contract-test]
+- **ブランチ**: `arena/m4-collab-ports-novnow-hub`（`main` @ `604a1ad` = PR #43 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチ `arena/3f2aec93-novnow-hub` への push は行わない。
+- **作業**: M4 の最初の項目「ProposalPort／IssuePort／AutomergePort／CheckStatusPort の GitHub 実装と契約テスト」を実装。仕様 `docs/specifications/m4.md`、設計 `docs/designs/m4.md`、計画書 `docs/plans.md#m4-collaboration`、API 契約 `api/openapi.yaml` に準拠。
+- **変更内容**:
+  - `server/src/ports.rs`: 4 ポート（`ProposalPort`／`IssuePort`／`AutomergePort`／`CheckStatusPort`）と hub ドメイン型（`Proposal`／`Issue`／`Comment`／`ProposalDiff`／`ProposalFile`／`AutomergeState`／`CheckStatus`／`MergeResult`／`ReviewVerdict` 等）を定義。GitHub の概念は hub 語彙のみで記述。
+  - `server/src/adapters/github/client.rs`: GitHub REST API の呼び出しを追加。Pull Requests（`create_pull`/`get_pull`/`list_pulls`/`list_pull_files`/`list_pull_reviews`/`create_pull_review`/`merge_pull`/`update_pull`）、Issues（`create_issue`/`get_issue`/`list_issues`/`update_issue`/`create_issue_comment`）、Check Runs（`list_check_runs`）、Auto-merge（`set_automerge`/`delete_automerge`）および対応する応答型。既存の再試行・エラー変換機構（429 再試行、`map_status`）を活用。
+  - `server/src/adapters/github/mod.rs`: 4 ポートの GitHub 実装を追加。GitHub 応答→hub 型の写像ヘルパー（`map_pr`/`map_issue`/`map_comment`/`map_file_status`/`map_check_state`/`parse_ts`）を置き、承認数はレビュー API の `APPROVED` 件数から算出。
+  - `server/src/adapters/github/m4_contract_test.rs`（新規）: ローカル mock GitHub API サーバー（axum）を用いた契約テスト 5 件。GitHub 応答形状→hub 型の写像と、発信リクエスト（メソッド＋パス＋主要フィールド）が GitHub REST 契約に一致することを検証（proposal / issue / check / automerge / トークン未設定）。
+- **検証（実行で証明）**:
+  - ビルド: `cargo build --locked --all-targets` → 警告 0・エラー 0 で成功。
+  - テスト: `cargo test --locked --all-targets` → **97 件**成功（うち M4 契約テスト 5 件）。
+  - clippy: `cargo clippy --locked --all-targets -- -D warnings` → 通過。
+  - ドキュメント: `python3 docs/script/verify-docs.py` → 要確認。
+- **ドキュメント同期**: 判断記録は `docs/handoff.md` §4 判断 8 に追記（権威順位・GitHub 概念隠蔽・承認数算出・自動マージ状態取得・`requireNoConflicts`・インラインコメント対象外・診断差分の既定値・mock サーバーによる契約テスト）。`docs/plans.md` の M4 第 1 項目と進捗サマリを更新。`api/openapi.yaml` は変更なし。
