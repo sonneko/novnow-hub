@@ -287,6 +287,7 @@ pub async fn create_project(
         tags: Vec::new(),
         owner_handle: owner_handle.clone(),
         license: license.clone(),
+        derivative_policy: "allowed".to_string(),
         visibility,
         shell_id: shell.id.clone(),
         default_branch: shell.default_branch.clone(),

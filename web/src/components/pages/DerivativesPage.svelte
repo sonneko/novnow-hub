@@ -21,6 +21,7 @@
     title: string;
     ownerHandle: string;
     parentId: string | null;
+    depth: number;
     updatedAt: string;
     derivativePolicy?: DerivativePolicy;
     current: boolean;
@@ -35,6 +36,73 @@
   let failure = $state<ApiFailure>('unknown');
   let treeFailure = $state<ApiFailure>();
   let forest = $derived.by(() => buildTreeForest(project, derivativeNodes));
+
+  // 孫以下（depth >= 2）の遅延展開。直接の子（depth 1）は初期表示する。
+  let expanded = $state<Set<string>>(new Set());
+
+  // 派生作成のフォーム状態。
+  let showDeriveForm = $state(false);
+  let deriveTitle = $state('');
+  let deriveDescription = $state('');
+  let deriveVisibility = $state<'public' | 'private'>('private');
+  let deriving = $state(false);
+  let deriveResult = $state<string>();
+  let deriveFailure = $state<ApiFailure>();
+
+  const devHeaders = import.meta.env.DEV
+    ? { Authorization: 'Bearer mock-user-token' }
+    : undefined;
+
+  function toggleExpand(nodeId: string) {
+    const next = new Set(expanded);
+    if (next.has(nodeId)) next.delete(nodeId);
+    else next.add(nodeId);
+    expanded = next;
+  }
+
+  /// 現在のプロジェクトと直接の子（depth 1）は初期表示する。
+  function isAutoExpanded(node: TreeItem): boolean {
+    return node.current || node.depth <= 1;
+  }
+
+  /// ノードの子を表示するか。
+  function isNodeOpen(node: TreeItem): boolean {
+    return isAutoExpanded(node) || expanded.has(node.id);
+  }
+
+  async function submitDerive() {
+    deriveResult = undefined;
+    deriveFailure = undefined;
+    if (!deriveTitle.trim()) {
+      deriveFailure = 'validation_failed';
+      return;
+    }
+    deriving = true;
+    try {
+      const result = await apiClient.POST('/projects/{projectId}/derive', {
+        params: { path: { projectId } },
+        headers: devHeaders,
+        body: {
+          title: deriveTitle.trim(),
+          description: deriveDescription.trim() || undefined,
+          visibility: deriveVisibility,
+        },
+      });
+      if (result.error) {
+        deriveFailure = mapApiFailure(result.error, result.response.status);
+        return;
+      }
+      deriveResult = result.data.jobId;
+      deriveTitle = '';
+      deriveDescription = '';
+      showDeriveForm = false;
+      await load();
+    } catch {
+      deriveFailure = 'upstream-unavailable';
+    } finally {
+      deriving = false;
+    }
+  }
 
   function formatDate(value: string): string {
     const date = new Date(value);
@@ -58,6 +126,7 @@
         title: node.title,
         ownerHandle: node.ownerHandle,
         parentId: node.parentId ?? null,
+        depth: node.depth,
         updatedAt: node.updatedAt,
         derivativePolicy: node.derivativePolicy,
         current: false,
@@ -72,6 +141,7 @@
       title: currentProject.title,
       ownerHandle: currentProject.ownerHandle,
       parentId: currentRecord?.parentId ?? null,
+      depth: 0,
       updatedAt: currentProject.updatedAt,
       derivativePolicy: currentProject.derivativePolicy,
       current: true,
@@ -175,6 +245,9 @@
         );
       } else {
         derivativeNodes = derivativesResult.value.data;
+        // 直接の子（depth 1）を初期表示する。孫以下は遅延させる。
+        const direct = derivativesResult.value.data.filter((n) => n.depth === 1);
+        expanded = new Set(direct.map((n) => n.id));
       }
       state = 'ready';
     } catch {
@@ -196,6 +269,16 @@
           {node.title}
         </a>
         <span class="badge">{m.derivatives.relations[node.relation]}</span>
+        {#if node.children.length > 0 && !isAutoExpanded(node)}
+          <button
+            type="button"
+            class="derivative-expand"
+            aria-expanded={isNodeOpen(node)}
+            onclick={() => toggleExpand(node.id)}
+          >
+            {isNodeOpen(node) ? m.derivatives.collapse : `${m.derivatives.expand}（${m.derivatives.depthLazy}）`}
+          </button>
+        {/if}
       </div>
       <div class="derivative-node-meta">
         <span>{m.derivatives.owner}: {node.ownerHandle}</span>
@@ -208,7 +291,7 @@
       </div>
       <p class="derivative-node-id">{node.slug}</p>
     </article>
-    {#if node.children.length > 0}
+    {#if node.children.length > 0 && isNodeOpen(node)}
       <ul>
         {#each node.children as child (child.id)}
           {@render renderTreeNode(child)}
@@ -252,11 +335,55 @@
         <div>
           <h2 id="derivative-tree-heading">{m.derivatives.treeTitle}</h2>
           <p>{m.derivatives.treeHelp}</p>
+          {#if project?.derivativePolicy !== 'disallowed'}
+            <p class="derivative-create-help">{m.derivatives.createHelp}</p>
+          {/if}
         </div>
         <span class="badge">
           {m.derivatives.nodeCount(derivativeNodes.filter((node) => node.id !== project?.id).length)}
         </span>
       </div>
+
+      {#if project?.derivativePolicy !== 'disallowed'}
+        {#if !showDeriveForm}
+          <button type="button" class="derivative-create-button" onclick={() => (showDeriveForm = true)}>
+            {m.derivatives.createTitle}
+          </button>
+        {:else}
+          <form class="derivative-create-form" onsubmit={(e) => { e.preventDefault(); void submitDerive(); }}>
+            <h3>{m.derivatives.formTitle}</h3>
+            <label>
+              <span>{m.derivatives.titleLabel}</span>
+              <input type="text" bind:value={deriveTitle} placeholder={m.derivatives.titlePlaceholder} required />
+            </label>
+            <label>
+              <span>{m.derivatives.descriptionLabel}</span>
+              <textarea bind:value={deriveDescription} placeholder={m.derivatives.descriptionPlaceholder}></textarea>
+            </label>
+            <label>
+              <span>{m.derivatives.visibilityLabel}</span>
+              <select bind:value={deriveVisibility}>
+                <option value="private">{m.derivatives.visibilityPrivate}</option>
+                <option value="public">{m.derivatives.visibilityPublic}</option>
+              </select>
+            </label>
+            {#if deriveFailure}
+              <p role="alert">{m.api.errors[deriveFailure] ?? m.derivatives.createError}</p>
+            {/if}
+            <div class="derivative-create-actions">
+              <button type="submit" disabled={deriving}>
+                {deriving ? m.derivatives.creating : m.derivatives.submit}
+              </button>
+              <button type="button" onclick={() => (showDeriveForm = false)} disabled={deriving}>
+                {m.project.cancel}
+              </button>
+            </div>
+          </form>
+        {/if}
+        {#if deriveResult}
+          <p class="derivative-create-success" role="status">{m.derivatives.created(deriveResult)}</p>
+        {/if}
+      {/if}
       {#if treeFailure}
         <p role="alert">{m.api.errors[treeFailure]}</p>
       {:else if derivativeNodes.length === 0}

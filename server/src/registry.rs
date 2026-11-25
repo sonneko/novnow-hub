@@ -32,6 +32,8 @@ pub struct ProjectRecord {
     pub owner_handle: String,
     /// ライセンス（`cc0`・`cc-by` 等。契約の列挙値）。
     pub license: String,
+    /// 派生可否の方針（契約 `derivativePolicy` の文字列）。
+    pub derivative_policy: String,
     /// 公開範囲。
     pub visibility: ProjectVisibility,
     /// 保管単位の識別子（ポート経由でコンテンツを読むキー）。
@@ -187,6 +189,7 @@ mod tests {
             tags: Vec::new(),
             owner_handle: "sora".to_string(),
             license: "cc-by".to_string(),
+            derivative_policy: "allowed".to_string(),
             visibility: ProjectVisibility::Public,
             shell_id: shell.to_string(),
             default_branch: DEFAULT_BRANCH.to_string(),

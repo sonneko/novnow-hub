@@ -1252,6 +1252,79 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+.derivative-create-help {
+  margin: 0.4rem 0 0;
+  color: var(--color-muted);
+}
+
+.derivative-create-button {
+  margin-top: 0.9rem;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--color-accent);
+  border-radius: 0.5rem;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.derivative-create-form {
+  display: grid;
+  justify-items: start;
+  gap: 0.55rem;
+  margin-top: 0.9rem;
+  padding: 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-bg);
+}
+
+.derivative-create-form h3 {
+  margin: 0;
+  width: 100%;
+}
+
+.derivative-create-form label {
+  display: grid;
+  width: min(100%, 44rem);
+  gap: 0.25rem;
+  font-weight: 600;
+}
+
+.derivative-create-form input,
+.derivative-create-form textarea,
+.derivative-create-form select {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.4rem;
+  font: inherit;
+}
+
+.derivative-create-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.derivative-create-success {
+  margin: 0.8rem 0 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.5rem;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+}
+
+.derivative-expand {
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.4rem;
+  background: var(--color-bg);
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
 .setup-actions,
 .setup-resolve-actions {
   display: flex;
