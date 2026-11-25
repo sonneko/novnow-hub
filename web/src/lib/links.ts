@@ -10,6 +10,10 @@ export function derivativesPageHref(projectId: string): string {
   return `/derivatives/?projectId=${encodeURIComponent(projectId)}`;
 }
 
+export function inspectionPageHref(projectId: string): string {
+  return `/inspection/?projectId=${encodeURIComponent(projectId)}`;
+}
+
 export function setupResolveHref(setupUrl: string): string {
   return `/setup/resolve/?u=${encodeURIComponent(setupUrl)}`;
 }

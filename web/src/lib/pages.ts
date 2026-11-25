@@ -3,6 +3,7 @@ export type ShellPage =
   | { kind: 'project'; projectId?: string }
   | { kind: 'reader'; projectId?: string }
   | { kind: 'derivatives'; projectId?: string }
+  | { kind: 'inspection'; projectId?: string }
   | { kind: 'setupResolve' }
   | { kind: 'publish' }
   | { kind: 'proposals'; projectId?: string }

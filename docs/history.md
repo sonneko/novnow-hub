@@ -396,3 +396,32 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
   - web: `cd web && npm run check` → Vitest **49 件**成功（17 ファイル）、`astro check` 0 errors。
   - web: `cd web && npm run build` → **12 ページ**生成、成功。
   - `python3 docs/script/verify-docs.py` → 実行検証。
+
+### [HIST:MILESTONE:M5-JOBPORT] 2026-11-25 M5 JobPort（novnow 診断・エクスポートの非同期ジョブ基盤）
+
+[HIST-TAG: category=MILESTONE id=M5-JOBPORT topics=m5,jobport,diagnostics,export,queue,backend,web]
+- **ブランチ**: `arena/m5-jobport-novnow-hub`（`main` @ `18e957a` = PR #50 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチへの push は行わない。**診断・エクスポートのジョブ基盤のみを 1 つの PR**。診断差分（§5）・公開前検証の本格化（§6）はスコープ外。
+- **作業**: M5「novnow 特化機能」の JobPort 項目。`JobPort`（`createJob`/`getJob`/`listJobs`/`cancelJob`）を hub ドメイン型で定義し、重い処理をキュー化・同時実行数制限・完了通知する実行基盤を実装。診断の最小実装として既存の M3 軽量検証を再利用。HTTP ルート 3 件と Web「点検」タブを実装。
+- **変更内容（server）**:
+  - `server/src/ports.rs`: `JobKind`（`verify`/`diagnostics`/`export`）・`JobState`（`Pending`/`Running`/`Succeeded`/`Failed`/`Cancelled`）・`ExportFormat`・`DiagnosticItem`・`DiagnosticsResult`・`ExportResult`・`JobResult`・`Job`・`CreateJobRequest`・`JobPort` を追加。GitHub の概念（GitHub Actions 等）はポートの背後に隠す。
+  - `server/src/jobs.rs`（新規）: `JobStore`（インメモリ `RwLock<HashMap>` + `order`、`enqueue`/`get`/`list`/`finish`/`mark_running`/`cancel`）と `JobRunner`（`JobContentPort` 経由でスナップショット読み取り、`verify_snapshot` による診断・注釈除去済み本文のエクスポート）、`JobManager`（`JobPort` 実装、`tokio::spawn` でバックグラウンド実行、`JOB_CONCURRENCY_LIMIT`=2 のセマフォ制限、完了通知）。`JobContentPort` は `ContentPort` の `dyn` 非互換を解決するボックス化 future の専用ポート（blanket impl）。
+  - `server/src/routes/jobs.rs`（新規）: `POST /projects/{projectId}/diagnostics`（`require_auth`・202+jobId）・`GET /jobs/{jobId}`（`require_auth`・200）・`POST /projects/{projectId}/exports`（`security: []`・202+jobId）を実装。ポートの `Cancelled` は契約の `failed` に写像。
+  - `server/src/lib.rs`: `jobs` モジュール登録、`build_app_state` に `JobManager` 組み込み、`build_router` に 3 ルート登録。ルート統合テスト 4 件を追加。
+  - `server/src/app_state.rs`: `SharedJobPort` フィールドを追加。
+- **変更内容（web）**:
+  - `web/src/components/pages/InspectionPage.svelte`（新規）: 「点検」タブ。診断ジョブの実行（`POST /projects/{projectId}/diagnostics` → `GET /jobs/{jobId}` ポーリング）と、ジョブ状態・診断結果（ok/errors/warnings）の一覧表示。
+  - `web/src/pages/inspection/index.astro`（新規）: `/inspection` ページ。
+  - `web/src/components/shell/AppShell.svelte`: `inspection` ページ種別・ナビ・描画分岐を追加。
+  - `web/src/components/pages/ProjectPage.svelte`・`DerivativesPage.svelte`: タブナビに「点検」を追加。
+  - `web/src/lib/links.ts`・`src/lib/pages.ts`: `inspectionPageHref`・`inspection` ページ種別を追加。
+  - `web/src/lib/api/types.ts`: `Job`・`JobAccepted` 型を追加。
+  - `web/src/lib/i18n.ts`: 「点検」のメッセージ（ja/en）を追加。
+  - `web/src/components/pages/InspectionPage.test.ts`（新規）: 成功・失敗・404 のテスト 3 件。
+- **ドキュメント同期**: `docs/handoff.md` §4 判断 14 に M5 JobPort の判断（ジョブ状態の扱い・同時実行数上限=2・診断実行環境の選択（WASM 非現実的→M3 軽量検証再利用・Actions フォールバックは後続）・通知・ルート・点検タブ）を追記。§1・§2 を更新。`docs/designs/m5.md` §4.1〜§4.3 の状態を「実装完了」に更新。`docs/plans.md` の M5 JobPort 項目をチェック済みに更新。`docs/history.md` に本エントリを追記。**`api/openapi.yaml` は変更なし**（ジョブエンドポイントは既に定義済み）。
+- **検証（実行で証明）**:
+  - server: `cargo build --locked --all-targets` → エラー 0・**警告 0**。
+  - server: `cargo test --locked` → **159 件**成功、0 失敗（うち JobPort 単体 6 件・ルート統合 4 件）。
+  - server: `cargo clippy --locked --all-targets -- -D warnings` → 通過。
+  - web: `cd web && npm run check` → Vitest **52 件**成功（18 ファイル）、`astro check` 0 errors。
+  - web: `cd web && npm run build` → **13 ページ**生成、成功。
+  - `python3 docs/script/verify-docs.py` → 実行検証。

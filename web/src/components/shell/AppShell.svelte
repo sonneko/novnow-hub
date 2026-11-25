@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { apiClient } from '../../lib/api/client';
   import { messages, type Locale } from '../../lib/i18n';
-  import { chatPageHref, derivativesPageHref, notificationsPageHref, readerPageHref } from '../../lib/links';
+  import { chatPageHref, derivativesPageHref, inspectionPageHref, notificationsPageHref, readerPageHref } from '../../lib/links';
   import type { ShellPage } from '../../lib/pages';
   import DerivativesPage from '../pages/DerivativesPage.svelte';
   import SetupResolvePage from '../pages/SetupResolvePage.svelte';
@@ -16,6 +16,7 @@
   import IssueDetailPage from '../pages/IssueDetailPage.svelte';
   import ChatPage from '../pages/ChatPage.svelte';
   import NotificationsPage from '../pages/NotificationsPage.svelte';
+  import InspectionPage from '../pages/InspectionPage.svelte';
 
   interface Props {
     page: ShellPage;
@@ -34,12 +35,14 @@
   const m = $derived(messages[locale]);
   const readerHref = $derived(projectId ? readerPageHref(projectId) : undefined);
   const derivativesHref = $derived(projectId ? derivativesPageHref(projectId) : undefined);
+  const inspectionHref = $derived(projectId ? inspectionPageHref(projectId) : undefined);
   const chatHref = $derived(projectId ? chatPageHref(projectId) : undefined);
 
   function documentTitle(): string {
     if (page.kind === 'project') return m.project.title;
     if (page.kind === 'reader') return m.reader.title;
     if (page.kind === 'derivatives') return m.derivatives.title;
+    if (page.kind === 'inspection') return m.inspection.title;
     if (page.kind === 'setupResolve') return m.setupResolve.title;
     if (page.kind === 'publish') return m.publish.title;
     if (page.kind === 'proposals' || page.kind === 'proposal') return m.collaboration.proposals.title;
@@ -97,6 +100,7 @@
   onMount(() => {
     if (
       page.kind === 'project' || page.kind === 'reader' || page.kind === 'derivatives' ||
+      page.kind === 'inspection' ||
       page.kind === 'proposals' || page.kind === 'proposal' ||
       page.kind === 'issues' || page.kind === 'issue' || page.kind === 'chat'
     ) {
@@ -150,6 +154,11 @@
         <a href={derivativesHref} aria-current={page.kind === 'derivatives' ? 'page' : undefined}>
           {m.nav.derivatives}
         </a>
+        {#if inspectionHref}
+          <a href={inspectionHref} aria-current={page.kind === 'inspection' ? 'page' : undefined}>
+            {m.nav.inspection}
+          </a>
+        {/if}
       {/if}
       {#if chatHref}
         <a href={chatHref} aria-current={page.kind === 'chat' ? 'page' : undefined}>
