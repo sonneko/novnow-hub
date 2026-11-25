@@ -425,3 +425,39 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
   - web: `cd web && npm run check` → Vitest **52 件**成功（18 ファイル）、`astro check` 0 errors。
   - web: `cd web && npm run build` → **13 ページ**生成、成功。
   - `python3 docs/script/verify-docs.py` → 実行検証。
+
+### [HIST:MILESTONE:M6-MULTIPLATFORM] 2026-11-25 M6 マルチプラットフォーム（Tauri v2 デスクトップビルド・PWA）
+
+[HIST-TAG: category=MILESTONE id=M6-MULTIPLATFORM topics=m6,tauri,pwa,serviceworker,manifest,securestorage,uri-scheme,desktop,distribution]
+- **ブランチ**: `arena/m6-multiplatform-novnow-hub`（`main` @ `b7cc8b3` = PR #51 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチへの push は行わない。**マルチプラットフォーム全体を 1 つの PR**。
+- **作業**: M6「マルチプラットフォーム（Tauri・PWA）」。Web アプリと同一コードベースの Tauri v2 デスクトップビルド、PWA（マニフェスト・Service Worker オフラインシェル）、Tauri secure storage へのセッション保管、カスタムスキーム（`novnow://`）でのセットアップ URL 受信、インストーラ配布方式の決定と実装を実現。
+- **変更内容（Tauri / デスクトップ）**:
+  - `src-tauri/src/lib.rs`（新規）: `SecureStorage`（`Mutex<stronghold::Stronghold>`、DB `novnow-session.sdb`）による `session_get`/`session_set`/`session_delete`（stronghold 経由で暗号化保管、平文露出禁止）。`handle_setup_url` コマンド（`novnow://` 受信 → WebView を `/setup/resolve/?u=<url>` へ遷移）。`register_uri_scheme_protocol("novnow", ...)` でカスタムスキーム受信ハンドラを登録、`tauri::generate_handler!` で公開。
+  - `src-tauri/src/main.rs`: `fn main() { novnow_hub::run() }` に更新。
+  - `src-tauri/Cargo.toml`: `tauri` v2 + `stronghold = "2"` + build-deps `tauri-build`、`custom-protocol` feature。
+  - `src-tauri/tauri.conf.json`: `bundle.active=true`・`targets=all`・icon `icons/icon.png`・`beforeDev/beforeBuild` に web の `npm run dev`/`npm run build`・`frontendDist` `../web/dist` を設定。
+  - `src-tauri/capabilities/default.json`（新規）: `core:default` / window / webview / app の既定権限。
+  - `src-tauri/icons/`: ImageMagick 生成のアイコン（`icon.png`・`32x32.png`・`128x128.png`・`128x128@2x.png`。ico/icns は CI で生成）。
+  - `.github/workflows/desktop.yml`（新規）: Linux（ubuntu-latest）・Windows・macOS の 3 ジョブで `npm run tauri -- build --bundle` を実行し、未署名インストーラを生成・アーティファクト配布。**署名は M7 で別途対応**。
+- **変更内容（PWA / Web）**:
+  - `web/public/manifest.json`（新規）: `display: standalone`・theme `#7c3aed`・192/512 + maskable アイコンを定義。
+  - `web/public/sw.js`（新規・モジュール化）: `sw-strategy.js` から戦略を import する ES モジュール。`novnow-hub-shell-v1/shell` にシェルを事前キャッシュ、`/api/*` はキャッシュ除外、フォールバックは `/index.html`。
+  - `web/public/sw-strategy.js`（新規）: `CACHE_NAME`/`SHELL_ASSETS`/`isStaticAsset`/`cacheFirst`/`networkFirst` の純粋関数群（SW 本体とテストで共有）。
+  - `web/public/icons/`: ImageMagick 生成の PWA アイコン 5 種（192/512/apple-touch/favicon）。
+  - `web/src/layouts/BaseLayout.astro`: マニフェスト link・theme-color・apple-touch-icon・favicon・Service Worker 登録（`type: 'module'`、失敗は無害）を追加。
+  - `web/src/lib/session-storage.ts`（新規）: `isTauri()` 判定でブラウザ版（localStorage）とデスクトップ版（`invoke` 経由で secure storage 委譲）に振り分け、`saveSession`/`loadSession`/`clearSession`/`getAuthHeaders` を提供。`invoke` は一度だけ解決して共有（動的 import の並行呼出が refresh_token 取得を失敗させる問題を回避）。
+  - `web/src/lib/session-storage.test.ts`（新規）: ブラウザ版 + Tauri 委譲の Vitest（7 ケース）。
+  - `web/src/lib/sw-strategy.test.ts`（新規）: SW 戦略の Vitest（7 ケース）。
+  - `web/src/components/shell/AppShell.svelte`: 本番パスの未読数取得を `getAuthHeaders()` に切替（DEV は mock 維持）。
+  - `web/package.json`: `@tauri-apps/api` ^2 を追加、devDeps に `@tauri-apps/cli` ^2.12.4、`tauri` スクリプト（`cd .. && tauri`）を追加。
+- **既存仕組みの再利用**: 読者ビュー本文のオフライン閲覧は **M3 の事前描画と ETag キャッシュ（PR #19）による CacheStorage 保存・オフライン表示**を既存の仕組みとして再利用し、重複実装しない（`web/src/lib/reader-cache.ts` を流用）。
+- **配布方式の決定**: 署名証明書がこの開発環境で用意できないため、**Phase 1 の既定配布方式は「CI で生成した未署名インストーラ」**。署名は M7 の運用・公開準備として別途対応。理由と CI 確認方法は `docs/handoff.md` §4 判断 15・`docs/designs/m6.md` §5.2 に記録。
+- **ドキュメント同期**: `docs/handoff.md` §4 判断 15 に M6 の判断（同一コードベース化・配布方式決定・セッション保管方式・カスタムスキーム設計・PWA 再利用・Tauri ビルド制約）を追記。§1・§2 を更新。`docs/designs/m6.md` 全節を「実装完了」に更新し、§5.2 に Tauri ビルド制約を追記。`docs/plans.md` の M6 項目 4 件をチェック済みに更新。**`api/openapi.yaml` は変更なし**（M6 はクライアントサイド中心で契約変更不要）。
+- **検証（実行で証明）**:
+  - server: `cargo build --locked --all-targets` → エラー 0・**警告 0**。
+  - server: `cargo test --locked` → **159 件**成功、0 失敗。
+  - server: `cargo clippy --locked --all-targets -- -D warnings` → 通過。
+  - web: `cd web && npm run check` → Vitest **66 件**成功（20 ファイル）、`astro check` **0 errors**（うち session-storage 7 件・sw-strategy 7 件）。
+  - web: `cd web && npm run build` → **13 ページ**生成。`dist/manifest.json`（valid JSON）・`dist/sw.js`・`dist/sw-strategy.js`・`dist/icons/` を配信。
+  - Tauri デスクトップビルド: サンドボックス環境では実行不可（crates.io 到達不可・`tauri`/`stronghold` 未ベンダー・webkit2gtk/gtk3/pkg-config 未導入）。**CI の `.github/workflows/desktop.yml` の実行結果で Linux/Win/macOS のビルドを検証**（理由と CI 確認方法を記録）。
+  - `python3 docs/script/verify-docs.py` → 実行検証。

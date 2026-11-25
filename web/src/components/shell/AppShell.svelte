@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { apiClient } from '../../lib/api/client';
+  import { getAuthHeaders } from '../../lib/session-storage';
   import { messages, type Locale } from '../../lib/i18n';
   import { chatPageHref, derivativesPageHref, inspectionPageHref, notificationsPageHref, readerPageHref } from '../../lib/links';
   import type { ShellPage } from '../../lib/pages';
@@ -79,7 +80,10 @@
 
   async function loadUnreadCount() {
     try {
-      const headers = import.meta.env.DEV ? { Authorization: 'Bearer mock-user-token' } : undefined;
+      // DEV はモックトークン、本番（ブラウザ／Tauri）はセッション保管から認証ヘッダーを構築する。
+      const headers = import.meta.env.DEV
+        ? { Authorization: 'Bearer mock-user-token' }
+        : await getAuthHeaders();
       const result = await apiClient.GET('/notifications', {
         params: { query: { unreadOnly: true, limit: 1 } },
         headers,

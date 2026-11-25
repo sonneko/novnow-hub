@@ -9,3 +9,9 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+# セッション情報の暗号化保管（OS の Keychain / Credential Manager / Secret Service）。
+stronghold = "2"
+
+[features]
+# このフィーチャーは Cargo のデフォルト機能とは別。desktop ビルドで有効化する。
+custom-protocol = ["tauri/custom-protocol"]

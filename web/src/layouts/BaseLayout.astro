@@ -14,6 +14,12 @@ const { title = 'novnow-hub' } = Astro.props;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
+    <!-- PWA: マニフェストとテーマ色（インストール・オフラインシェル用） -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#7c3aed" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png" />
     <script is:inline>
       (() => {
         const root = document.documentElement;
@@ -41,5 +47,16 @@ const { title = 'novnow-hub' } = Astro.props;
   </head>
   <body>
     <slot />
+    <script is:inline>
+      // PWA の Service Worker を登録する（オフラインシェル用）。
+      // 登録失敗（非対応環境等）は無害に扱い、アプリの表示を妨げない。
+      (() => {
+        if (!('serviceWorker' in navigator)) return;
+        const register = () =>
+          navigator.serviceWorker.register('/sw.js', { scope: '/', type: 'module' }).catch(() => {});
+        if (document.readyState === 'complete') register();
+        else window.addEventListener('load', register, { once: true });
+      })();
+    </script>
   </body>
 </html>

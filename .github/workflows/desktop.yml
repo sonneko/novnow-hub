@@ -1,0 +1,166 @@
+name: Desktop (Tauri)
+
+# novnow-hub デスクトップアプリ（Tauri v2）のビルド・配布パイプライン。
+#
+# Linux 向けビルドを ubuntu-latest で実行し、ビルド成果物（未署名インストーラ）を
+# アーティファクトとして配布する。Windows／macOS 向けは各ランナーで同様にビルド
+# 可能（ランナーの OS に合わせてビルド対象が切り替わる）。
+#
+# 署名（インストーラ署名）は M7 の運用・公開準備として別途対応する。Phase 1 の
+# 既定配布方式は「CI で生成した未署名インストーラ」とし、署名手順は docs/handoff.md
+# に記録する（証明書がこの環境で用意できないため）。
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  ASTRO_TELEMETRY_DISABLED: "1"
+  TAURI_CLI_NO_UPDATE: "1"
+
+jobs:
+  build-linux:
+    name: Build (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install Linux system dependencies (webkit2gtk etc.)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            file \
+            wget
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: web
+        run: npm run build
+
+      - name: Build desktop app (Tauri, unsigned)
+        working-directory: web
+        run: npm run tauri -- build --bundle
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: novnow-hub-linux
+          path: |
+            src-tauri/target/release/bundle/
+            src-tauri/target/release/novnow-hub
+          retention-days: 14
+
+  # Windows／macOS 向けはランナーを切り替えて同様にビルドする。
+  # webkit 等のシステム依存がないため、追加の apt インストールは不要。
+  build-windows:
+    name: Build (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: web
+        run: npm run build
+
+      - name: Build desktop app (Tauri, unsigned)
+        working-directory: web
+        run: npm run tauri -- build --bundle
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: novnow-hub-windows
+          path: src-tauri/target/release/bundle/
+          retention-days: 14
+
+  build-macos:
+    name: Build (macOS)
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: web
+        run: npm run build
+
+      - name: Build desktop app (Tauri, unsigned)
+        working-directory: web
+        run: npm run tauri -- build --bundle
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: novnow-hub-macos
+          path: src-tauri/target/release/bundle/
+          retention-days: 14
