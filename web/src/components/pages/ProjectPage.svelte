@@ -8,6 +8,7 @@
   import {
     chatPageHref,
     derivativesPageHref,
+    inspectionPageHref,
     issueListHref,
     projectPageHref,
     proposalListHref,
@@ -207,6 +208,7 @@
     <nav class="project-tabs" aria-label={m.project.sectionsLabel}>
       <a href={projectPageHref(projectId)} aria-current="page">{m.project.overviewTab}</a>
       <a href={derivativesPageHref(projectId)}>{m.project.derivativesTab}</a>
+      <a href={inspectionPageHref(projectId)}>{m.project.inspectionTab}</a>
     </nav>
 
     <article class="panel" aria-labelledby="project-overview">

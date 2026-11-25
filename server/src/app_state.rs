@@ -6,6 +6,7 @@ use std::sync::{Arc, RwLock};
 use crate::adapters::github::SharedGitHubAdapter;
 use crate::config::Config;
 use crate::derivatives::SharedDerivativeStore;
+use crate::jobs::SharedJobPort;
 use crate::registry::SharedProjectRegistry;
 use crate::routes::auth::StateStore;
 use crate::session::SharedSessionStore;
@@ -38,4 +39,6 @@ pub struct AppState {
     pub derivatives: SharedDerivativeStore,
     /// 派生アダプター（GitHub Fork 連携、設計 §2.2）。
     pub derivation: SharedDerivation,
+    /// novnow 診断・エクスポートの非同期ジョブ基盤（設計 §4.1）。
+    pub jobs: SharedJobPort,
 }

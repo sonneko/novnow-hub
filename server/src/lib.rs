@@ -7,6 +7,7 @@ pub mod app_state;
 pub mod config;
 pub mod derivatives;
 pub mod error;
+pub mod jobs;
 pub mod middleware;
 pub mod multipart;
 pub mod notifications;
@@ -171,6 +172,34 @@ pub fn build_router(state: AppState) -> Router {
                     state.clone(),
                     middleware::require_auth,
                 )),
+        )
+        // M5 診断（認証必須、契約 `runDiagnostics`）。
+        .merge(
+            Router::new()
+                .route(
+                    "/projects/{projectId}/diagnostics",
+                    post(routes::jobs::run_diagnostics),
+                )
+                .route_layer(axum::middleware::from_fn_with_state(
+                    state.clone(),
+                    middleware::require_auth,
+                )),
+        )
+        // M5 エクスポート（無認証、契約 `createExport`）。
+        .merge(
+            Router::new().route(
+                "/projects/{projectId}/exports",
+                post(routes::jobs::create_export),
+            ),
+        )
+        // M5 ジョブ状態取得（認証必須、契約 `getJob`）。
+        .merge(
+            Router::new()
+                .route("/jobs/{jobId}", get(routes::jobs::get_job))
+                .route_layer(axum::middleware::from_fn_with_state(
+                    state.clone(),
+                    middleware::require_auth,
+                )),
         );
 
     Router::new()
@@ -208,6 +237,19 @@ pub fn build_app_state(config: Config) -> AppState {
         notifications.clone(),
     )) as Arc<dyn crate::ports::DerivationPort>;
 
+    // novnow 診断・エクスポートの非同期ジョブ基盤（設計 §4.1）。
+    // コンテンツ読み取りは GitHub アダプター（`ContentPort` 実装）を共有する。
+    let job_store = Arc::new(crate::jobs::JobStore::new());
+    let job_runner = Arc::new(crate::jobs::JobRunner::new(
+        github_adapter.clone() as Arc<dyn crate::jobs::JobContentPort>,
+        projects.clone(),
+    ));
+    let jobs = Arc::new(crate::jobs::JobManager::new(
+        job_store,
+        job_runner,
+        notifications.clone(),
+    )) as Arc<dyn crate::ports::JobPort>;
+
     AppState {
         config: config.clone(),
         sessions: Arc::new(SessionStore::new(config.clone())),
@@ -221,6 +263,7 @@ pub fn build_app_state(config: Config) -> AppState {
         rebuild: Arc::new(LoggingRebuild),
         derivatives,
         derivation,
+        jobs,
     }
 }
 
@@ -933,5 +976,172 @@ mod tests {
         assert_eq!(status, StatusCode::NOT_FOUND);
     }
 
+    // =====================================================================
+    // M5 JobPort の HTTP ルート統合テスト（設計 §4.1〜§4.3）。
+    // =====================================================================
+
+    /// 診断ジョブの起票は認証必須。認証なしは 401。
+    #[tokio::test]
+    async fn run_diagnostics_requires_auth() {
+        let state = test_state();
+        let router = test_router(state);
+        let resp = router
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/projects/jobs-proj/diagnostics")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let (status, _) = response_text(resp).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+    }
+
+    /// 診断ジョブの起票は存在しないプロジェクトで 404。
+    #[tokio::test]
+    async fn run_diagnostics_unknown_project_returns_404() {
+        let state = test_state();
+        let identity = Identity {
+            id: "u-jobs".into(),
+            handle: "sora".into(),
+            display_name: "sora".into(),
+            avatar_url: None,
+        };
+        let session = state.sessions.create_with_identity("u-jobs", Some(identity));
+        let router = test_router(state);
+        let resp = router
+            .oneshot(authed_post(
+                "/api/v1/projects/nope/diagnostics",
+                &session.session_id,
+                serde_json::json!({}),
+            ))
+            .await
+            .unwrap();
+        let (status, _) = response_text(resp).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+    }
+
+    /// 診断ジョブの起票は 202 + jobId を返し、ジョブが完了まで遷移する。
+    #[tokio::test]
+    async fn run_diagnostics_accepts_and_job_completes() {
+        let state = test_state();
+        register_sample(&state, "jobs-proj", "Jobs Sample", "cc-by", 100);
+        let identity = Identity {
+            id: "u-jobs".into(),
+            handle: "sora".into(),
+            display_name: "sora".into(),
+            avatar_url: None,
+        };
+        let session = state.sessions.create_with_identity("u-jobs", Some(identity));
+        let router = test_router(state);
+        let resp = router
+            .clone()
+            .oneshot(authed_post(
+                "/api/v1/projects/jobs-proj/diagnostics",
+                &session.session_id,
+                serde_json::json!({}),
+            ))
+            .await
+            .unwrap();
+        let (status, body) = response_text(resp).await;
+        assert_eq!(status, StatusCode::ACCEPTED);
+        let accepted: serde_json::Value = serde_json::from_str(&body).unwrap();
+        let job_id = accepted["jobId"].as_str().expect("jobId").to_string();
+        assert!(!job_id.is_empty());
+
+        // ジョブが完了（外部基盤未接続のため failed か succeeded）するまで待つ。
+        let mut final_status = String::new();
+        for _ in 0..100 {
+            let resp = router
+                .clone()
+                .oneshot(authed_get(&format!("/api/v1/jobs/{job_id}"), &session.session_id))
+                .await
+                .unwrap();
+            let (_, body) = response_text(resp).await;
+            let job: serde_json::Value = serde_json::from_str(&body).unwrap();
+            final_status = job["status"].as_str().unwrap_or("").to_string();
+            if ["succeeded", "failed"].contains(&final_status.as_str()) {
+                assert_eq!(job["id"], job_id);
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        assert!(
+            ["succeeded", "failed"].contains(&final_status.as_str()),
+            "ジョブが完了しなかった: {final_status}"
+        );
+    }
+
+    /// ジョブ状態取得は存在しないジョブで 404、未認証で 401。
+    #[tokio::test]
+    async fn get_job_unknown_and_unauth() {
+        let state = test_state();
+        let identity = Identity {
+            id: "u-jobs2".into(),
+            handle: "sora".into(),
+            display_name: "sora".into(),
+            avatar_url: None,
+        };
+        let session = state.sessions.create_with_identity("u-jobs2", Some(identity));
+        let router = test_router(state);
+
+        let resp = router
+            .clone()
+            .oneshot(authed_get("/api/v1/jobs/nope", &session.session_id))
+            .await
+            .unwrap();
+        let (status, _) = response_text(resp).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+
+        let resp = router
+            .oneshot(get_request("/api/v1/jobs/nope"))
+            .await
+            .unwrap();
+        let (status, _) = response_text(resp).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+    }
+
+    /// エクスポートは無認証で受理し、存在しないプロジェクトは 404。
+    #[tokio::test]
+    async fn create_export_accepts_and_unknown_project_404() {
+        let state = test_state();
+        register_sample(&state, "jobs-exp", "Export Sample", "cc0", 100);
+        let router = test_router(state);
+
+        // 無認証で 202。
+        let resp = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/projects/jobs-exp/exports")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"format":"markdown"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let (status, body) = response_text(resp).await;
+        assert_eq!(status, StatusCode::ACCEPTED);
+        let accepted: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert!(!accepted["jobId"].as_str().unwrap().is_empty());
+
+        // 存在しないプロジェクトは 404。
+        let resp = router
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/projects/nope/exports")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"format":"txt"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let (status, _) = response_text(resp).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+    }
 
 }

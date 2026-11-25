@@ -4,7 +4,7 @@
   import { apiClient } from '../../lib/api/client';
   import { mapApiFailure, type ApiFailure } from '../../lib/api/errors';
   import type { DerivativeNode, Project } from '../../lib/api/types';
-  import { derivativesPageHref, projectPageHref } from '../../lib/links';
+  import { derivativesPageHref, inspectionPageHref, projectPageHref } from '../../lib/links';
 
   interface Props {
     projectId: string;
@@ -309,6 +309,7 @@
     <nav class="project-tabs" aria-label={m.project.sectionsLabel}>
       <a href={projectPageHref(projectId)}>{m.project.overviewTab}</a>
       <a href={derivativesPageHref(projectId)} aria-current="page">{m.project.derivativesTab}</a>
+      <a href={inspectionPageHref(projectId)}>{m.project.inspectionTab}</a>
     </nav>
   {:else}
     <p class="breadcrumbs"><a href="/">{m.project.back}</a></p>

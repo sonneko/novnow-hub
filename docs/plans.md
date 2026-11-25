@@ -14,7 +14,7 @@
 | M2 フロントエンド基盤 | 完了 | Astro／Svelte、API 型生成、OpenAPI モック、アプリシェル、CI 拡張（契約スキーマ検証 + Prism モックのスモークテストを docs ジョブに追加済み） | `REF:docs/plans.md#m2-frontend-mock` |
 | M3 公開と閲覧 | 進行中 | 読者ビュー・公開ページの静的シェル事前描画・ETag キャッシュ・公開ウィザード UI・バックエンド骨格（Rust + Axum）・GitHub アダプター最小実装・公開フロー本体（multipart 取込・novnow 軽量検証・保管単位作成・hub 登録・公開ページ生成）を実装。検索は未完了 | `REF:docs/plans.md#m3-thin-slice` |
 | M4 コラボレーション | 進行中 | Proposal／Issue UI と SQLite ChatPort 参照実装・チャット UI、ProposalPort／IssuePort／AutomergePort／CheckStatusPort の GitHub 実装と契約テスト、提案系／課題系／automerge 系の HTTP ルート配線、自動マージの予約・取消・状態表示 UI を実装。通知センター・未読バッジ・通知ファンアウトを実装。Webhook 受信（署名検証）による公開ページ再生成とキャッシュ失効を実装 | `REF:docs/plans.md#m4-collaboration` |
-| M5 novnow 特化機能 | 進行中 | セットアップ URL 発行・解決と派生（DerivationPort・派生ツリー UI）を実装。診断等は未完了 | `REF:docs/plans.md#m5-novnow-features` |
+| M5 novnow 特化機能 | 進行中 | セットアップ URL 発行・解決と派生（DerivationPort・派生ツリー UI）と、novnow 診断・エクスポートの非同期ジョブ基盤（JobPort・「点検」タブ）を実装。診断差分・公開前検証の本格化は未完了 | `REF:docs/plans.md#m5-novnow-features` |
 <!-- SYNC:END project-status -->
 
 ---
@@ -79,7 +79,7 @@
 - [x] DerivationPort（GitHub Fork 連携 + 派生レコード）と派生ツリー UI（`/derivatives`）（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
 - [x] セットアップ URL 発行と解決（`/projects/{id}/setup`、`/setup/resolve`）（PR #12 で実装済み）（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
 - [ ] novnow アプリ側ハンドラ仕様の追補（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
-- [ ] novnow 診断・エクスポートの非同期ジョブ基盤（JobPort）と実行環境（novnow の WASM 実行、不可なら GitHub Actions 上の novnow CLI）（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
+- [x] novnow 診断・エクスポートの非同期ジョブ基盤（JobPort）と実行環境（novnow の WASM 実行、不可なら GitHub Actions 上の novnow CLI）（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
 - [ ] 変更提案差分への novnow 診断差分（新規混入／解消）の付与（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
 - [ ] 公開前検証の本格化（novnow check 相当の診断を必須チェックに連動）（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
 

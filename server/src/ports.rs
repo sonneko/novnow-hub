@@ -785,3 +785,208 @@ pub trait DerivationPort: Send + Sync {
         Box<dyn std::future::Future<Output = Result<Derivative, PortError>> + Send + '_>,
     >;
 }
+
+// ============================================================================
+// M5 novnow 診断・エクスポートの非同期ジョブ基盤（設計 REF:docs/designs/m5.md §4）。
+// ジョブの種別は診断（novnow check 相当）とエクスポート（注釈除去済み
+// テキスト／Markdown）。GitHub の概念（GitHub Actions 等）はポートの背後に
+// 隠し、API 契約・フロントエンドには漏らさない。
+// ============================================================================
+
+/// ジョブの種別（契約 `Job.kind` の列挙）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JobKind {
+    /// novnow 形式の妥当性検証（M3 軽量検証相当。将来の本格化用）。
+    Verify,
+    /// novnow 診断（novnow check 相当）。
+    Diagnostics,
+    /// 本文のエクスポート（注釈除去済みテキスト／Markdown）。
+    Export,
+}
+
+impl JobKind {
+    /// 契約 `Job.kind` の文字列表記。
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            JobKind::Verify => "verify",
+            JobKind::Diagnostics => "diagnostics",
+            JobKind::Export => "export",
+        }
+    }
+
+    /// 文字列から種別へ変換（未知は `Diagnostics` 扱い）。
+    pub fn from_job_kind_str(raw: &str) -> Self {
+        match raw {
+            "verify" => JobKind::Verify,
+            "export" => JobKind::Export,
+            _ => JobKind::Diagnostics,
+        }
+    }
+}
+
+/// ジョブの状態（ポート語彙）。
+///
+/// ポート側は `Cancelled` を持つが、契約 `Job.status` の列挙
+/// （`pending`/`running`/`succeeded`/`failed`）に `cancelled` は無い。
+/// API 境界では `Cancelled` を `failed`（理由「キャンセルされました」）に
+/// 写像する（権威の順位: 契約を正とする。判断は `docs/handoff.md` §4 に記録）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JobState {
+    /// 起票済み（未実行）。
+    Pending,
+    /// 実行中。
+    Running,
+    /// 成功。
+    Succeeded,
+    /// 失敗（理由を残す）。
+    Failed,
+    /// キャンセル。
+    Cancelled,
+}
+
+impl JobState {
+    /// ポート語彙の文字列表記。
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            JobState::Pending => "pending",
+            JobState::Running => "running",
+            JobState::Succeeded => "succeeded",
+            JobState::Failed => "failed",
+            JobState::Cancelled => "cancelled",
+        }
+    }
+
+    /// 契約 `Job.status` の文字列表記（`Cancelled` は `failed` に写像）。
+    pub fn as_contract_str(&self) -> &'static str {
+        match self {
+            JobState::Cancelled => "failed",
+            other => other.as_str(),
+        }
+    }
+
+    /// 完了（成功・失敗・キャンセル）状態か。
+    pub fn is_finished(&self) -> bool {
+        matches!(
+            self,
+            JobState::Succeeded | JobState::Failed | JobState::Cancelled
+        )
+    }
+}
+
+/// エクスポートの出力形式（契約 `createExport` の `format` 列挙）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExportFormat {
+    /// 注釈除去済みテキスト。
+    Txt,
+    /// Markdown。
+    Markdown,
+}
+
+impl ExportFormat {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ExportFormat::Txt => "txt",
+            ExportFormat::Markdown => "markdown",
+        }
+    }
+
+    pub fn from_export_format_str(raw: &str) -> Self {
+        match raw {
+            "markdown" => ExportFormat::Markdown,
+            _ => ExportFormat::Txt,
+        }
+    }
+}
+
+/// 診断結果の 1 件（契約 `VerificationResult` の errors/warnings 要素）。
+#[derive(Debug, Clone)]
+pub struct DiagnosticItem {
+    pub path: String,
+    pub code: String,
+    pub message: String,
+}
+
+/// 診断（novnow check 相当）の結果。
+#[derive(Debug, Clone)]
+pub struct DiagnosticsResult {
+    pub ok: bool,
+    pub errors: Vec<DiagnosticItem>,
+    pub warnings: Vec<DiagnosticItem>,
+    /// 検査時刻（epoch 秒）。
+    pub checked_at: i64,
+}
+
+/// エクスポートの結果。
+#[derive(Debug, Clone)]
+pub struct ExportResult {
+    /// 出力形式。
+    pub format: String,
+    /// 生成した本文の文字数（サマリ）。
+    pub char_count: usize,
+}
+
+/// ジョブの結果（種別ごと）。
+#[derive(Debug, Clone)]
+pub enum JobResult {
+    Diagnostics(DiagnosticsResult),
+    Export(ExportResult),
+}
+
+/// 非同期ジョブの記録（契約 `Job` に対応）。
+#[derive(Debug, Clone)]
+pub struct Job {
+    pub id: String,
+    pub kind: JobKind,
+    pub status: JobState,
+    pub result: Option<JobResult>,
+    pub error: Option<String>,
+    pub created_at: i64,
+    pub finished_at: Option<i64>,
+}
+
+/// ジョブ作成の要求。
+#[derive(Debug, Clone)]
+pub struct CreateJobRequest {
+    pub kind: JobKind,
+    pub project_id: String,
+    /// エクスポートジョブの出力形式（診断ジョブでは無視）。
+    pub format: Option<ExportFormat>,
+}
+
+/// novnow 診断・エクスポートの非同期ジョブ基盤（設計 §4.1）。
+///
+/// ジョブはキュー化され、同時実行数を制限して実行される。完了は通知
+/// （`job_finished`）で知らせる。GitHub の概念（GitHub Actions 等）は
+/// 実装側の背後に隠し、API 契約・フロントエンドには漏らさない。
+pub trait JobPort: Send + Sync {
+    /// ジョブを起票し、非同期で実行する。完了時に通知を発する。
+    fn create_job(
+        &self,
+        req: &CreateJobRequest,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<Job, PortError>> + Send + '_>,
+    >;
+
+    /// 指定ジョブを取得する。
+    fn get_job(
+        &self,
+        job_id: &str,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<Job, PortError>> + Send + '_>,
+    >;
+
+    /// ジョブ一覧を返す。
+    fn list_jobs(
+        &self,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<Vec<Job>, PortError>> + Send + '_>,
+    >;
+
+    /// ジョブをキャンセルする（完了済みはキャンセルできない）。
+    fn cancel_job(
+        &self,
+        job_id: &str,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<Job, PortError>> + Send + '_>,
+    >;
+}
