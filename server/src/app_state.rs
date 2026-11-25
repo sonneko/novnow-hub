@@ -5,11 +5,15 @@ use std::sync::{Arc, RwLock};
 
 use crate::adapters::github::SharedGitHubAdapter;
 use crate::config::Config;
+use crate::derivatives::SharedDerivativeStore;
 use crate::registry::SharedProjectRegistry;
 use crate::routes::auth::StateStore;
 use crate::session::SharedSessionStore;
 use crate::notifications::SharedNotificationStore;
 use crate::webhook::{SharedRebuild, SharedWebhookStore};
+
+/// 共有する派生アダプター（`DerivationPort` 実装）。
+pub type SharedDerivation = std::sync::Arc<dyn crate::ports::DerivationPort>;
 
 /// 全ルーターで共有する状態。
 #[derive(Clone)]
@@ -30,4 +34,8 @@ pub struct AppState {
     pub webhook: SharedWebhookStore,
     /// 公開ページ再生成ポート（設計 §7.1、既定はロギング実装）。
     pub rebuild: SharedRebuild,
+    /// 派生作品の hub 管理ストア（設計 §2.2）。
+    pub derivatives: SharedDerivativeStore,
+    /// 派生アダプター（GitHub Fork 連携、設計 §2.2）。
+    pub derivation: SharedDerivation,
 }

@@ -647,3 +647,141 @@ pub trait RebuildPort: Send + Sync {
         Box<dyn std::future::Future<Output = Result<(), PortError>> + Send + '_>,
     >;
 }
+
+/// 派生可否の方針（契約 `derivativePolicy` の hub 側語彙）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DerivativePolicy {
+    /// 派生可。
+    Allowed,
+    /// 条件付きで派生可。
+    AllowedWithConditions,
+    /// 派生不可。
+    Disallowed,
+}
+
+impl DerivativePolicy {
+    /// 契約 `derivativePolicy` の文字列表記。
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            DerivativePolicy::Allowed => "allowed",
+            DerivativePolicy::AllowedWithConditions => "allowed-with-conditions",
+            DerivativePolicy::Disallowed => "disallowed",
+        }
+    }
+
+    /// 文字列からポリシーへ変換（未知は `Disallowed` 扱い）。
+    pub fn from_policy_str(raw: &str) -> Self {
+        match raw {
+            "allowed" => DerivativePolicy::Allowed,
+            "allowed-with-conditions" => DerivativePolicy::AllowedWithConditions,
+            _ => DerivativePolicy::Disallowed,
+        }
+    }
+}
+
+/// 派生作品の記録（hub 管理。契約 `DerivativeNode` に対応）。
+///
+/// `parent_id` は派生元のプロジェクト ID。`depth` は派生元からの距離
+/// （直接の子は 1、孫は 2…）。派生の派生（孫作品）も同様に記録し、
+/// 派生元の連鎖を保持する。
+#[derive(Debug, Clone)]
+pub struct Derivative {
+    pub id: String,
+    pub slug: String,
+    pub title: String,
+    pub owner_handle: String,
+    /// 派生元からの距離（直接の子は 1）。
+    pub depth: u32,
+    /// 派生元のプロジェクト ID（派生元が無ければ None）。
+    pub parent_id: Option<String>,
+    /// 継承したライセンス。
+    pub license: String,
+    /// 派生可否の方針。
+    pub derivative_policy: DerivativePolicy,
+    /// 作成日時（epoch 秒）。
+    pub created_at: i64,
+    /// 更新日時（epoch 秒）。
+    pub updated_at: i64,
+}
+
+/// 派生作成の要求（契約 `deriveProject` のリクエストボディ）。
+#[derive(Debug, Clone)]
+pub struct DeriveRequest {
+    /// 作品タイトル（必須）。
+    pub title: String,
+    /// 説明（任意）。
+    pub description: Option<String>,
+    /// 公開範囲（public / private、既定 private）。
+    pub visibility: ProjectVisibility,
+}
+
+/// 派生作成の受理結果（契約 `JobAccepted` に対応）。
+#[derive(Debug, Clone)]
+pub struct DeriveAccepted {
+    pub job_id: String,
+    pub status: JobStatus,
+}
+
+/// 派生ジョブの状態（契約 `JobAccepted.status`）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JobStatus {
+    Pending,
+    Running,
+}
+
+impl JobStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            JobStatus::Pending => "pending",
+            JobStatus::Running => "running",
+        }
+    }
+}
+
+/// 派生の作成と派生ツリーの取得（設計 §2.2）。
+///
+/// Phase 1 の実装は GitHub の Fork を代理操作するアダプターであり、派生元との
+/// 対応関係（parent_id / depth）は hub 側で記録する。GitHub の概念（Fork 等）
+/// はアダプター層の背後に隠し、API 契約・フロントエンドには漏らさない。
+pub trait DerivationPort: Send + Sync {
+    /// 派生作品を作成する（非同期）。Fork 完了を待って hub に派生レコードを
+    /// 作成し、完了を通知で知らせる。派生不可の場合は 409（Conflict）。
+    ///
+    /// `actor_id` / `actor_handle` は派生を実行した利用者（派生作品の作者）。
+    fn create_derivative(
+        &self,
+        parent_project_id: &str,
+        actor_id: &str,
+        actor_handle: &str,
+        req: &DeriveRequest,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<DeriveAccepted, PortError>> + Send + '_,
+        >,
+    >;
+
+    /// 指定プロジェクトの派生ツリー（子・孫・兄弟・派生元）を返す。
+    fn list_derivatives(
+        &self,
+        project_id: &str,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<Vec<Derivative>, PortError>> + Send + '_>,
+    >;
+
+    /// 指定プロジェクトの派生ツリーを返す（`list_derivatives` と同義）。
+    fn get_derivation_tree(
+        &self,
+        project_id: &str,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<Vec<Derivative>, PortError>> + Send + '_>,
+    >;
+
+    /// 指定派生作品を取得する。
+    fn get_derivative(
+        &self,
+        project_id: &str,
+        derivative_id: &str,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<Derivative, PortError>> + Send + '_>,
+    >;
+}

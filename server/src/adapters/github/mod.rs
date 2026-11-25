@@ -5,10 +5,16 @@
 //! GitHub の型（Repository 等）は `pub` に出さない。
 
 pub mod client;
+pub mod derivation;
 pub mod webhook;
+
+pub use derivation::DerivationAdapter;
 
 #[cfg(test)]
 mod m4_contract_test;
+
+#[cfg(test)]
+mod m5_derivation_contract_test;
 
 use std::sync::Arc;
 
@@ -41,10 +47,16 @@ pub struct GitHubAdapter {
 }
 
 impl GitHubAdapter {
-    pub fn new(client: GitHubClient, oauth: OAuthConfig) -> Self {
+    /// トークンストアは外部で共有可能（派生アダプター等と共有）なため、
+    /// 引数で受け取る。
+    pub fn new(
+        client: GitHubClient,
+        oauth: OAuthConfig,
+        token: Arc<std::sync::RwLock<Option<Token>>>,
+    ) -> Self {
         Self {
             client,
-            token: Arc::new(std::sync::RwLock::new(None)),
+            token,
             oauth,
         }
     }
@@ -247,7 +259,7 @@ impl ContentPort for GitHubAdapter {
 }
 
 /// クライアントエラーから PortError への変換（設計 §7.3 の表に準拠）。
-fn map_client_error(e: &client::ClientError) -> PortError {
+pub(crate) fn map_client_error(e: &client::ClientError) -> PortError {
     match e {
         client::ClientError::NotFound => PortError::NotFound,
         client::ClientError::Conflict => PortError::Conflict,

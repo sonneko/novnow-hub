@@ -62,6 +62,7 @@ pub fn register_test_project(state: &AppState, project_id: &str, shell_id: &str)
         tags: Vec::new(),
         owner_handle: "octo".to_string(),
         license: "cc-by".to_string(),
+        derivative_policy: "allowed".to_string(),
         visibility: ProjectVisibility::Public,
         shell_id: shell_id.to_string(),
         default_branch: DEFAULT_BRANCH.to_string(),

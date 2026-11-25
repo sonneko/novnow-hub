@@ -5,6 +5,7 @@
 pub mod adapters;
 pub mod app_state;
 pub mod config;
+pub mod derivatives;
 pub mod error;
 pub mod middleware;
 pub mod multipart;
@@ -23,10 +24,11 @@ use std::sync::Arc;
 use axum::routing::{delete, get, post};
 use axum::Router;
 
-use crate::adapters::github::client::{GitHubClient, OAuthConfig};
-use crate::adapters::github::GitHubAdapter;
+use crate::adapters::github::client::{GitHubClient, OAuthConfig, Token};
+use crate::adapters::github::{DerivationAdapter, GitHubAdapter};
 use crate::app_state::AppState;
 use crate::config::Config;
+use crate::derivatives::DerivativeStore;
 use crate::notifications::NotificationStore;
 use crate::registry::ProjectRegistry;
 use crate::routes::auth::StateStore;
@@ -150,6 +152,25 @@ pub fn build_router(state: AppState) -> Router {
                     state.clone(),
                     middleware::require_auth,
                 )),
+        )
+        // M5 派生：派生ツリーの取得（公開読み取り、契約 `listDerivatives`）。
+        .merge(
+            Router::new().route(
+                "/projects/{projectId}/derivatives",
+                get(routes::derivatives::list),
+            ),
+        )
+        // M5 派生：派生作成（認証必須、契約 `deriveProject`）。
+        .merge(
+            Router::new()
+                .route(
+                    "/projects/{projectId}/derive",
+                    post(routes::derivatives::derive),
+                )
+                .route_layer(axum::middleware::from_fn_with_state(
+                    state.clone(),
+                    middleware::require_auth,
+                )),
         );
 
     Router::new()
@@ -172,7 +193,21 @@ pub fn build_app_state(config: Config) -> AppState {
         client_secret: config.github_oauth_client_secret.clone().unwrap_or_default(),
         redirect_uri: config.github_oauth_redirect_uri.clone().unwrap_or_default(),
     };
-    let github_adapter = Arc::new(GitHubAdapter::new(client, oauth));
+    // トークンストアは GitHub アダプターと派生アダプターで共有する。
+    let token_store = Arc::new(std::sync::RwLock::new(None::<Token>));
+    let github_adapter = Arc::new(GitHubAdapter::new(client.clone(), oauth, token_store.clone()));
+
+    let projects = Arc::new(ProjectRegistry::new());
+    let derivatives = Arc::new(DerivativeStore::new());
+    let notifications = Arc::new(NotificationStore::new());
+    let derivation = Arc::new(DerivationAdapter::new(
+        client,
+        token_store,
+        projects.clone(),
+        derivatives.clone(),
+        notifications.clone(),
+    )) as Arc<dyn crate::ports::DerivationPort>;
+
     AppState {
         config: config.clone(),
         sessions: Arc::new(SessionStore::new(config.clone())),
@@ -180,10 +215,12 @@ pub fn build_app_state(config: Config) -> AppState {
         state_store: Arc::new(StateStore::new()),
         verifier_store: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
         redirect_store: Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
-        projects: Arc::new(ProjectRegistry::new()),
-        notifications: Arc::new(NotificationStore::new()),
+        projects,
+        notifications,
         webhook: Arc::new(WebhookStore::new()),
         rebuild: Arc::new(LoggingRebuild),
+        derivatives,
+        derivation,
     }
 }
 
@@ -332,6 +369,7 @@ mod tests {
             tags: Vec::new(),
             owner_handle: format!("owner-{id}"),
             license: license.to_string(),
+            derivative_policy: "allowed".to_string(),
             visibility: ProjectVisibility::Public,
             shell_id: format!("shell-{id}"),
             default_branch: DEFAULT_BRANCH.to_string(),
@@ -750,6 +788,150 @@ mod tests {
         );
     }
 
+    // =========================================================================
+    // M5 派生ルートの HTTP 統合テスト（契約 `listDerivatives` / `deriveProject`）。
+    // =========================================================================
+
+    /// 指定 policy でテスト用プロジェクトを登録する。
+    fn register_derivable_project(state: &AppState, project_id: &str, policy: &str) {
+        use crate::ports::ProjectVisibility;
+        use crate::registry::{ProjectRecord, DEFAULT_BRANCH};
+        state.projects.register(ProjectRecord {
+            project_id: project_id.to_string(),
+            title: "親作品".to_string(),
+            description: None,
+            tags: Vec::new(),
+            owner_handle: "octo".to_string(),
+            license: "cc-by".to_string(),
+            derivative_policy: policy.to_string(),
+            visibility: ProjectVisibility::Public,
+            shell_id: "octo/demo".to_string(),
+            default_branch: DEFAULT_BRANCH.to_string(),
+            etag: "etag".to_string(),
+            created_at: 0,
+            updated_at: 0,
+        });
+    }
+
+    fn test_identity() -> crate::ports::Identity {
+        crate::ports::Identity {
+            id: "u-1".into(),
+            handle: "sora".into(),
+            display_name: "sora".into(),
+            avatar_url: None,
+        }
+    }
+
+    /// 派生作成は 202 Accepted + jobId を返す。
+    #[tokio::test]
+    async fn derive_project_returns_202_with_job_id() {
+        let state = test_state();
+        register_derivable_project(&state, "prj_parent", "allowed");
+        // 派生アダプターが共有するトークンストアにトークンを設定する。
+        state.github_adapter.set_token(crate::adapters::github::client::Token::new("test-token".into()));
+        let session = state.sessions.create_with_identity("u-1", Some(test_identity()));
+        let token = session.session_id.clone();
+        let router = test_router(state);
+
+        let resp = router
+            .oneshot(authed_post(
+                "/api/v1/projects/prj_parent/derive",
+                &token,
+                serde_json::json!({"title": "派生作品", "description": "説明"}),
+            ))
+            .await
+            .unwrap();
+        let (status, body) = response_text(resp).await;
+        assert_eq!(status, StatusCode::ACCEPTED, "body={body}");
+        let accepted: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert!(!accepted["jobId"].as_str().unwrap_or("").is_empty());
+        assert_eq!(accepted["status"], "pending");
+    }
+
+    /// 派生元が派生非許可のとき 409 を返す。
+    #[tokio::test]
+    async fn derive_project_disallowed_returns_409() {
+        let state = test_state();
+        register_derivable_project(&state, "prj_locked", "disallowed");
+        let session = state.sessions.create_with_identity("u-1", Some(test_identity()));
+        let token = session.session_id.clone();
+        let router = test_router(state);
+
+        let resp = router
+            .oneshot(authed_post(
+                "/api/v1/projects/prj_locked/derive",
+                &token,
+                serde_json::json!({"title": "派生作品"}),
+            ))
+            .await
+            .unwrap();
+        let (status, body) = response_text(resp).await;
+        assert_eq!(status, StatusCode::CONFLICT, "body={body}");
+    }
+
+    /// 派生作成は認証を要求する。
+    #[tokio::test]
+    async fn derive_project_requires_auth() {
+        let state = test_state();
+        register_derivable_project(&state, "prj_parent", "allowed");
+        let router = test_router(state);
+
+        let resp = router
+            .oneshot(Request::builder()
+                .method("POST")
+                .uri("/api/v1/projects/prj_parent/derive")
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::json!({"title": "派生作品"}).to_string()))
+                .unwrap())
+            .await
+            .unwrap();
+        let (status, _) = response_text(resp).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+    }
+
+    /// 派生ツリー取得は公開で配列を返す（全深度）。
+    #[tokio::test]
+    async fn list_derivatives_returns_tree() {
+        let state = test_state();
+        register_derivable_project(&state, "prj_parent", "allowed");
+        // 直接の子を事前登録。
+        state.derivatives.record(
+            "prj_parent",
+            "child",
+            "子作品",
+            "bob",
+            "cc-by",
+            crate::ports::DerivativePolicy::Allowed,
+        );
+        let router = test_router(state);
+
+        let resp = router
+            .oneshot(get_request("/api/v1/projects/prj_parent/derivatives"))
+            .await
+            .unwrap();
+        let (status, body) = response_text(resp).await;
+        assert_eq!(status, StatusCode::OK, "body={body}");
+        let nodes: serde_json::Value = serde_json::from_str(&body).unwrap();
+        let arr = nodes.as_array().unwrap();
+        assert_eq!(arr.len(), 1);
+        assert_eq!(arr[0]["title"], "子作品");
+        assert_eq!(arr[0]["depth"], 1);
+        assert_eq!(arr[0]["parentId"], "prj_parent");
+        assert_eq!(arr[0]["derivativePolicy"], "allowed");
+    }
+
+    /// 派生ツリー取得は未知のプロジェクトで 404 を返す。
+    #[tokio::test]
+    async fn list_derivatives_unknown_project_returns_404() {
+        let state = test_state();
+        let router = test_router(state);
+        let resp = router
+            .oneshot(get_request("/api/v1/projects/nope/derivatives"))
+            .await
+            .unwrap();
+        let (status, _) = response_text(resp).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+    }
 
 
 }

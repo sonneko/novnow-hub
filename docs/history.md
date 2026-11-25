@@ -369,3 +369,30 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
   - web: `cd web && npm run check` → Vitest **47 件**成功（17 ファイル）、`astro check` 0 errors（変更なし・基線維持）。
   - web: `cd web && npm run build` → **12 ページ**生成、成功（変更なし・基線維持）。
   - `python3 docs/script/verify-docs.py` → 実行検証。
+
+### [HIST:MILESTONE:M5-DERIVATION] 2026-11-24 M5 DerivationPort（GitHub Fork 連携 + 派生レコード）と派生ツリー UI
+
+[HIST-TAG: category=MILESTONE id=M5-DERIVATION topics=m5,derivation,fork,derivative-tree,port,adapter,backend,web]
+- **ブランチ**: `arena/m5-derivation-novnow-hub`（`main` @ `aa91725` = PR #49 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチへの push は行わない。セットアップ URL（PR #12 実装済み）を含まず**派生のみを 1 つの PR**。JobPort・診断差分・公開前検証の本格化はスコープ外。
+- **作業**: M5「novnow 特化機能」の最初の項目。`DerivationPort`（`createDerivative`/`listDerivatives`/`getDerivative`/`getDerivationTree`）を hub ドメイン型で定義し、Phase 1 の GitHub 実装は Fork を代理操作するアダプターとする。派生ツリー UI（`/derivatives`）を実装。
+- **変更内容（server）**:
+  - `server/src/ports.rs`: `DerivativePolicy`（`allowed`/`allowed-with-conditions`/`disallowed`、未知は `Disallowed`）・`Derivative`・`DeriveRequest`・`DeriveAccepted`・`JobStatus`・`DerivationPort` を追加。GitHub の語彙はポートの背後に隠す。
+  - `server/src/derivatives.rs`（新規）: `DerivativeStore`（`record` で親連鎖から `depth` 決定、`tree_for` で派生元連鎖＋子孫（兄弟含む）を返す・Idempotency-Key 対応）と単体テスト。
+  - `server/src/adapters/github/client.rs`: `GitHubClient` を `Clone` 化。**`create_fork`**（`POST /repos/{o}/{r}/forks` → `get_user` → fork リポジトリをポーリングで完了確認）を追加。
+  - `server/src/adapters/github/mod.rs`: `GitHubAdapter::new` をトークンストア（`Arc<RwLock<Option<Token>>>`）引数で受ける形に変更（派生アダプターと共有）。
+  - `server/src/adapters/github/derivation.rs`（新規）: `DerivationAdapter`。`create_derivative`（親解決→方針確認で `Disallowed` は `Conflict`→トークン取得→job ID 採番→`tokio::spawn`）、`complete_derivative`（`create_fork` 完了→**novnow 軽量検証**→`derivatives.record`→`projects.register`→`derivative_created` 通知）。`list_derivatives`/`get_derivation_tree`/`get_derivative`。
+  - `server/src/routes/derivatives.rs`（新規）: `GET /projects/{projectId}/derivatives`（公開）と `POST /projects/{projectId}/derive`（`require_auth`・Idempotency-Key）を実装。
+  - `server/src/lib.rs`: `build_app_state` に `DerivationAdapter` 組み込み、`build_router` に派生ルート登録。`ProjectRecord` 全建設箇所に `derivative_policy` 追加。
+- **変更内容（web）**:
+  - `web/src/components/pages/DerivativesPage.svelte`: **派生作成の導線**（題名・説明・公開範囲のフォーム → `POST /projects/{projectId}/derive`、202 のジョブ ID を表示）と**孫以下（depth >= 2）の遅延展開**（直接の子は初期表示、孫以降は展開ボタン）を追加。
+  - `web/src/components/pages/DerivativesPage.test.ts`: 遅延展開・派生作成のテストを追加。
+  - `web/src/lib/i18n.ts`: 派生作成・遅延展開のメッセージ（ja/en）を追加。
+  - `web/src/styles/global.css`: 派生作成フォーム・展開ボタンのスタイルを追加。
+- **ドキュメント同期**: `docs/handoff.md` §4 判断 13 に M5 派生の判断（GitHub 概念の隠蔽・Fork 代理・202+jobId・409・novnow 検証・孫作品・ルート・遅延展開）を追記。§1・§2 を更新。`docs/designs/m5.md` §2.1・§2.2 の状態を「実装完了」に更新。`docs/plans.md` の M5 DerivationPort 項目をチェック済みに更新。`docs/history.md` に本エントリを追記。**`api/openapi.yaml` は変更なし**（派生エンドポイントは既に定義済み）。
+- **検証（実行で証明）**:
+  - server: `cargo build --locked --all-targets` → エラー 0・**警告 0**。
+  - server: `cargo test --locked` → **146 件**成功、0 失敗（うち派生契約テスト 4 件・ルート統合 5 件）。
+  - server: `cargo clippy --locked --all-targets -- -D warnings` → 通過。
+  - web: `cd web && npm run check` → Vitest **49 件**成功（17 ファイル）、`astro check` 0 errors。
+  - web: `cd web && npm run build` → **12 ページ**生成、成功。
+  - `python3 docs/script/verify-docs.py` → 実行検証。

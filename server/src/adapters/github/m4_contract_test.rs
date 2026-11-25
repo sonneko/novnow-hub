@@ -521,7 +521,11 @@ fn build_adapter(base_url: &str) -> GitHubAdapter {
         client_secret: "secret".into(),
         redirect_uri: "http://localhost/cb".into(),
     };
-    let adapter = GitHubAdapter::new(client, oauth);
+    let adapter = GitHubAdapter::new(
+        client,
+        oauth,
+        std::sync::Arc::new(std::sync::RwLock::new(None)),
+    );
     adapter.set_token(Token::new("test-token".into()));
     adapter
 }
@@ -760,6 +764,7 @@ async fn token_missing_is_permission_denied() {
             client_secret: "secret".into(),
             redirect_uri: "http://localhost/cb".into(),
         },
+        std::sync::Arc::new(std::sync::RwLock::new(None)),
     );
     let err = adapter
         .get_proposal("octo/demo", 7)

@@ -37,6 +37,7 @@ impl Token {
 }
 
 /// GitHub API クライアント。
+#[derive(Clone)]
 pub struct GitHubClient {
     inner: reqwest::Client,
     /// API ベース URL（`https://api.github.com`）。REST API 用。
@@ -266,6 +267,43 @@ impl GitHubClient {
             .map_err(|e| ClientError::InvalidResponse(format!("ボディ解析失敗: {e}")))?;
         repo.etag = etag;
         Ok(repo)
+    }
+
+    /// Fork（派生リポジトリの作成）を要求する。
+    ///
+    /// GitHub は Fork を非同期で作成するため、`POST /repos/{owner}/{repo}/forks`
+    /// （202 受理）の後、認証ユーザーの fork リポジトリを `GET /repos/{user}/{repo}`
+    /// でポーリングして完成を待つ。上限回数まで待てば最後の結果を返す。
+    pub async fn create_fork(
+        &self,
+        token: &Token,
+        full_name: &str,
+    ) -> Result<RepoMeta, ClientError> {
+        // Fork 要求（202 受理）。
+        let response = self
+            .send_with_retry(|| {
+
+                self.inner
+                    .post(format!("{}/repos/{full_name}/forks", self.base_url))
+                    .headers(self.headers(Some(token.as_str())))
+                    .timeout(self.timeout_write)
+            })
+            .await?;
+        check_success(response)?;
+
+        // 認証ユーザーのログイン名を取得し、fork リポジトリをポーリングする。
+        let user = self.get_user(token).await?;
+        let fork_full_name = format!("{}/{}", user.login, full_name.rsplit('/').next().unwrap_or(full_name));
+
+        let mut last_error = ClientError::Unavailable("fork の完了を待てませんでした".into());
+        for _ in 0..10 {
+            match self.get_repo(token, &fork_full_name).await {
+                Ok(repo) => return Ok(repo),
+                Err(e) => last_error = e,
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        }
+        Err(last_error)
     }
 
     /// 保管単位の公開／非公開を切り替え。

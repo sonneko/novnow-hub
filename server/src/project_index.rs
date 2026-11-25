@@ -274,6 +274,7 @@ mod tests {
             tags: tag.iter().map(|t| t.to_string()).collect(),
             owner_handle: format!("owner-{id}"),
             license: license.to_string(),
+            derivative_policy: "allowed".to_string(),
             visibility: ProjectVisibility::Public,
             shell_id: format!("shell-{id}"),
             default_branch: "main".to_string(),
