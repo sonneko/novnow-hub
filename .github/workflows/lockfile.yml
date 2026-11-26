@@ -60,9 +60,25 @@ jobs:
           # 「Argument list too long」になる。base64 をファイルに書き、jq の
           # --rawfile で読み、JSON ボディは --input で渡す。
           base64 -w0 "$lock" > /tmp/b64.txt
-          existing=$(gh api "repos/${repo}/contents/${lock}?ref=${branch}" --jq '.sha' 2>/dev/null || true)
+          new_b64=$(cat /tmp/b64.txt)
+
+          # 冪等性: 既存の Cargo.lock と内容が同一ならコミットしない。
+          # Contents API は内容同一でもコミットを作成するため、省だと
+          # synchronize→再コミット→synchronize の無限ループになる。
+          existing_sha=""
+          existing_json=$(gh api "repos/${repo}/contents/${lock}?ref=${branch}" 2>/dev/null || true)
+          if [ -n "$existing_json" ]; then
+            existing_content=$(printf '%s' "$existing_json" | jq -r '.content')
+            existing_sha=$(printf '%s' "$existing_json" | jq -r '.sha')
+            existing_norm=$(printf '%s' "$existing_content" | tr -d '\n')
+            if [ "$existing_norm" = "$new_b64" ]; then
+              echo "Cargo.lock is up to date (no changes)"
+              exit 0
+            fi
+          fi
+
           jq -n --rawfile c /tmp/b64.txt --arg m "chore: update Cargo.lock" \
-            --arg b "$branch" --arg s "$existing" \
+            --arg b "$branch" --arg s "$existing_sha" \
             '{message:$m, content:$c, branch:$b} + (if $s != "" then {sha:$s} else {} end)' \
             > /tmp/body.json
 
