@@ -45,7 +45,10 @@ jobs:
 
       - name: Commit if changed
         run: |
-          if git diff --exit-code -- src-tauri/Cargo.lock >/dev/null 2>&1; then
+          # `cargo generate-lockfile` が新規生成した Cargo.lock は未追跡のため
+          # `git diff` では検出されない。`git status --porcelain` で追跡済みの
+          # 変更と未追跡ファイルの両方を検出する。
+          if [ -z "$(git status --porcelain -- src-tauri/Cargo.lock)" ]; then
             echo "Cargo.lock is up to date"
           else
             git config user.name "github-actions[bot]"
