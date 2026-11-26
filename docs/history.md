@@ -459,5 +459,6 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
   - server: `cargo clippy --locked --all-targets -- -D warnings` → 通過。
   - web: `cd web && npm run check` → Vitest **66 件**成功（20 ファイル）、`astro check` **0 errors**（うち session-storage 7 件・sw-strategy 7 件）。
   - web: `cd web && npm run build` → **13 ページ**生成。`dist/manifest.json`（valid JSON）・`dist/sw.js`・`dist/sw-strategy.js`・`dist/icons/` を配信。
-  - Tauri デスクトップビルド: サンドボックス環境では実行不可（crates.io 到達不可・`tauri`/`stronghold` 未ベンダー・webkit2gtk/gtk3/pkg-config 未導入）。**CI の `.github/workflows/desktop.yml` の実行結果で Linux/Win/macOS のビルドを検証**（理由と CI 確認方法を記録）。
+  - Tauri デスクトップビルド: サンドボックス環境では実行不可（crates.io 到達不可・`tauri`/`iota_stronghold` 未ベンダー・webkit2gtk/gtk3/pkg-config 未導入）。**CI の `.github/workflows/desktop.yml` の実行結果で Linux/Win/macOS のビルドを検証**（理由と CI 確認方法を記録）。
+  - **CI フォローアップ（PR #52）**: 初回の Desktop ワークフローが 3 プラットフォーム全て「Build desktop app」で失敗。原因をソース・ドキュメントで特定し修正: (a) `stronghold = "2"` は誤クレート（IOTA Stronghold の実クレートは `iota_stronghold` 2.1.0）に修正、(b) `Stronghold` の `read_from`/`write_to`/`delete` 不存在 → `store()` 経由の `Store`（同期 `insert`/`get`/`delete`）に修正、(c) `register_uri_scheme_protocol` の返り値は Tauri v2 で `http::Response`（`Result` ではない）→ 空の 200 応答に修正し `http = "1"` 追加、(d) `custom-protocol` フィーチャーは v2 で不要（無視）なので未定義に整理、(e) `bundle.icon` に `icon.png` のみでは Windows が `icon.ico` 不在で失敗 → `tauri icon` で標準アイコン一式を生成し `32x32.png`/`128x128.png`/`128x128@2x.png`/`icon.icns`/`icon.ico` を登録。修正の正しさは CI の Desktop ワークフロー再実行で検証。
   - `python3 docs/script/verify-docs.py` → 実行検証。

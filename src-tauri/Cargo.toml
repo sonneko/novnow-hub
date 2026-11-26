@@ -10,8 +10,12 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 # セッション情報の暗号化保管（OS の Keychain / Credential Manager / Secret Service）。
-stronghold = "2"
+# IOTA Stronghold のクライアント API は `iota_stronghold`（`stronghold` という同名の
+# 無関係なクレートとは別物で、こちらにはバージョン 2 が存在しない）。
+iota_stronghold = "2"
+# カスタムスキーム（novnow://）の受信ハンドラが http::Response を返すために必要。
+http = "1"
 
 [features]
-# このフィーチャーは Cargo のデフォルト機能とは別。desktop ビルドで有効化する。
-custom-protocol = ["tauri/custom-protocol"]
+# 備考: Tauri v2 では `tauri/custom-protocol` フィーチャーは不要となり無視される
+# （本アプリではどこからも有効化していない）。本フィーチャーは定義しない。

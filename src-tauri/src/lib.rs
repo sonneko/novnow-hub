@@ -8,37 +8,42 @@ use std::sync::Mutex;
 
 use tauri::Manager;
 
-/// セッション情報を暗号化保管するバックエンド（stronghold）。
+/// セッション情報を暗号化保管するバックエンド（IOTA Stronghold）。
 /// OS の Keychain / Credential Manager / Secret Service に暗号化保存し、
 /// 平文で露出しない。デスクトップアプリはブラウザ版と異なり、メモリのみに
 /// 依存せずアプリ再起動後もセッションを維持する。
+///
+/// `iota_stronghold::Stronghold` は内部で `Store` を保持し、`store()` 経由で
+/// キーバイトの読み書きを行う（同期 API）。
 #[derive(Default)]
-struct SecureStorage(Mutex<stronghold::Stronghold>);
+struct SecureStorage(Mutex<iota_stronghold::Stronghold>);
 
 impl SecureStorage {
     fn get(&self, key: &str) -> Result<Option<String>, String> {
         let guard = self.0.lock().map_err(|e| format!("lock failed: {e}"))?;
-        match guard.read_from(SESSION_DB, key) {
-            Ok(bytes) => Ok(String::from_utf8(bytes).ok()),
-            Err(_) => Ok(None),
+        match guard.store().get(key.as_bytes()) {
+            Ok(Some(bytes)) => Ok(String::from_utf8(bytes).ok()),
+            Ok(None) => Ok(None),
+            Err(e) => Err(format!("read failed: {e}")),
         }
     }
 
     fn set(&self, key: &str, value: &str) -> Result<(), String> {
-        let mut guard = self.0.lock().map_err(|e| format!("lock failed: {e}"))?;
+        let guard = self.0.lock().map_err(|e| format!("lock failed: {e}"))?;
         guard
-            .write_to(SESSION_DB, key, value.as_bytes())
-            .map_err(|e| format!("write failed: {e:?}"))
+            .store()
+            .insert(key.as_bytes().to_vec(), value.as_bytes().to_vec(), None)
+            .map_err(|e| format!("write failed: {e}"))?;
+        Ok(())
     }
 
     fn delete(&self, key: &str) -> Result<(), String> {
-        let mut guard = self.0.lock().map_err(|e| format!("lock failed: {e}"))?;
-        let _ = guard.delete(SESSION_DB, key);
+        let guard = self.0.lock().map_err(|e| format!("lock failed: {e}"))?;
+        // 存在しない項目の削除は無害に扱う。
+        let _ = guard.store().delete(key.as_bytes());
         Ok(())
     }
 }
-
-const SESSION_DB: &str = "novnow-session.sdb";
 
 #[tauri::command]
 async fn session_get(
@@ -103,15 +108,20 @@ pub fn run() {
     tauri::Builder::default()
         .manage(SecureStorage::default())
         // カスタムスキーム `novnow://` の受信ハンドラを登録する。
-        .register_uri_scheme_protocol("novnow", move |app, request| {
+        // Tauri v2 ではハンドラは `http::Response` を返す（`Result` ではない）。
+        // 実際の遷移処理は別タスクで非ブロックに行い、応答は空の 200 で即座に返す。
+        .register_uri_scheme_protocol("novnow", |ctx, request| {
+            let app = ctx.app_handle().clone();
             let url = request.uri().to_string();
-            let app = app.clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(e) = handle_setup_url(app, url) {
                     eprintln!("setup url handling failed: {e}");
                 }
             });
-            Ok(())
+            http::Response::builder()
+                .status(http::StatusCode::OK)
+                .body(Vec::new())
+                .expect("failed to build uri scheme response")
         })
         .invoke_handler(tauri::generate_handler![
             session_get,
@@ -120,5 +130,5 @@ pub fn run() {
             handle_setup_url
         ])
         .run(tauri::generate_context!())
-        .expect("error while running novnow-hub");
+        .expect("error while running novnow-hub")
 }
