@@ -9,10 +9,17 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
-# セッション情報の保存（app_data_dir 配下のファイル）。IOTA Stronghold と
-# keyring クレートは依存関係が重く CI の全プラットフォームでコンパイル失敗したため、
-# 依存関係ゼロで同要件の核心（アプリ私有データ領域への保存・平文を一般の場所に
-# 露出しない）を満たす（判断 15 追記）。OS のキーチェーンは後続で追加する。
+# セッション情報の保存。主backは OS キーチェーン（macOS Keychain / Windows
+# Credential Manager / Linux Secret Service）で、keyring v3 を使用する。
+# M6 では「コンパイル失敗」として排除したが、当時の失敗は実際には CLI 引数エラー
+# （`--bundle`）と `tauri::State` の lifetime 欠落（E0726）であり、依存クレートの
+# コンパイル可否は未検証だった。本次（M7）で keyring v3 の API をソースで確定し
+# 再挑戦する。使えない環境では暗号化ファイル（AES-256-GCM）へフォールバックする。
+keyring = "3"
+# フォールバックの暗号化ファイル用（AES-256-GCM + 鍵導出）。
+aes-gcm = "0.10"
+sha2 = "0.10"
+getrandom = "0.2"
 # カスタムスキーム（novnow://）の受信ハンドラが http::Response を返すために必要。
 http = "1"
 

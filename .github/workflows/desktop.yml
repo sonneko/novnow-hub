@@ -2,13 +2,18 @@ name: Desktop (Tauri)
 
 # novnow-hub デスクトップアプリ（Tauri v2）のビルド・配布パイプライン。
 #
-# Linux 向けビルドを ubuntu-latest で実行し、ビルド成果物（未署名インストーラ）を
+# Linux 向けビルドを ubuntu-latest で実行し、ビルド成果物（インストーラ）を
 # アーティファクトとして配布する。Windows／macOS 向けは各ランナーで同様にビルド
 # 可能（ランナーの OS に合わせてビルド対象が切り替わる）。
 #
-# 署名（インストーラ署名）は M7 の運用・公開準備として別途対応する。Phase 1 の
-# 既定配布方式は「CI で生成した未署名インストーラ」とし、署名手順は docs/handoff.md
-# に記録する（証明書がこの環境で用意できないため）。
+# 署名（インストーラ署名）は M7 で対応。方式は「Tauri ネイティブ bundle 署名」を
+# 採用し、署名設定は `--config` で条件付き注入する。署名用の証明書・秘密情報は
+# GitHub Actions secrets から参照し、**secrets が未設定のときは unsigned（未署名）
+# フォールバック**でビルドする（PR ビルドが緑になること）。署名の有効化は各プラット
+# フォームの secrets を設定するだけで、設定の有無で自動的に切り替わる。
+# 証明書の発行・登録手順（sonneko のみ実施可能）は docs/handoff.md に明記する。
+# Linux には標準的なインストーラ署名機関が無く、Phase 1 は未署名配布とする
+# （任意の AppImage GPG 署名は docs/handoff.md に手順として記録）。
 
 on:
   push:
@@ -105,6 +110,11 @@ jobs:
     name: Build (Windows)
     runs-on: windows-latest
     timeout-minutes: 60
+    env:
+      # Windows 署名（signtool）用の secrets。未設定なら unsigned。
+      WINDOWS_CERTIFICATE_FILE: ${{ secrets.WINDOWS_CERTIFICATE_FILE }}
+      WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+      WINDOWS_CERTIFICATE_THUMBPRINT: ${{ secrets.WINDOWS_CERTIFICATE_THUMBPRINT }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -129,12 +139,37 @@ jobs:
         working-directory: web
         run: npm run build
 
-      - name: Build desktop app (Tauri, unsigned)
+      - name: Prepare Windows signing config
+        # 証明書 thumbprint が設定されているときだけ、pfx をローカルの証明書ストアに
+        # 登録し署名設定を注入する。未設定（PR ビルド等）は unsigned にフォールバック。
+        if: env.WINDOWS_CERTIFICATE_THUMBPRINT != ''
+        shell: pwsh
+        run: |
+          $pfxPath = Join-Path $env:TEMP "novnow-cert.pfx"
+          [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE_FILE))
+          $secure = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+          Import-PfxCertificate -FilePath $pfxPath -Password $secure -CertStoreLocation Cert:\LocalMachine\My
+          $signing = [ordered]@{
+            bundle = [ordered]@{
+              windows = [ordered]@{
+                certificateThumbprint = $env:WINDOWS_CERTIFICATE_THUMBPRINT
+                digestAlgorithm = "sha256"
+              }
+            }
+          }
+          $signing | ConvertTo-Json -Depth 5 | Set-Content "$env:GITHUB_WORKSPACE\src-tauri\tauri.signing.json"
+          Write-Host "Windows signing configured for thumbprint $env:WINDOWS_CERTIFICATE_THUMBPRINT"
+
+      - name: Build desktop app (Tauri)
         working-directory: web
         shell: pwsh
         run: |
           $log = Join-Path $env:TEMP "tauri-build.log"
-          npm run tauri -- build --bundles *> $log
+          $tauriArgs = @("build", "--bundles")
+          if (Test-Path "$env:GITHUB_WORKSPACE\src-tauri\tauri.signing.json") {
+            $tauriArgs += @("--config", "$env:GITHUB_WORKSPACE\src-tauri\tauri.signing.json")
+          }
+          npm run tauri -- @tauriArgs *> $log
           $status = $LASTEXITCODE
           if ($status -ne 0) {
             Write-Host "::error::tauri build failed (exit $status). Non-progress log tail:"
@@ -160,6 +195,14 @@ jobs:
     name: Build (macOS)
     runs-on: macos-latest
     timeout-minutes: 60
+    env:
+      # macOS 署名（codesign + ノタリゼーション）用の secrets。未設定なら unsigned。
+      MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+      MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+      MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -184,11 +227,42 @@ jobs:
         working-directory: web
         run: npm run build
 
-      - name: Build desktop app (Tauri, unsigned)
+      - name: Prepare macOS signing config
+        # 署名 identity が設定されているときだけ署名設定を注入する。
+        # 未設定（PR ビルド等）は設定ファイルを作らず unsigned にフォールバックする。
+        if: env.MACOS_SIGNING_IDENTITY != ''
+        run: |
+          # 配布用署名証明書（p12）をランナーの keychain に導入する（任意）。
+          if [ -n "$MACOS_CERTIFICATE" ]; then
+            echo "$MACOS_CERTIFICATE" | base64 --decode > /tmp/novnow-cert.p12
+            security import /tmp/novnow-cert.p12 -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          fi
+          cat > "$GITHUB_WORKSPACE/src-tauri/tauri.signing.json" <<EOF
+          {
+            "bundle": {
+              "macOS": {
+                "signingIdentity": "$MACOS_SIGNING_IDENTITY",
+                "hardenedRuntime": true
+              }
+            }
+          }
+          EOF
+          echo "macOS signing configured: $MACOS_SIGNING_IDENTITY"
+
+      - name: Build desktop app (Tauri)
         working-directory: web
         run: |
           set +e
-          npm run tauri -- build --bundles > /tmp/tauri-build.log 2>&1
+          CONFIG_ARG=""
+          if [ -f "$GITHUB_WORKSPACE/src-tauri/tauri.signing.json" ]; then
+            CONFIG_ARG="--config $GITHUB_WORKSPACE/src-tauri/tauri.signing.json"
+            # ノタリゼーションは 3 つの Apple 資格が揃っていれば有効化する。
+            # 未設定/一部欠如は codesign のみ行い、ノタリゼーションはスキップする。
+            if [ -n "$APPLE_ID" ] && [ -n "$APPLE_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then
+              export APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID
+            fi
+          fi
+          npm run tauri -- build --bundles $CONFIG_ARG > /tmp/tauri-build.log 2>&1
           status=$?
           if [ "$status" -ne 0 ]; then
             echo "::error::tauri build failed (exit $status). Non-progress log tail:"
