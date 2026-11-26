@@ -9,10 +9,6 @@
       "cwd": "../web"
     },
     "devUrl": "http://localhost:4321",
-    "beforeBuildCommand": {
-      "script": "npm run build",
-      "cwd": "../web"
-    },
     "frontendDist": "../web/dist"
   },
   "app": {
