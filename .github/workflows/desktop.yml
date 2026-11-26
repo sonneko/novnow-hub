@@ -79,8 +79,12 @@ jobs:
           npm run tauri -- build --bundles > /tmp/tauri-build.log 2>&1
           status=$?
           if [ "$status" -ne 0 ]; then
-            echo "::error::tauri build failed (exit $status). Last lines of log:"
-            tail -n 60 /tmp/tauri-build.log | grep -v '^[[:space:]]*$' | while IFS= read -r line; do
+            echo "::error::tauri build failed (exit $status). Error-related lines from log:"
+            {
+              grep -n -i -E "error|failed|panic|cannot|not found|unresolved|abort" /tmp/tauri-build.log | tail -n 40
+              echo "----- last 30 lines -----"
+              tail -n 30 /tmp/tauri-build.log
+            } | grep -v '^[[:space:]]*$' | while IFS= read -r line; do
               chunk="${line:0:1000}"
               echo "::error::$chunk"
             done
@@ -134,13 +138,17 @@ jobs:
           npm run tauri -- build --bundles *> $log
           $status = $LASTEXITCODE
           if ($status -ne 0) {
-            Write-Host "::error::tauri build failed (exit $status). Last lines of log:"
-            Get-Content $log -Tail 60 |
-              Where-Object { $_.Trim().Length -gt 0 } |
-              ForEach-Object {
-                $chunk = $_.Substring(0, [Math]::Min(1000, $_.Length))
-                Write-Host "::error::$chunk"
-              }
+            Write-Host "::error::tauri build failed (exit $status). Error-related lines from log:"
+            $lines = @()
+            $lines += Select-String -Path $log -Pattern "error|failed|panic|cannot|not found|unresolved|abort" -CaseSensitive:$false |
+              Select-Object -Last 40 -ExpandProperty Line
+            $lines += "----- last 30 lines -----"
+            $lines += Get-Content $log -Tail 30
+            foreach ($line in $lines) {
+              if ([string]::IsNullOrWhiteSpace($line)) { continue }
+              $chunk = $line.Substring(0, [Math]::Min(1000, $line.Length))
+              Write-Host "::error::$chunk"
+            }
             exit $status
           }
 
@@ -186,8 +194,12 @@ jobs:
           npm run tauri -- build --bundles > /tmp/tauri-build.log 2>&1
           status=$?
           if [ "$status" -ne 0 ]; then
-            echo "::error::tauri build failed (exit $status). Last lines of log:"
-            tail -n 60 /tmp/tauri-build.log | grep -v '^[[:space:]]*$' | while IFS= read -r line; do
+            echo "::error::tauri build failed (exit $status). Error-related lines from log:"
+            {
+              grep -n -i -E "error|failed|panic|cannot|not found|unresolved|abort" /tmp/tauri-build.log | tail -n 40
+              echo "----- last 30 lines -----"
+              tail -n 30 /tmp/tauri-build.log
+            } | grep -v '^[[:space:]]*$' | while IFS= read -r line; do
               chunk="${line:0:1000}"
               echo "::error::$chunk"
             done
