@@ -76,12 +76,12 @@ jobs:
             b64=$(base64 -w0 "$path")
             local existing
             existing=$(gh api "repos/${repo}/contents/${path}?ref=${branch}" --jq '.sha' 2>/dev/null || echo "")
-            local args=(-X PUT "repos/${repo}/contents/${path}"
-              -f "message=${msg}" -f "content=${b64}" -f "branch=${branch}")
-            if [ -n "$existing" ]; then
-              args+=(-f "sha=${existing}")
-            fi
-            if gh api "${args[@]}" >/dev/null 2>>"$dbg"; then
+            # 114KB 超の content を `-f` で渡すと「Argument list too long」になるため、
+            # JSON ボディをファイル経由（--input）で渡す。
+            jq -n --arg m "$msg" --arg c "$b64" --arg b "$branch" --arg s "$existing" \
+              '{message:$m, content:$c, branch:$b} + (if $s != "" then {sha:$s} else {} end)' \
+              > /tmp/body.json
+            if gh api -X PUT "repos/${repo}/contents/${path}" --input /tmp/body.json >/dev/null 2>>"$dbg"; then
               echo "committed $path" >> "$dbg"
             else
               echo "FAILED to commit $path (see below)" >> "$dbg"
