@@ -5,6 +5,7 @@
 //! 受信を担う。GitHub の概念はアダプター層の背後に隠し、利用者体験には漏らさない。
 
 use std::path::PathBuf;
+use std::sync::LazyLock;
 
 use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Nonce};
@@ -26,11 +27,127 @@ use tauri::Manager;
 ///
 /// OS キーチェーンが使えないプラットフォーム（例: Linux で Secret Service
 /// デーモンが未起動の環境）では、具体的な失敗理由を `docs/handoff.md` の判断
-/// 記録に残し、**暗号化ファイル**（AES-256-GCM、鍵はアプリデータディレクトリ
-/// 由来の導出値）へフォールバックする。**平文は残さない**。
+/// 記録に残し、**暗号化ファイル**（AES-256-GCM）へフォールバックする。
+/// **平文は残さない**。
+///
+/// 暗号化ファイルの鍵は、**マシン固有のエントロピー（machine-id 等）とアプリ
+/// データディレクトリのパスと定数ソルトを合成して導出**する。パス単体からは
+/// 鍵が導出できないようにするため、マシン固有値を KDF に混ぜ込む（判断 18）。
 const KEYRING_SERVICE: &str = "novnow-hub";
-/// 暗号化ファイルの鍵導出に用いるソルト（定数）。
-const FILE_KEY_SALT: &str = "novnow-hub:session-key:v1";
+/// 暗号化ファイルの鍵導出に用いるソルト（定数）。KDF 変更時に更新する。
+const FILE_KEY_SALT: &str = "novnow-hub:session-key:v2";
+
+/// マシン固有のエントロピー（machine-id 等）。鍵導出に混ぜ込み、パス単体からの
+/// 鍵導出を防止する。プロセス内で 1 回だけ計算してキャッシュする。
+///
+/// 水源はプラットフォーム別に順次試行し、最終手段でホスト名を用いる。
+/// macOS は `ioreg`、Windows は `reg` でマシン識別子を取得する（コンパイル時
+/// は各プラットフォームのブロックのみが収められるため、全プラットフォームで
+/// コンパイルできる）。
+static MACHINE_ENTROPY: LazyLock<String> = LazyLock::new(machine_entropy);
+
+/// マシン固有のエントロピー文字列を取得する。
+fn machine_entropy() -> String {
+    #[cfg(target_os = "linux")]
+    {
+        for path in ["/etc/machine-id", "/var/lib/dbus/machine-id"] {
+            if let Ok(s) = std::fs::read_to_string(path) {
+                let s = s.trim().to_string();
+                if !s.is_empty() {
+                    return s;
+                }
+            }
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        if let Ok(out) = std::process::Command::new("ioreg")
+            .args(["-rd1", "-c", "IOPlatformExpertDevice"])
+            .output()
+        {
+            let text = String::from_utf8_lossy(&out.stdout);
+            if let Some(uuid) = parse_ioplatform_uuid(&text) {
+                return uuid;
+            }
+        }
+    }
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(out) = std::process::Command::new("reg")
+            .args([
+                "query",
+                r"HKLM\SOFTWARE\Microsoft\Cryptography",
+                "/v",
+                "MachineGuid",
+            ])
+            .output()
+        {
+            let text = String::from_utf8_lossy(&out.stdout);
+            if let Some(guid) = parse_machine_guid(&text) {
+                return guid;
+            }
+        }
+    }
+    // 最終手段: ホスト名。マシン特定性は弱いが、パス単体よりは鍵の導出を困難にする。
+    std::process::Command::new("hostname")
+        .output()
+        .ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "novnow-hub-fallback".to_string())
+}
+
+/// `ioreg` 出力から `IOPlatformUUID` の値を取り出す。
+#[cfg(target_os = "macos")]
+fn parse_ioplatform_uuid(text: &str) -> Option<String> {
+    for line in text.lines() {
+        if let Some(idx) = line.find("IOPlatformUUID") {
+            let rest = &line[idx + "IOPlatformUUID".len()..];
+            if let Some(start) = rest.find('"') {
+                let after = &rest[start + 1..];
+                if let Some(end) = after.find('"') {
+                    let value = after[..end].to_string();
+                    if !value.is_empty() {
+                        return Some(value);
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// `reg query` 出力から `MachineGuid` の値を取り出す。
+#[cfg(target_os = "windows")]
+fn parse_machine_guid(text: &str) -> Option<String> {
+    for line in text.lines() {
+        if line.to_ascii_uppercase().contains("MACHINEGUID") {
+            let tokens: Vec<&str> = line.split_whitespace().collect();
+            // 形式: `MachineGuid    REG_SZ    {GUID}` → 値は 3 番目のトークン
+            if tokens.len() >= 3 {
+                let value = tokens[2].trim();
+                if !value.is_empty() {
+                    return Some(value.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+/// 暗号化鍵を導出する純粋関数（テスト容易のために分離）。
+/// `dir` とマシン固有エントロピーを合成して SHA-256 を適用する。
+fn derive_key(dir: &std::path::Path, machine: &str) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(dir.to_string_lossy().as_bytes());
+    hasher.update(machine.as_bytes());
+    hasher.update(FILE_KEY_SALT.as_bytes());
+    let digest = hasher.finalize();
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&digest);
+    key
+}
 
 /// セッションキーと保管バックエンドを紐付ける。中身は永続的な設定のみ。
 #[derive(Default)]
@@ -66,14 +183,11 @@ impl SecureStorage {
         Ok(self.dir()?.join(format!("novnow-session-{safe}.enc")))
     }
 
-    /// 暗号化ファイル用の鍵を導出する（アプリデータディレクトリ由来の導出値）。
+    /// 暗号化ファイル用の鍵を導出する。
+    /// マシン固有エントロピー＋アプリデータディレクトリ＋定数ソルトを合成し、
+    /// パス単体からの鍵導出を防止する（判断 18）。
     fn file_key(&self) -> Result<[u8; 32], String> {
-        use sha2::{Digest, Sha256};
-        let dir = self.dir()?;
-        let mut hasher = Sha256::new();
-        hasher.update(dir.to_string_lossy().as_bytes());
-        hasher.update(FILE_KEY_SALT.as_bytes());
-        Ok(hasher.finalize().into())
+        Ok(derive_key(&self.dir()?, &MACHINE_ENTROPY))
     }
 
     /// 暗号化ファイルの読み書き。OS キーチェーンが使えない時のフォールバック。
@@ -252,4 +366,68 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running novnow-hub")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    /// 鍵導出が決定的であること（同一入力→同一鍵）。
+    #[test]
+    fn key_derivation_is_deterministic() {
+        let dir = Path::new("/tmp/novnow-test-dir");
+        let k1 = derive_key(dir, "machine-a");
+        let k2 = derive_key(dir, "machine-a");
+        assert_eq!(k1, k2, "同一入力で鍵が一致しない");
+    }
+
+    /// 鍵がパス単体から導出できないこと（マシン固有値が反映されている）。
+    #[test]
+    fn key_not_derivable_from_path_only() {
+        let dir = Path::new("/tmp/novnow-test-dir");
+        let k_a = derive_key(dir, "machine-a");
+        let k_b = derive_key(dir, "machine-b");
+        assert_ne!(
+            k_a, k_b,
+            "マシン固有値が反映されておらず、パス単体から鍵が導出できている"
+        );
+    }
+
+    /// パスが異なれば鍵も異なること。
+    #[test]
+    fn key_differs_by_dir() {
+        let k1 = derive_key(Path::new("/tmp/novnow-a"), "machine-a");
+        let k2 = derive_key(Path::new("/tmp/novnow-b"), "machine-a");
+        assert_ne!(k1, k2);
+    }
+
+    /// 暗号化・復号の往復と、平文が残らないこと。
+    #[test]
+    fn encrypt_decrypt_roundtrip() {
+        let tmp = std::env::temp_dir().join(format!("novnow-roundtrip-{}", std::process::id()));
+        std::fs::create_dir_all(&tmp).expect("create temp dir");
+        let mut storage = SecureStorage::default();
+        *storage.dir.lock().unwrap() = Some(tmp.clone());
+
+        let key = "access_token";
+        let value = "secret-token-value-123";
+
+        storage.file_set(key, value).expect("file_set");
+        let got = storage.file_get(key).expect("file_get");
+        assert_eq!(got.as_deref(), Some(value), "復号結果が一致しない");
+
+        // 平文がファイルに残っていないこと。
+        let raw = std::fs::read(storage.file_path(key).unwrap()).expect("read enc file");
+        assert!(
+            !raw.windows(value.len()).any(|w| w == value.as_bytes()),
+            "暗号化ファイルに平文が残っている"
+        );
+
+        // 削除が動作すること。
+        storage.file_delete(key).expect("file_delete");
+        assert_eq!(storage.file_get(key).expect("file_get after delete"), None);
+
+        std::fs::remove_dir_all(&tmp).ok();
+    }
 }

@@ -1,0 +1,56 @@
+name: Cargo Lock
+
+# src-tauri の Cargo.lock を生成・更新し、PR 分支にコミットする（再現性のため）。
+#
+# Arena サンドボックスは crates.io へ到達不可で、新規依存（keyring / aes-gcm /
+# sha2 / getrandom / tauri）が vendored-sources に未収録のため、Cargo.lock を
+# ローカルで生成できない。CI ランナーは crates.io へ直結できるため、ここで
+# `cargo generate-lockfile` を実行し、変更があれば PR 分支へコミットする。
+# 既存の依存バージョンの不必要な全体更新は行わず、現在の Cargo.toml の解決結果
+# のみをロックする。
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  update-lock:
+    name: Update Cargo.lock
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Generate Cargo.lock
+        working-directory: src-tauri
+        run: cargo generate-lockfile
+
+      - name: Commit if changed
+        run: |
+          if git diff --exit-code -- src-tauri/Cargo.lock >/dev/null 2>&1; then
+            echo "Cargo.lock is up to date"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add src-tauri/Cargo.lock
+            git commit -m "chore: update Cargo.lock"
+            git push
+          fi
