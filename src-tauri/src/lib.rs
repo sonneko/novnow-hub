@@ -23,7 +23,7 @@ const KEYRING_SERVICE: &str = "novnow-hub";
 struct SecureStorage;
 
 impl SecureStorage {
-    fn entry(&self, key: &str) -> Result<Entry<'_>, String> {
+    fn entry(&self, key: &str) -> Result<Entry, String> {
         Entry::new(KEYRING_SERVICE, key).map_err(|e| format!("keyring entry failed: {e}"))
     }
 
@@ -44,7 +44,7 @@ impl SecureStorage {
 
     fn delete(&self, key: &str) -> Result<(), String> {
         // 存在しない項目の削除は無害に扱う。
-        match self.entry(key)?.delete_password() {
+        match self.entry(key)?.delete_credential() {
             Ok(()) => Ok(()),
             // 項目が存在しない（またはキーチェーン未利用）場合は無害に扱う。
             Err(_) => Ok(()),
