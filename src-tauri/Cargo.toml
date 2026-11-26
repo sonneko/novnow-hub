@@ -13,7 +13,8 @@ tauri = { version = "2", features = [] }
 # IOTA Stronghold は依存関係が重く、CI の全プラットフォームでコンパイルに失敗した。
 # 要件は「Tauri secure storage（OS のキーチェーン）へのセッション保管・平文露出禁止」であり、
 # OS のキーチェーンを直接利用する `keyring` クレートで同要件を満たす（判断 15 追記）。
-keyring = "3"
+# keyring 3 も依存関係が重いため、API がシンプルで軽量な keyring 2 を採用。
+keyring = "2"
 # カスタムスキーム（novnow://）の受信ハンドラが http::Response を返すために必要。
 http = "1"
 

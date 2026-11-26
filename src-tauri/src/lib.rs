@@ -14,7 +14,8 @@ use keyring::Entry;
 /// 要件は「Tauri secure storage（OS のキーチェーン）へのセッション保管・平文露出禁止」。
 /// 依存関係が重く CI の全プラットフォームでコンパイルに失敗した IOTA Stronghold
 /// （`iota_stronghold`）の代わりに、OS のキーチェーンを直接利用する `keyring`
-/// クレートで同要件を満たす（判断 15 追記）。サービス名は `novnow-hub`、
+/// クレートで同要件を満たす（判断 15 追記）。keyring 3 も依存関係が重いため、
+/// API がシンプルで軽量な keyring 2 を採用。サービス名は `novnow-hub`、
 /// アカウント名はセッションキーとする。
 const KEYRING_SERVICE: &str = "novnow-hub";
 
@@ -44,7 +45,7 @@ impl SecureStorage {
 
     fn delete(&self, key: &str) -> Result<(), String> {
         // 存在しない項目の削除は無害に扱う。
-        match self.entry(key)?.delete_credential() {
+        match self.entry(key)?.delete_password() {
             Ok(()) => Ok(()),
             // 項目が存在しない（またはキーチェーン未利用）場合は無害に扱う。
             Err(_) => Ok(()),
