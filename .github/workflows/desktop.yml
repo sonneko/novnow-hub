@@ -61,6 +61,7 @@ jobs:
             libgtk-3-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
+            libsecret-1-dev \
             file \
             wget
 

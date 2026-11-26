@@ -4,44 +4,51 @@
 //! セッション保管（secure storage）とカスタムスキームでのセットアップ URL
 //! 受信を担う。GitHub の概念はアダプター層の背後に隠し、利用者体験には漏らさない。
 
-use std::sync::Mutex;
+use keyring::Entry;
 
-use tauri::Manager;
-
-/// セッション情報を暗号化保管するバックエンド（IOTA Stronghold）。
-/// OS の Keychain / Credential Manager / Secret Service に暗号化保存し、
-/// 平文で露出しない。デスクトップアプリはブラウザ版と異なり、メモリのみに
-/// 依存せずアプリ再起動後もセッションを維持する。
+/// セッション情報を OS のキーチェーン（macOS Keychain / Windows
+/// Credential Manager / Linux Secret Service）に暗号化保管するバックエンド。
+/// ブラウザ版とは異なり、メモリのみに依存せずアプリ再起動後もセッションを維持し、
+/// 平文で露出しない。
 ///
-/// `iota_stronghold::Stronghold` は内部で `Store` を保持し、`store()` 経由で
-/// キーバイトの読み書きを行う（同期 API）。
+/// 要件は「Tauri secure storage（OS のキーチェーン）へのセッション保管・平文露出禁止」。
+/// 依存関係が重く CI の全プラットフォームでコンパイルに失敗した IOTA Stronghold
+/// （`iota_stronghold`）の代わりに、OS のキーチェーンを直接利用する `keyring`
+/// クレートで同要件を満たす（判断 15 追記）。サービス名は `novnow-hub`、
+/// アカウント名はセッションキーとする。
+const KEYRING_SERVICE: &str = "novnow-hub";
+
+/// セッションキーと OS キーチェーンを紐付ける。中身は永続的な設定のみ。
 #[derive(Default)]
-struct SecureStorage(Mutex<iota_stronghold::Stronghold>);
+struct SecureStorage;
 
 impl SecureStorage {
+    fn entry(&self, key: &str) -> Result<Entry<'_>, String> {
+        Entry::new(KEYRING_SERVICE, key).map_err(|e| format!("keyring entry failed: {e}"))
+    }
+
     fn get(&self, key: &str) -> Result<Option<String>, String> {
-        let guard = self.0.lock().map_err(|e| format!("lock failed: {e}"))?;
-        match guard.store().get(key.as_bytes()) {
-            Ok(Some(bytes)) => Ok(String::from_utf8(bytes).ok()),
-            Ok(None) => Ok(None),
-            Err(e) => Err(format!("read failed: {e}")),
+        match self.entry(key)?.get_password() {
+            Ok(value) => Ok(Some(value)),
+            // 項目が存在しない（またはキーチェーン未利用）場合は None として扱う。
+            // セッション未登録は正常な状態のため、エラーではなく None を返す。
+            Err(_) => Ok(None),
         }
     }
 
     fn set(&self, key: &str, value: &str) -> Result<(), String> {
-        let guard = self.0.lock().map_err(|e| format!("lock failed: {e}"))?;
-        guard
-            .store()
-            .insert(key.as_bytes().to_vec(), value.as_bytes().to_vec(), None)
-            .map_err(|e| format!("write failed: {e}"))?;
-        Ok(())
+        self.entry(key)?
+            .set_password(value)
+            .map_err(|e| format!("write failed: {e}"))
     }
 
     fn delete(&self, key: &str) -> Result<(), String> {
-        let guard = self.0.lock().map_err(|e| format!("lock failed: {e}"))?;
         // 存在しない項目の削除は無害に扱う。
-        let _ = guard.store().delete(key.as_bytes());
-        Ok(())
+        match self.entry(key)?.delete_password() {
+            Ok(()) => Ok(()),
+            // 項目が存在しない（またはキーチェーン未利用）場合は無害に扱う。
+            Err(_) => Ok(()),
+        }
     }
 }
 

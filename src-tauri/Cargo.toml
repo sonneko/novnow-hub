@@ -10,9 +10,10 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 # セッション情報の暗号化保管（OS の Keychain / Credential Manager / Secret Service）。
-# IOTA Stronghold のクライアント API は `iota_stronghold`（`stronghold` という同名の
-# 無関係なクレートとは別物で、こちらにはバージョン 2 が存在しない）。
-iota_stronghold = "2"
+# IOTA Stronghold は依存関係が重く、CI の全プラットフォームでコンパイルに失敗した。
+# 要件は「Tauri secure storage（OS のキーチェーン）へのセッション保管・平文露出禁止」であり、
+# OS のキーチェーンを直接利用する `keyring` クレートで同要件を満たす（判断 15 追記）。
+keyring = "3"
 # カスタムスキーム（novnow://）の受信ハンドラが http::Response を返すために必要。
 http = "1"
 
