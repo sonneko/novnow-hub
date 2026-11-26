@@ -44,57 +44,29 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -uo pipefail
+          set -o pipefail
           lock=src-tauri/Cargo.lock
           # pull_request イベントでは GITHUB_REF_NAME は PR 番号（例: "55"）であり
           # ブランチ名ではない。ソースブランチ名は GITHUB_HEAD_REF から取得する。
           branch="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
           repo="${GITHUB_REPOSITORY}"
-          dbg=src-tauri/cargo-lock-debug.txt
 
-          # 診断情報をファイルに書き、後で Contents API でコミットして読む。
-          {
-            echo "branch=$branch"
-            echo "GITHUB_HEAD_REF=$GITHUB_HEAD_REF"
-            echo "GITHUB_REF_NAME=$GITHUB_REF_NAME"
-            echo "--- ls ---"
-            ls -la src-tauri/ | grep -i cargo || echo "no cargo files in src-tauri"
-            echo "--- lock exists? ---"
-            if [ -f "$lock" ]; then
-              echo "YES size=$(wc -c < "$lock")"
-              head -5 "$lock"
-            else
-              echo "NO ($lock not created)"
-            fi
-            echo "--- git status ---"
-            git status --porcelain
-          } > "$dbg"
-
-          commit_file() {
-            local path="$1" msg="$2"
-            local b64
-            b64=$(base64 -w0 "$path")
-            local existing
-            existing=$(gh api "repos/${repo}/contents/${path}?ref=${branch}" --jq '.sha' 2>/dev/null || echo "")
-            # 114KB 超の content を `-f` で渡すと「Argument list too long」になるため、
-            # JSON ボディをファイル経由（--input）で渡す。
-            jq -n --arg m "$msg" --arg c "$b64" --arg b "$branch" --arg s "$existing" \
-              '{message:$m, content:$c, branch:$b} + (if $s != "" then {sha:$s} else {} end)' \
-              > /tmp/body.json
-            if gh api -X PUT "repos/${repo}/contents/${path}" --input /tmp/body.json >/dev/null 2>>"$dbg"; then
-              echo "committed $path" >> "$dbg"
-            else
-              echo "FAILED to commit $path (see below)" >> "$dbg"
-              gh api "repos/${repo}/contents/${path}?ref=${branch}" 2>>"$dbg" || true
-            fi
-          }
-
-          if [ -f "$lock" ]; then
-            commit_file "$lock" "chore: update Cargo.lock"
-            commit_file "$dbg" "chore: cargo-lock debug"
-            echo "lock committed"
-          else
+          if [ ! -f "$lock" ]; then
             echo "::error::cargo generate-lockfile did not create $lock"
-            commit_file "$dbg" "chore: cargo-lock debug"
+            exit 1
+          fi
+
+          b64=$(base64 -w0 "$lock")
+          existing=$(gh api "repos/${repo}/contents/${lock}?ref=${branch}" --jq '.sha' 2>/dev/null || true)
+          # 114KB 超の content を `-f` で渡すと「Argument list too long」になるため、
+          # JSON ボディをファイル経由（--input）で渡す。
+          jq -n --arg m "chore: update Cargo.lock" --arg c "$b64" --arg b "$branch" --arg s "$existing" \
+            '{message:$m, content:$c, branch:$b} + (if $s != "" then {sha:$s} else {} end)' \
+            > /tmp/body.json
+
+          if gh api -X PUT "repos/${repo}/contents/${lock}" --input /tmp/body.json >/dev/null; then
+            echo "Committed $lock to $branch via Contents API"
+          else
+            echo "::error::Failed to commit $lock via Contents API (branch=$branch)"
             exit 1
           fi
