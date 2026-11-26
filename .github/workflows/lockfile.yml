@@ -41,6 +41,8 @@ jobs:
         run: cargo generate-lockfile
 
       - name: Commit Cargo.lock via API
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           lock=src-tauri/Cargo.lock
@@ -66,5 +68,9 @@ jobs:
           if [ -n "$existing_sha" ]; then
             args+=(-f "sha=${existing_sha}")
           fi
-          gh api "${args[@]}" >/dev/null
+          if ! gh api "${args[@]}" >/dev/null; then
+            echo "::error::Failed to commit Cargo.lock via Contents API (branch=$branch)"
+            gh api "repos/${repo}/contents/${lock}?ref=${branch}" --jq '.sha' >&2 || true
+            exit 1
+          fi
           echo "Committed $lock to $branch via Contents API"
