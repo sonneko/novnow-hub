@@ -74,7 +74,18 @@ jobs:
 
       - name: Build desktop app (Tauri, unsigned)
         working-directory: web
-        run: npm run tauri -- build --bundle
+        run: |
+          set +e
+          npm run tauri -- build --bundle > /tmp/tauri-build.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "::error::tauri build failed (exit $status). Last lines of log:"
+            tail -n 60 /tmp/tauri-build.log | grep -v '^[[:space:]]*$' | while IFS= read -r line; do
+              chunk="${line:0:1000}"
+              echo "::error::$chunk"
+            done
+            exit "$status"
+          fi
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
@@ -117,7 +128,21 @@ jobs:
 
       - name: Build desktop app (Tauri, unsigned)
         working-directory: web
-        run: npm run tauri -- build --bundle
+        shell: pwsh
+        run: |
+          $log = Join-Path $env:TEMP "tauri-build.log"
+          npm run tauri -- build --bundle *> $log
+          $status = $LASTEXITCODE
+          if ($status -ne 0) {
+            Write-Host "::error::tauri build failed (exit $status). Last lines of log:"
+            Get-Content $log -Tail 60 |
+              Where-Object { $_.Trim().Length -gt 0 } |
+              ForEach-Object {
+                $chunk = $_.Substring(0, [Math]::Min(1000, $_.Length))
+                Write-Host "::error::$chunk"
+              }
+            exit $status
+          }
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -156,7 +181,18 @@ jobs:
 
       - name: Build desktop app (Tauri, unsigned)
         working-directory: web
-        run: npm run tauri -- build --bundle
+        run: |
+          set +e
+          npm run tauri -- build --bundle > /tmp/tauri-build.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "::error::tauri build failed (exit $status). Last lines of log:"
+            tail -n 60 /tmp/tauri-build.log | grep -v '^[[:space:]]*$' | while IFS= read -r line; do
+              chunk="${line:0:1000}"
+              echo "::error::$chunk"
+            done
+            exit "$status"
+          fi
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
