@@ -1,0 +1,90 @@
+name: Cargo Lock
+
+# src-tauri の Cargo.lock を生成・更新し、PR 分支にコミットする（再現性のため）。
+#
+# Arena サンドボックスは crates.io へ到達不可で、新規依存（keyring / aes-gcm /
+# sha2 / getrandom / tauri）が vendored-sources に未収録のため、Cargo.lock を
+# ローカルで生成できない。CI ランナーは crates.io へ直結できるため、ここで
+# `cargo generate-lockfile` を実行し、生成された Cargo.lock を GitHub Contents
+# API で PR 分支へ直接コミットする（git push を使わないため detached HEAD や
+# push 権限・キャンセル競合の影響を受けない）。既存依存の不必要な全体更新は
+# 行わず、現在の Cargo.toml の解決結果のみをロックする。
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-lock:
+    name: Update Cargo.lock
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Generate Cargo.lock
+        working-directory: src-tauri
+        run: cargo generate-lockfile
+
+      - name: Commit Cargo.lock via API
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -o pipefail
+          lock=src-tauri/Cargo.lock
+          # pull_request イベントでは GITHUB_REF_NAME は PR 番号（例: "55"）であり
+          # ブランチ名ではない。ソースブランチ名は GITHUB_HEAD_REF から取得する。
+          branch="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
+          repo="${GITHUB_REPOSITORY}"
+
+          if [ ! -f "$lock" ]; then
+            echo "::error::cargo generate-lockfile did not create $lock"
+            exit 1
+          fi
+
+          # 114KB 超の content をコマンドライン引数（jq --arg / gh -f）で渡すと
+          # 「Argument list too long」になる。base64 をファイルに書き、jq の
+          # --rawfile で読み、JSON ボディは --input で渡す。
+          base64 -w0 "$lock" > /tmp/b64.txt
+          new_b64=$(cat /tmp/b64.txt)
+
+          # 冪等性: 既存の Cargo.lock と内容が同一ならコミットしない。
+          # Contents API は内容同一でもコミットを作成するため、省だと
+          # synchronize→再コミット→synchronize の無限ループになる。
+          existing_sha=""
+          existing_json=$(gh api "repos/${repo}/contents/${lock}?ref=${branch}" 2>/dev/null || true)
+          if [ -n "$existing_json" ]; then
+            existing_content=$(printf '%s' "$existing_json" | jq -r '.content')
+            existing_sha=$(printf '%s' "$existing_json" | jq -r '.sha')
+            existing_norm=$(printf '%s' "$existing_content" | tr -d '\n')
+            if [ "$existing_norm" = "$new_b64" ]; then
+              echo "Cargo.lock is up to date (no changes)"
+              exit 0
+            fi
+          fi
+
+          jq -n --rawfile c /tmp/b64.txt --arg m "chore: update Cargo.lock" \
+            --arg b "$branch" --arg s "$existing_sha" \
+            '{message:$m, content:$c, branch:$b} + (if $s != "" then {sha:$s} else {} end)' \
+            > /tmp/body.json
+
+          if gh api -X PUT "repos/${repo}/contents/${lock}" --input /tmp/body.json >/dev/null; then
+            echo "Committed $lock to $branch via Contents API"
+          else
+            echo "::error::Failed to commit $lock via Contents API (branch=$branch)"
+            exit 1
+          fi
