@@ -5,9 +5,10 @@ name: Cargo Lock
 # Arena サンドボックスは crates.io へ到達不可で、新規依存（keyring / aes-gcm /
 # sha2 / getrandom / tauri）が vendored-sources に未収録のため、Cargo.lock を
 # ローカルで生成できない。CI ランナーは crates.io へ直結できるため、ここで
-# `cargo generate-lockfile` を実行し、生成された Cargo.lock を PR 分支へコミットする。
-# 既存の依存バージョンの不必要な全体更新は行わず、現在の Cargo.toml の解決結果
-# のみをロックする。
+# `cargo generate-lockfile` を実行し、生成された Cargo.lock を GitHub Contents
+# API で PR 分支へ直接コミットする（git push を使わないため detached HEAD や
+# push 権限・キャンセル競合の影響を受けない）。既存依存の不必要な全体更新は
+# 行わず、現在の Cargo.toml の解決結果のみをロックする。
 
 on:
   pull_request:
@@ -39,7 +40,7 @@ jobs:
         working-directory: src-tauri
         run: cargo generate-lockfile
 
-      - name: Commit Cargo.lock
+      - name: Commit Cargo.lock via API
         run: |
           set -euo pipefail
           lock=src-tauri/Cargo.lock
@@ -48,18 +49,22 @@ jobs:
             exit 1
           fi
           size=$(wc -c < "$lock")
-          echo "Generated $lock ($size bytes)" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "Generated $lock ($size bytes)"
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f "$lock"
-          # 未追跡（新規生成）または内容変更のときのみコミット。変化なければスキップ。
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: update Cargo.lock"
-            # pull_request イベントでは actions/checkout が detached HEAD で
-            # 検出されるため、ブランチへ明示的に参照を突っ込む。
-            git push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"
-            echo "Committed $lock" | tee -a "$GITHUB_STEP_SUMMARY"
-          else
-            echo "$lock is up to date (no changes)" | tee -a "$GITHUB_STEP_SUMMARY"
+          branch="${GITHUB_REF_NAME}"
+          repo="${GITHUB_REPOSITORY}"
+          content=$(base64 -w0 "$lock")
+
+          # 既存の Cargo.lock がある場合は現在の sha を取得（新規なら空）。
+          existing_sha=$(gh api "repos/${repo}/contents/${lock}?ref=${branch}" \
+            --jq '.sha' 2>/dev/null || echo "")
+
+          args=(-X PUT "repos/${repo}/contents/${lock}"
+            -f "message=chore: update Cargo.lock"
+            -f "content=${content}"
+            -f "branch=${branch}")
+          if [ -n "$existing_sha" ]; then
+            args+=(-f "sha=${existing_sha}")
           fi
+          gh api "${args[@]}" >/dev/null
+          echo "Committed $lock to $branch via Contents API"
