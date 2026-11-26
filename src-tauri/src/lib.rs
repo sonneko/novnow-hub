@@ -76,7 +76,7 @@ impl SecureStorage {
 
 #[tauri::command]
 async fn session_get(
-    state: tauri::State<SecureStorage>,
+    state: tauri::State<'_, SecureStorage>,
     key: String,
 ) -> Result<Option<String>, String> {
     state.get(&key)
@@ -84,7 +84,7 @@ async fn session_get(
 
 #[tauri::command]
 async fn session_set(
-    state: tauri::State<SecureStorage>,
+    state: tauri::State<'_, SecureStorage>,
     key: String,
     value: String,
 ) -> Result<(), String> {
@@ -93,7 +93,7 @@ async fn session_set(
 
 #[tauri::command]
 async fn session_delete(
-    state: tauri::State<SecureStorage>,
+    state: tauri::State<'_, SecureStorage>,
     key: String,
 ) -> Result<(), String> {
     state.delete(&key)
