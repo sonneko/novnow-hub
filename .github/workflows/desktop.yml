@@ -76,7 +76,7 @@ jobs:
         working-directory: web
         run: |
           set +e
-          npm run tauri -- build --bundle > /tmp/tauri-build.log 2>&1
+          npm run tauri -- build --bundles > /tmp/tauri-build.log 2>&1
           status=$?
           if [ "$status" -ne 0 ]; then
             echo "::error::tauri build failed (exit $status). Last lines of log:"
@@ -131,7 +131,7 @@ jobs:
         shell: pwsh
         run: |
           $log = Join-Path $env:TEMP "tauri-build.log"
-          npm run tauri -- build --bundle *> $log
+          npm run tauri -- build --bundles *> $log
           $status = $LASTEXITCODE
           if ($status -ne 0) {
             Write-Host "::error::tauri build failed (exit $status). Last lines of log:"
@@ -183,7 +183,7 @@ jobs:
         working-directory: web
         run: |
           set +e
-          npm run tauri -- build --bundle > /tmp/tauri-build.log 2>&1
+          npm run tauri -- build --bundles > /tmp/tauri-build.log 2>&1
           status=$?
           if [ "$status" -ne 0 ]; then
             echo "::error::tauri build failed (exit $status). Last lines of log:"
