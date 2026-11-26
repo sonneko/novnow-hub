@@ -141,7 +141,9 @@ impl SecureStorage {
     fn delete(&self, key: &str) -> Result<(), String> {
         // キーチェーンとフォールバックの両方をクリアする。
         // キーチェーン backend が利用不可でも暗号化ファイル側はクリアする。
-        let ke_res = self.keyring_entry(key).and_then(|e| e.delete_credential());
+        let ke_res = self
+            .keyring_entry(key)
+            .and_then(|e| e.delete_credential().map_err(|err| format!("keychain delete failed: {err}")));
         let file_res = self.file_delete(key);
         if ke_res.is_err() && file_res.is_err() {
             return Err(format!(
