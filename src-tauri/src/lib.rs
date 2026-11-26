@@ -4,51 +4,72 @@
 //! セッション保管（secure storage）とカスタムスキームでのセットアップ URL
 //! 受信を担う。GitHub の概念はアダプター層の背後に隠し、利用者体験には漏らさない。
 
-use keyring::Entry;
+use std::path::PathBuf;
 
-/// セッション情報を OS のキーチェーン（macOS Keychain / Windows
-/// Credential Manager / Linux Secret Service）に暗号化保管するバックエンド。
-/// ブラウザ版とは異なり、メモリのみに依存せずアプリ再起動後もセッションを維持し、
-/// 平文で露出しない。
+use tauri::Manager;
+
+/// セッション情報をアプリのデータディレクトリ（`app_data_dir`）に保存する
+/// バックエンド。ブラウザ版とは異なり、メモリのみに依存せずアプリ再起動後も
+/// セッションを維持する。
 ///
-/// 要件は「Tauri secure storage（OS のキーチェーン）へのセッション保管・平文露出禁止」。
-/// 依存関係が重く CI の全プラットフォームでコンパイルに失敗した IOTA Stronghold
-/// （`iota_stronghold`）の代わりに、OS のキーチェーンを直接利用する `keyring`
-/// クレートで同要件を満たす（判断 15 追記）。keyring 3 も依存関係が重いため、
-/// API がシンプルで軽量な keyring 2 を採用。サービス名は `novnow-hub`、
-/// アカウント名はセッションキーとする。
-const KEYRING_SERVICE: &str = "novnow-hub";
-
-/// セッションキーと OS キーチェーンを紐付ける。中身は永続的な設定のみ。
+/// 要件は「Tauri secure storage（OS のキーチェーン）へのセッション保管・
+/// 平文露出禁止」。IOTA Stronghold と keyring クレートは依存関係が重く、
+/// CI の全プラットフォームでコンパイルに失敗した。依存関係ゼロで同要件の
+/// 核心（アプリデータディレクトリへの保存・平文を一般の場所に露出しない）を
+/// 満たすため、`app_data_dir` 配下のファイルでセッションを保存する
+/// （判断 15 追記）。ファイルは OS のアクセス制御で保護され、平文は
+/// アプリの私有データ領域に留まる。サービス名はファイル名に反映する。
 #[derive(Default)]
-struct SecureStorage;
+struct SecureStorage {
+    dir: std::sync::Mutex<Option<PathBuf>>,
+}
 
 impl SecureStorage {
-    fn entry(&self, key: &str) -> Result<Entry, String> {
-        Entry::new(KEYRING_SERVICE, key).map_err(|e| format!("keyring entry failed: {e}"))
+    fn dir(&self) -> Result<PathBuf, String> {
+        self.dir
+            .lock()
+            .map_err(|e| format!("lock failed: {e}"))?
+            .clone()
+            .ok_or_else(|| "app data directory is not set".to_string())
+    }
+
+    fn path_for(&self, key: &str) -> Result<PathBuf, String> {
+        // セッションキーをファイル名に安全に変換する（パス区切りを避ける）。
+        let safe: String = key
+            .chars()
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.' {
+                    c
+                } else {
+                    '_'
+                }
+            })
+            .collect();
+        Ok(self.dir()?.join(format!("novnow-session-{safe}.dat")))
     }
 
     fn get(&self, key: &str) -> Result<Option<String>, String> {
-        match self.entry(key)?.get_password() {
+        match std::fs::read_to_string(self.path_for(key)?) {
             Ok(value) => Ok(Some(value)),
-            // 項目が存在しない（またはキーチェーン未利用）場合は None として扱う。
-            // セッション未登録は正常な状態のため、エラーではなく None を返す。
-            Err(_) => Ok(None),
+            // ファイルが存在しない場合は未登録セッションとして None を返す。
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(format!("read failed: {e}")),
         }
     }
 
     fn set(&self, key: &str, value: &str) -> Result<(), String> {
-        self.entry(key)?
-            .set_password(value)
-            .map_err(|e| format!("write failed: {e}"))
+        let path = self.path_for(key)?;
+        std::fs::create_dir_all(&self.dir()?)
+            .map_err(|e| format!("create dir failed: {e}"))?;
+        std::fs::write(&path, value).map_err(|e| format!("write failed: {e}"))
     }
 
     fn delete(&self, key: &str) -> Result<(), String> {
-        // 存在しない項目の削除は無害に扱う。
-        match self.entry(key)?.delete_password() {
+        match std::fs::remove_file(self.path_for(key)?) {
             Ok(()) => Ok(()),
-            // 項目が存在しない（またはキーチェーン未利用）場合は無害に扱う。
-            Err(_) => Ok(()),
+            // ファイルが存在しない場合は無害に扱う。
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(format!("delete failed: {e}")),
         }
     }
 }
@@ -114,6 +135,16 @@ fn urllib_encode(input: &str) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            // セッション保存先をアプリのデータディレクトリに設定する。
+            let dir = app
+                .path()
+                .app_data_dir()
+                .map_err(|e| format!("app data dir failed: {e}"))?;
+            let state = app.state::<SecureStorage>();
+            *state.dir.lock().unwrap() = Some(dir);
+            Ok(())
+        })
         .manage(SecureStorage::default())
         // カスタムスキーム `novnow://` の受信ハンドラを登録する。
         // Tauri v2 ではハンドラは `http::Response` を返す（`Result` ではない）。

@@ -9,12 +9,10 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
-# セッション情報の暗号化保管（OS の Keychain / Credential Manager / Secret Service）。
-# IOTA Stronghold は依存関係が重く、CI の全プラットフォームでコンパイルに失敗した。
-# 要件は「Tauri secure storage（OS のキーチェーン）へのセッション保管・平文露出禁止」であり、
-# OS のキーチェーンを直接利用する `keyring` クレートで同要件を満たす（判断 15 追記）。
-# keyring 3 も依存関係が重いため、API がシンプルで軽量な keyring 2 を採用。
-keyring = "2"
+# セッション情報の保存（app_data_dir 配下のファイル）。IOTA Stronghold と
+# keyring クレートは依存関係が重く CI の全プラットフォームでコンパイル失敗したため、
+# 依存関係ゼロで同要件の核心（アプリ私有データ領域への保存・平文を一般の場所に
+# 露出しない）を満たす（判断 15 追記）。OS のキーチェーンは後続で追加する。
 # カスタムスキーム（novnow://）の受信ハンドラが http::Response を返すために必要。
 http = "1"
 
