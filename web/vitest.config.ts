@@ -12,5 +12,17 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.ts'],
     restoreMocks: true,
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{ts,svelte}'],
+      exclude: ['src/test/**', 'src/**/*.d.ts'],
+      reporter: ['text', 'text-summary'],
+      thresholds: {
+        lines: 75,
+        functions: 75,
+        statements: 75,
+        branches: 55,
+      },
+    },
   },
 });

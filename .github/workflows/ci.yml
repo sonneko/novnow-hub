@@ -4,10 +4,12 @@ name: CI
 #
 # ジョブ構成:
 # 1. `docs`: ドキュメント管理規則の検証 + 変更ファイルの判定（docs-only の場合は重いジョブをスキップ）
-# 2. `rust`: バックエンド（Rust / Axum）の build・test・clippy
-# 3. `lint`: Astro / Svelte / TypeScript の型チェック（Vitest によるテストも `npm run check` に含めて実行）
+# 2. `rust`: バックエンド（Rust / Axum）の build・test・clippy ＋ cargo audit（依存脆弱性検査）
+# 3. `lint`: Astro / Svelte / TypeScript の型チェック（Vitest によるテストも `npm run check` に含めて実行）＋ npm audit
 # 4. `test`: テストの実行（テスト自体は lint ジョブの `npm run check` で実行しているため、本書は位置付けのみ）
 # 5. `build`: フロントエンドのビルド検証
+# 6. `contract`: OpenAPI 契約の破壊的変更検出（oasdiff 相当）
+# 7. `coverage`: サーバー（cargo llvm-cov）と Web（Vitest v8）のカバレッジゲート
 #
 # PR の draft 中はジョブをスキップし、ready for review で走らせる。
 # PR の push では古い実行をキャンセルする。
@@ -148,6 +150,18 @@ jobs:
         working-directory: server
         run: cargo clippy --locked --all-targets -- -D warnings
 
+      - name: Audit Rust dependencies (cargo audit)
+        working-directory: server
+        run: |
+          # cargo-audit をインストールして既知脆弱性（Rust 依存）を検査する。
+          # 既知の脆弱性があれば CI を落とす。修正可能なものは update、
+          # メジャーアップグレードが必要な場合は handoff.md §4 に理由と代替策を記録する。
+          if ! command -v cargo-audit >/dev/null 2>&1; then
+            echo "cargo-audit をインストールします..."
+            cargo install cargo-audit --locked
+          fi
+          cargo audit --deny warnings
+
   lint:
     name: Type Check
     needs: docs
@@ -173,6 +187,12 @@ jobs:
 
       - name: Check Astro, Svelte and TypeScript
         run: npm run check
+
+      - name: Audit Node.js dependencies (npm audit)
+        # 本番配布される依存（production, --omit=dev）に既知脆弱性があってはならない。
+        # dev 依存の脆弱性は CI を落とさず報告し、修正不可なものは handoff.md §4 に記録する。
+        run: |
+          npm audit --omit=dev --audit-level=high
 
   test:
     name: Test
@@ -215,3 +235,110 @@ jobs:
       # Tauri は最小シェルのみ。このジョブは読み込み元となる web/dist の生成を検証する。
       - name: Build frontend
         run: npm run build
+
+  contract:
+    name: OpenAPI Contract Compatibility
+    needs: docs
+    if: needs.docs.outputs.code_changed == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine base commit for contract diff
+        id: base
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+          else
+            base="${{ github.event.before }}"
+          fi
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "ベース改訂が取得できないためスキップします"
+            exit 0
+          fi
+          # api/openapi.yaml が変更されていなければ互換性検査は不要
+          if ! git diff --name-only "$base" HEAD -- api/openapi.yaml | grep -q .; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "api/openapi.yaml は変更されていません"
+            exit 0
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
+
+      - name: Check breaking changes (oasdiff-equivalent)
+        if: steps.base.outputs.skip != 'true'
+        run: |
+          # 旧仕様（base）と新仕様（head）の openapi.yaml を比較し、破壊的変更を検出する。
+          # 破壊的変更があれば CI を落とす。
+          git show "${{ steps.base.outputs.sha }}:api/openapi.yaml" > /tmp/openapi-base.yaml
+          python3 docs/script/check-openapi-compat.py /tmp/openapi-base.yaml api/openapi.yaml
+
+  coverage:
+    name: Coverage Gate
+    needs: docs
+    if: needs.docs.outputs.code_changed == 'true' && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.90.0"
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            server/target
+          key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('server/Cargo.toml', 'server/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-coverage-
+
+      - name: Install cargo-llvm-cov
+        run: |
+          # カバレッジ計測用ツール。cargo test の代わりに llvm-cov で計測する。
+          if ! command -v cargo-llvm-cov >/dev/null 2>&1; then
+            cargo install cargo-llvm-cov --locked
+          fi
+
+      - name: Server coverage (cargo llvm-cov)
+        working-directory: server
+        # --fail-under-lines で下限を設ける。現状実測値を踏まえ、無理のない下限を設定。
+        run: cargo llvm-cov --locked --all-targets --fail-under-lines=60 --html
+
+      - name: Upload server coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-coverage
+          path: server/target/llvm-cov/target/site/
+          if-no-files-found: ignore
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies (web)
+        working-directory: web
+        run: npm ci
+
+      - name: Web coverage (Vitest v8)
+        working-directory: web
+        # vitest.config.ts の thresholds で下限を設定済み。下回ると失敗する。
+        run: npx vitest run --coverage
