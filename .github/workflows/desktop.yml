@@ -79,15 +79,14 @@ jobs:
           npm run tauri -- build --bundles > /tmp/tauri-build.log 2>&1
           status=$?
           if [ "$status" -ne 0 ]; then
-            echo "::error::tauri build failed (exit $status). Error-related lines from log:"
-            {
-              grep -n -i -E "error|failed|panic|cannot|not found|unresolved|abort" /tmp/tauri-build.log | tail -n 40
-              echo "----- last 30 lines -----"
-              tail -n 30 /tmp/tauri-build.log
-            } | grep -v '^[[:space:]]*$' | while IFS= read -r line; do
-              chunk="${line:0:1000}"
-              echo "::error::$chunk"
-            done
+            echo "::error::tauri build failed (exit $status). Non-progress log tail:"
+            tail -n 120 /tmp/tauri-build.log |
+              grep -v -E 'Compiling|Downloaded|Downloading|Finished|Updating|Adding|Locking|Blocking|Installed|Removed|Compiling' |
+              grep -v '^[[:space:]]*$' |
+              while IFS= read -r line; do
+                chunk="${line:0:1000}"
+                echo "::error::$chunk"
+              done
             exit "$status"
           fi
 
@@ -138,14 +137,12 @@ jobs:
           npm run tauri -- build --bundles *> $log
           $status = $LASTEXITCODE
           if ($status -ne 0) {
-            Write-Host "::error::tauri build failed (exit $status). Error-related lines from log:"
-            $lines = @()
-            $lines += Select-String -Path $log -Pattern "error|failed|panic|cannot|not found|unresolved|abort" -CaseSensitive:$false |
-              Select-Object -Last 40 -ExpandProperty Line
-            $lines += "----- last 30 lines -----"
-            $lines += Get-Content $log -Tail 30
+            Write-Host "::error::tauri build failed (exit $status). Non-progress log tail:"
+            $lines = Get-Content $log -Tail 120
+            $progress = 'Compiling|Downloaded|Downloading|Finished|Updating|Adding|Locking|Blocking|Installed|Removed'
             foreach ($line in $lines) {
               if ([string]::IsNullOrWhiteSpace($line)) { continue }
+              if ($line -match $progress) { continue }
               $chunk = $line.Substring(0, [Math]::Min(1000, $line.Length))
               Write-Host "::error::$chunk"
             }
@@ -194,15 +191,14 @@ jobs:
           npm run tauri -- build --bundles > /tmp/tauri-build.log 2>&1
           status=$?
           if [ "$status" -ne 0 ]; then
-            echo "::error::tauri build failed (exit $status). Error-related lines from log:"
-            {
-              grep -n -i -E "error|failed|panic|cannot|not found|unresolved|abort" /tmp/tauri-build.log | tail -n 40
-              echo "----- last 30 lines -----"
-              tail -n 30 /tmp/tauri-build.log
-            } | grep -v '^[[:space:]]*$' | while IFS= read -r line; do
-              chunk="${line:0:1000}"
-              echo "::error::$chunk"
-            done
+            echo "::error::tauri build failed (exit $status). Non-progress log tail:"
+            tail -n 120 /tmp/tauri-build.log |
+              grep -v -E 'Compiling|Downloaded|Downloading|Finished|Updating|Adding|Locking|Blocking|Installed|Removed|Compiling' |
+              grep -v '^[[:space:]]*$' |
+              while IFS= read -r line; do
+                chunk="${line:0:1000}"
+                echo "::error::$chunk"
+              done
             exit "$status"
           fi
 
