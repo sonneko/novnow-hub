@@ -1,6 +1,6 @@
 [package]
 name = "novnow-hub"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
 publish = false
 
@@ -9,3 +9,13 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+# セッション情報の保存（app_data_dir 配下のファイル）。IOTA Stronghold と
+# keyring クレートは依存関係が重く CI の全プラットフォームでコンパイル失敗したため、
+# 依存関係ゼロで同要件の核心（アプリ私有データ領域への保存・平文を一般の場所に
+# 露出しない）を満たす（判断 15 追記）。OS のキーチェーンは後続で追加する。
+# カスタムスキーム（novnow://）の受信ハンドラが http::Response を返すために必要。
+http = "1"
+
+[features]
+# 備考: Tauri v2 では `tauri/custom-protocol` フィーチャーは不要となり無視される
+# （本アプリではどこからも有効化していない）。本フィーチャーは定義しない。

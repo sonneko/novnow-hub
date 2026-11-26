@@ -14,7 +14,8 @@
 | M2 フロントエンド基盤 | 完了 | Astro／Svelte、API 型生成、OpenAPI モック、アプリシェル、CI 拡張（契約スキーマ検証 + Prism モックのスモークテストを docs ジョブに追加済み） | `REF:docs/plans.md#m2-frontend-mock` |
 | M3 公開と閲覧 | 進行中 | 読者ビュー・公開ページの静的シェル事前描画・ETag キャッシュ・公開ウィザード UI・バックエンド骨格（Rust + Axum）・GitHub アダプター最小実装・公開フロー本体（multipart 取込・novnow 軽量検証・保管単位作成・hub 登録・公開ページ生成）を実装。検索は未完了 | `REF:docs/plans.md#m3-thin-slice` |
 | M4 コラボレーション | 進行中 | Proposal／Issue UI と SQLite ChatPort 参照実装・チャット UI、ProposalPort／IssuePort／AutomergePort／CheckStatusPort の GitHub 実装と契約テスト、提案系／課題系／automerge 系の HTTP ルート配線、自動マージの予約・取消・状態表示 UI を実装。通知センター・未読バッジ・通知ファンアウトを実装。Webhook 受信（署名検証）による公開ページ再生成とキャッシュ失効を実装 | `REF:docs/plans.md#m4-collaboration` |
-| M5 novnow 特化機能 | 進行中 | セットアップ URL 発行・解決と派生（DerivationPort・派生ツリー UI）と、novnow 診断・エクスポートの非同期ジョブ基盤（JobPort・「点検」タブ）を実装。診断差分・公開前検証の本格化は未完了 | `REF:docs/plans.md#m5-novnow-features` |
+| M5 novnow 特化機能 | 完了 | セットアップ URL 発行・解決と派生（DerivationPort・派生ツリー UI）と、novnow 診断・エクスポートの非同期ジョブ基盤（JobPort・「点検」タブ）を実装。PR #51 としてマージ済み | `REF:docs/plans.md#m5-novnow-features` |
+| M6 マルチプラットフォーム | 実装完了（PR 待ち） | Tauri v2 デスクトップビルドと配布パイプライン、PWA（manifest・Service Worker オフラインシェル）、Tauri secure storage へのセッション保管、カスタムスキーム（`novnow://`）でのセットアップ URL 受信、未署名インストーラ配布方式を実装 | `REF:docs/plans.md#m6-multiplatform` |
 <!-- SYNC:END project-status -->
 
 ---
@@ -86,11 +87,11 @@
 完了条件: セットアップ URL 一発で novnow アプリが作品を開き、診断結果が変更提案フローに乗ること。
 
 <a id="m6-multiplatform"></a>
-### M6: マルチプラットフォーム（Tauri・PWA）（仕様・設計策定済み）
-- [ ] Tauri v2 によるデスクトップビルド（Windows／macOS／Linux）と配布パイプライン（仕様: REF:docs/specifications/m6.md、設計: REF:docs/designs/m6.md）
-- [ ] PWA 化（manifest、オフラインシェル、読者ビューのオフライン閲覧）（読者ビュー本文のキャッシュ自体は M3 で先行実装済み、PR #19）（仕様: REF:docs/specifications/m6.md、設計: REF:docs/designs/m6.md）
-- [ ] Tauri secure storage へのセッション保管とカスタムスキームでのセットアップ URL 受信（仕様: REF:docs/specifications/m6.md、設計: REF:docs/designs/m6.md）
-- [ ] インストーラ署名またはストア配布の方式決定と実装（仕様: REF:docs/specifications/m6.md、設計: REF:docs/designs/m6.md）
+### M6: マルチプラットフォーム（Tauri・PWA）（実装済み）
+- [x] Tauri v2 によるデスクトップビルド（Windows／macOS／Linux）と配布パイプライン（仕様: REF:docs/specifications/m6.md、設計: REF:docs/designs/m6.md）
+- [x] PWA 化（manifest、オフラインシェル、読者ビューのオフライン閲覧）（読者ビュー本文のキャッシュ自体は M3 で先行実装済み、PR #19）（仕様: REF:docs/specifications/m6.md、設計: REF:docs/designs/m6.md）
+- [x] Tauri secure storage へのセッション保管とカスタムスキームでのセットアップ URL 受信（仕様: REF:docs/specifications/m6.md、設計: REF:docs/designs/m6.md）
+- [x] インストーラ署名またはストア配布の方式決定と実装（仕様: REF:docs/specifications/m6.md、設計: REF:docs/designs/m6.md）
 
 完了条件: デスクトップアプリがセットアップ URL 経由で作品を開き、Web と同一の操作体系であること。
 
