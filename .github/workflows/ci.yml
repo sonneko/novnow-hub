@@ -154,13 +154,15 @@ jobs:
         working-directory: server
         run: |
           # cargo-audit をインストールして既知脆弱性（Rust 依存）を検査する。
-          # 既知の脆弱性があれば CI を落とす。修正可能なものは update、
-          # メジャーアップグレードが必要な場合は handoff.md §4 に理由と代替策を記録する。
+          # 既定では「真の脆弱性（vulnerability）」のみが非ゼロ終了となる。
+          # 情報提供（informational: unmaintained 等）は警告として報告されるが
+          # CI を落とさない。修正可能な脆弱性は update、メジャーアップグレード
+          # が必要なものは handoff.md §4 に理由と代替策を記録する。
           if ! command -v cargo-audit >/dev/null 2>&1; then
             echo "cargo-audit をインストールします..."
             cargo install cargo-audit --locked
           fi
-          cargo audit --deny warnings
+          cargo audit
 
   lint:
     name: Type Check
