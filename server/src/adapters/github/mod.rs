@@ -22,9 +22,9 @@ use std::hash::Hasher;
 
 use crate::ports::{
     AutomergeConfig, AutomergePort, AutomergeState, AutomergeStateKind, CheckStatus,
-    CheckStatusPort, CheckState, Comment, DiffStats, FileStatus, Issue, IssuePort, IssueState,
-    IssueUpdate, MergeResult, PortError, Proposal, ProposalDiff, ProposalFile, ProposalPort,
-    ProposalState, ReviewVerdict,
+    CheckStatusPort, CheckState, Comment, DiagnosticsDelta, DiffStats, FileStatus, Issue,
+    IssuePort, IssueState, IssueUpdate, MergeResult, PortError, Proposal, ProposalDiff,
+    ProposalFile, ProposalPort, ProposalState, ReviewVerdict,
 };
 use crate::ports::{
     ContentPort, FileContent, Identity, IdentityPort, NewFile, ProjectShell,
@@ -390,6 +390,39 @@ fn map_check_state(run: &CheckRunJson) -> CheckState {
     }
 }
 
+/// novnow 診断差分を算出する（設計 §5.1）。
+///
+/// base と head のチェックランを比較し、Failure 状態のチェックについて
+/// 新たに混入した誤り（head にあって base に無い）と解消された誤り
+/// （base にあって head に無い）の件数を返す。novnow 診断はチェックランの
+/// 名称で識別し、`novnow` を含むチェックのみ対象とする（判断: `docs/handoff.md`
+/// §4 判断 20）。チェックランが取得できない場合（空リスト）は差分 0 とする。
+fn compute_diagnostics_delta(base: &[CheckStatus], head: &[CheckStatus]) -> DiagnosticsDelta {
+    let is_novnow = |c: &CheckStatus| c.name.contains("novnow");
+    let base_failing: Vec<&str> = base
+        .iter()
+        .filter(|c| is_novnow(c) && c.state == CheckState::Failure)
+        .map(|c| c.name.as_str())
+        .collect();
+    let head_failing: Vec<&str> = head
+        .iter()
+        .filter(|c| is_novnow(c) && c.state == CheckState::Failure)
+        .map(|c| c.name.as_str())
+        .collect();
+    let introduced = head_failing
+        .iter()
+        .filter(|name| !base_failing.contains(name))
+        .count() as u64;
+    let resolved = base_failing
+        .iter()
+        .filter(|name| !head_failing.contains(name))
+        .count() as u64;
+    DiagnosticsDelta {
+        introduced,
+        resolved,
+    }
+}
+
 /// アダプターを共有ハンドルで包む。
 pub type SharedGitHubAdapter = Arc<GitHubAdapter>;
 
@@ -479,6 +512,12 @@ impl ProposalPort for GitHubAdapter {
     async fn diff_proposal(&self, shell_id: &str, number: u64) -> Result<ProposalDiff, PortError> {
         let token = self.token()?;
         let repo = self.client.get_repo(&token, shell_id).await.map_err(|e| map_client_error(&e))?;
+        // PR の base/head ref を取得し、novnow 診断差分の算出に使う（設計 §5.1）。
+        let pr = self
+            .client
+            .get_pull(&token, &repo.full_name, number)
+            .await
+            .map_err(|e| map_client_error(&e))?;
         let files = self
             .client
             .list_pull_files(&token, &repo.full_name, number)
@@ -494,10 +533,15 @@ impl ProposalPort for GitHubAdapter {
                 hunks: f.patch.clone().map(|p| vec![p]).unwrap_or_default(),
             })
             .collect();
+        // novnow 診断差分: base と head のチェックランを CheckStatusPort で取得し、
+        // Failure 状態の増減から新たに混入した誤り／解消された誤りを算出する。
+        let base_checks = self.get_check_status(shell_id, &pr.base.ref_name).await?;
+        let head_checks = self.get_check_status(shell_id, &pr.head.ref_name).await?;
+        let delta = compute_diagnostics_delta(&base_checks, &head_checks);
         Ok(ProposalDiff {
             number,
             files,
-            novnow_diagnostics_delta: Default::default(),
+            novnow_diagnostics_delta: delta,
         })
     }
 

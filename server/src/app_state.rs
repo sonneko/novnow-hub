@@ -11,6 +11,7 @@ use crate::registry::SharedProjectRegistry;
 use crate::routes::auth::StateStore;
 use crate::session::SharedSessionStore;
 use crate::notifications::SharedNotificationStore;
+use crate::verification::SharedVerificationService;
 use crate::webhook::{SharedRebuild, SharedWebhookStore};
 
 /// 共有する派生アダプター（`DerivationPort` 実装）。
@@ -41,4 +42,6 @@ pub struct AppState {
     pub derivation: SharedDerivation,
     /// novnow 診断・エクスポートの非同期ジョブ基盤（設計 §4.1）。
     pub jobs: SharedJobPort,
+    /// 公開前検証（novnow 点検）の同期検証サービス（設計 §6.1）。
+    pub verification: SharedVerificationService,
 }

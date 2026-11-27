@@ -16,6 +16,7 @@ pub mod project_index;
 pub mod registry;
 pub mod routes;
 pub mod session;
+pub mod verification;
 pub mod verify;
 pub mod webhook;
 pub mod zip_import;
@@ -185,6 +186,25 @@ pub fn build_router(state: AppState) -> Router {
                     middleware::require_auth,
                 )),
         )
+        // M5 公開前検証（novnow 点検）。`verify` は認証必須（契約 `verifyProject`）、
+        // `verify/latest` は匿名可（契約 `getLatestVerification`、`security: []`）。
+        .merge(
+            Router::new()
+                .route(
+                    "/projects/{projectId}/verify",
+                    post(routes::verify::verify_project),
+                )
+                .route_layer(axum::middleware::from_fn_with_state(
+                    state.clone(),
+                    middleware::require_auth,
+                )),
+        )
+        .merge(
+            Router::new().route(
+                "/projects/{projectId}/verify/latest",
+                get(routes::verify::get_latest_verification),
+            ),
+        )
         // M5 エクスポート（無認証、契約 `createExport`）。
         .merge(
             Router::new().route(
@@ -246,9 +266,18 @@ pub fn build_app_state(config: Config) -> AppState {
     ));
     let jobs = Arc::new(crate::jobs::JobManager::new(
         job_store,
-        job_runner,
+        job_runner.clone(),
         notifications.clone(),
     )) as Arc<dyn crate::ports::JobPort>;
+
+    // 公開前検証（novnow 点検）の同期検証サービス（設計 §6.1）。
+    // コンテンツ読み取りは GitHub アダプター（`ContentPort` 実装）を共有する。
+    let verification_store = Arc::new(crate::verification::VerificationStore::new());
+    let verification = Arc::new(crate::verification::VerificationService::new(
+        github_adapter.clone() as Arc<dyn crate::jobs::JobContentPort>,
+        projects.clone(),
+        verification_store,
+    ));
 
     AppState {
         config: config.clone(),
@@ -264,6 +293,7 @@ pub fn build_app_state(config: Config) -> AppState {
         derivatives,
         derivation,
         jobs,
+        verification,
     }
 }
 
@@ -279,7 +309,8 @@ mod tests {
     use crate::app_state::AppState;
     use crate::ports::Identity;
     use crate::test_support::{
-        build_multipart, get_request, multipart_request, response_text, test_router, test_state,
+        build_multipart, get_request, multipart_request, register_test_project, response_text,
+        test_router, test_state, test_state_with_github_base,
     };
 
     fn authed_get(path: &str, token: &str) -> Request<Body> {
@@ -1144,4 +1175,181 @@ mod tests {
         assert_eq!(status, StatusCode::NOT_FOUND);
     }
 
+    // =====================================================================
+    // M5 公開前検証（novnow 点検）の HTTP ルート統合テスト（設計 §6.1）。
+    // =====================================================================
+
+    /// verify 系のテスト用に valid な novnow プロジェクトファイルを mock に設定する。
+    fn valid_project_files() -> std::collections::HashMap<String, String> {
+        use std::collections::HashMap;
+        HashMap::from([
+            ("project.toml".to_string(), "schema_version = 2\n".to_string()),
+            ("characters.md".to_string(), "# characters\n".to_string()),
+            ("words.md".to_string(), "# words\n".to_string()),
+            (
+                "materials/index.json".to_string(),
+                "{}\n".to_string(),
+            ),
+            ("plots/all.cnov".to_string(), "plot\n".to_string()),
+            ("contents/01.cnov".to_string(), "body\n".to_string()),
+        ])
+    }
+
+    /// `POST /verify` は認証必須。未認証は 401。
+    #[tokio::test]
+    async fn verify_project_requires_auth() {
+        let mock = crate::test_support::MockGitHub::new();
+        let base_url = mock.start().await;
+        let state = test_state_with_github_base(&base_url);
+        state
+            .github_adapter
+            .set_token(crate::adapters::github::client::Token::new("test-token".into()));
+        register_test_project(&state, "prj_v", "octo/demo");
+        mock.set_files(valid_project_files());
+        let router = test_router(state);
+
+        let resp = router
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/projects/prj_v/verify")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let (status, _) = response_text(resp).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+    }
+
+    /// `POST /verify` は 200 + VerificationResult を返す。
+    #[tokio::test]
+    async fn verify_project_returns_result() {
+        let mock = crate::test_support::MockGitHub::new();
+        let base_url = mock.start().await;
+        let state = test_state_with_github_base(&base_url);
+        state
+            .github_adapter
+            .set_token(crate::adapters::github::client::Token::new("test-token".into()));
+        register_test_project(&state, "prj_v", "octo/demo");
+        mock.set_files(valid_project_files());
+        let session = state
+            .sessions
+            .create_with_identity("u-v", Some(Identity {
+                id: "u-v".into(),
+                handle: "sora".into(),
+                display_name: "sora".into(),
+                avatar_url: None,
+            }));
+        let router = test_router(state);
+
+        let resp = router
+            .oneshot(authed_post(
+                "/api/v1/projects/prj_v/verify",
+                &session.session_id,
+                serde_json::json!({}),
+            ))
+            .await
+            .unwrap();
+        let (status, body) = response_text(resp).await;
+        assert_eq!(status, StatusCode::OK, "body={body}");
+        let result: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(result["ok"], serde_json::json!(true));
+        assert!(!result["checkedAt"].as_str().unwrap_or("").is_empty());
+    }
+
+    /// `POST /verify` は存在しないプロジェクトで 404。
+    #[tokio::test]
+    async fn verify_project_unknown_project_returns_404() {
+        let state = test_state();
+        let session = state
+            .sessions
+            .create_with_identity("u-v2", Some(Identity {
+                id: "u-v2".into(),
+                handle: "sora".into(),
+                display_name: "sora".into(),
+                avatar_url: None,
+            }));
+        let router = test_router(state);
+        let resp = router
+            .oneshot(authed_post(
+                "/api/v1/projects/nope/verify",
+                &session.session_id,
+                serde_json::json!({}),
+            ))
+            .await
+            .unwrap();
+        let (status, _) = response_text(resp).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+    }
+
+    /// `GET /verify/latest` は匿名可で 200 を返す（検証済み）。
+    #[tokio::test]
+    async fn get_latest_verification_is_anonymous_and_returns_result() {
+        let mock = crate::test_support::MockGitHub::new();
+        let base_url = mock.start().await;
+        let state = test_state_with_github_base(&base_url);
+        state
+            .github_adapter
+            .set_token(crate::adapters::github::client::Token::new("test-token".into()));
+        register_test_project(&state, "prj_v", "octo/demo");
+        mock.set_files(valid_project_files());
+        let session = state
+            .sessions
+            .create_with_identity("u-v3", Some(Identity {
+                id: "u-v3".into(),
+                handle: "sora".into(),
+                display_name: "sora".into(),
+                avatar_url: None,
+            }));
+        let router = test_router(state);
+        // 先に検証を実行する。
+        let resp = router
+            .clone()
+            .oneshot(authed_post(
+                "/api/v1/projects/prj_v/verify",
+                &session.session_id,
+                serde_json::json!({}),
+            ))
+            .await
+            .unwrap();
+        let (status, _) = response_text(resp).await;
+        assert_eq!(status, StatusCode::OK);
+        // 匿名で直近結果を取得。
+        let resp = router
+            .oneshot(get_request("/api/v1/projects/prj_v/verify/latest"))
+            .await
+            .unwrap();
+        let (status, body) = response_text(resp).await;
+        assert_eq!(status, StatusCode::OK, "body={body}");
+        let result: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(result["ok"], serde_json::json!(true));
+    }
+
+    /// `GET /verify/latest` は未検証（直近結果なし）で 404。
+    #[tokio::test]
+    async fn get_latest_verification_not_run_returns_404() {
+        let state = test_state();
+        register_test_project(&state, "prj_v", "octo/demo");
+        let router = test_router(state);
+        let resp = router
+            .oneshot(get_request("/api/v1/projects/prj_v/verify/latest"))
+            .await
+            .unwrap();
+        let (status, _) = response_text(resp).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+    }
+
+    /// `GET /verify/latest` は存在しないプロジェクトで 404。
+    #[tokio::test]
+    async fn get_latest_verification_unknown_project_returns_404() {
+        let state = test_state();
+        let router = test_router(state);
+        let resp = router
+            .oneshot(get_request("/api/v1/projects/nope/verify/latest"))
+            .await
+            .unwrap();
+        let (status, _) = response_text(resp).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+    }
 }

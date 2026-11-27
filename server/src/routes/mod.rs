@@ -5,4 +5,5 @@ pub mod jobs;
 pub mod meta;
 pub mod notifications;
 pub mod projects;
+pub mod verify;
 pub mod webhook;

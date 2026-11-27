@@ -164,6 +164,8 @@ pub struct MockGitHub {
     pub recorded: Arc<Mutex<Vec<RecordedRequest>>>,
     pub prs: Arc<Mutex<Vec<serde_json::Value>>>,
     pub reviews: Arc<Mutex<HashMap<i64, Vec<serde_json::Value>>>>,
+    /// contents API が返すファイル一覧（パス → 内容）。
+    pub files: Arc<Mutex<HashMap<String, String>>>,
 }
 
 impl MockGitHub {
@@ -179,6 +181,11 @@ impl MockGitHub {
     /// PR 番号ごとのレビューを設定する。
     pub fn set_reviews(&self, reviews: HashMap<i64, Vec<serde_json::Value>>) {
         *self.reviews.lock().unwrap() = reviews;
+    }
+
+    /// contents API が返すファイル一覧を設定する（パス → 内容）。
+    pub fn set_files(&self, files: HashMap<String, String>) {
+        *self.files.lock().unwrap() = files;
     }
 
     /// 記録されたリクエストを返す。
@@ -231,6 +238,14 @@ impl MockGitHub {
             .route(
                 "/repos/{owner}/{repo}/commits/{ref}/check-runs",
                 get(check_runs),
+            )
+            .route(
+                "/repos/{owner}/{repo}/contents",
+                get(list_contents_root),
+            )
+            .route(
+                "/repos/{owner}/{repo}/contents/{*path}",
+                get(get_contents),
             )
             .with_state(self.clone());
 
@@ -447,6 +462,94 @@ async fn check_runs(State(mock): State<MockGitHub>, req: Request<Body>) -> Respo
             "html_url": "https://github.com/octo/demo/runs/1"
         }]
     }))
+}
+
+/// contents API のルート直下の一覧を返す（ディレクトリ entry を含む）。
+async fn list_contents_root(State(mock): State<MockGitHub>, req: Request<Body>) -> Response {
+    let (method, path) = read_req(req).await;
+    mock.recorded.lock().unwrap().push(RecordedRequest { method, path: path.clone() });
+    let files = mock.files.lock().unwrap().clone();
+    let mut entries = Vec::new();
+    // ルート直下のディレクトリとファイルを返す。
+    let mut dirs: Vec<String> = files
+        .keys()
+        .filter_map(|p| p.split('/').next().map(|s| s.to_string()))
+        .collect();
+    dirs.sort();
+    dirs.dedup();
+    for d in &dirs {
+        if files.keys().any(|p| p.starts_with(&format!("{d}/"))) {
+            entries.push(serde_json::json!({
+                "path": d, "sha": format!("sha-{d}"), "type": "dir"
+            }));
+        }
+    }
+    for p in files.keys() {
+        if !p.contains('/') {
+            entries.push(serde_json::json!({
+                "path": p, "sha": format!("sha-{p}"), "type": "file", "size": 10
+            }));
+        }
+    }
+    json_ok(serde_json::json!(entries))
+}
+
+/// contents API のパス指定の一覧／ファイルを返す。
+async fn get_contents(State(mock): State<MockGitHub>, req: Request<Body>) -> Response {
+    let (method, path) = read_req(req).await;
+    mock.recorded.lock().unwrap().push(RecordedRequest { method, path: path.clone() });
+    // パスは `/repos/{owner}/{repo}/contents/{*path}`。{*path} を取り出す。
+    let content_path = path
+        .split("/contents/")
+        .nth(1)
+        .unwrap_or("")
+        .trim_matches('/')
+        .to_string();
+    let files = mock.files.lock().unwrap().clone();
+    if let Some(content) = files.get(&content_path) {
+        // ファイル: base64 で返す（client が Text/Base64 を判定）。
+        let encoded = base64_encode(content.as_bytes());
+        let body = serde_json::json!({
+            "content": encoded,
+            "encoding": "base64",
+            "sha": format!("sha-{content_path}")
+        });
+        return json_ok(body);
+    }
+    // ディレクトリ: 配下のファイルを集約して entry 一覧を返す。
+    let prefix = format!("{content_path}/");
+    let mut entries = Vec::new();
+    // 真のサブディレクトリのみを dir entry とする（{prefix}{d}/ で始まるパスが存在する）。
+    let mut subdirs: Vec<String> = files
+        .keys()
+        .filter_map(|p| p.strip_prefix(&prefix).and_then(|rest| rest.split('/').next()))
+        .map(|s| s.to_string())
+        .filter(|d| !d.is_empty() && files.keys().any(|p| p.starts_with(&format!("{prefix}{d}/"))))
+        .collect();
+    subdirs.sort();
+    subdirs.dedup();
+    for d in &subdirs {
+        entries.push(serde_json::json!({
+            "path": format!("{prefix}{d}"), "sha": format!("sha-{d}"), "type": "dir"
+        }));
+    }
+    for p in files.keys() {
+        if let Some(rest) = p.strip_prefix(&prefix) {
+            if !rest.contains('/') {
+                entries.push(serde_json::json!({
+                    "path": p, "sha": format!("sha-{p}"), "type": "file", "size": 10
+                }));
+            }
+        }
+    }
+    json_ok(serde_json::json!(entries))
+}
+
+/// 最小限の base64 エンコード（テスト用）。
+fn base64_encode(data: &[u8]) -> String {
+    use base64::engine::general_purpose::STANDARD;
+    use base64::Engine;
+    STANDARD.encode(data)
 }
 
 // ============================================================================
