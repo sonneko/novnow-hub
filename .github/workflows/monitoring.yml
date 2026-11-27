@@ -1,0 +1,53 @@
+# M7 §2.2 外形監視の定期実行ワークフロー。
+#
+# 定期（既定 5 分）で公開ページと hub API の外形をチェックし、
+# 異常時は Issue を作成する。監視は「応答しているか」の外形のみ。
+# 監視先の URL は環境変数 MONITOR_BASE_URL で指定する。
+# MONITOR_BASE_URL が未設定、または localhost のプレースホルダ値のときは
+# 監視を休止し、ヘルスチェックと Issue 作成を行わず成功終了する。
+
+name: Monitoring
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  healthcheck:
+    name: Healthcheck
+    runs-on: ubuntu-latest
+    env:
+      MONITOR_BASE_URL: ${{ vars.MONITOR_BASE_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 監視設定の確認
+        id: monitor-config
+        run: |
+          if [[ -z "${MONITOR_BASE_URL}" || "${MONITOR_BASE_URL}" == http://localhost* || "${MONITOR_BASE_URL}" == https://localhost* ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "MONITOR_BASE_URL が未設定またはプレースホルダ（localhost）のため、監視を休止します。"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Healthcheck
+        if: steps.monitor-config.outputs.skip != 'true'
+        run: |
+          set -uo pipefail
+          ./deploy/monitoring/healthcheck.sh "${MONITOR_BASE_URL}"
+          echo "exit=$?"
+
+      - name: Report failure as issue
+        if: failure() && steps.monitor-config.outputs.skip != 'true'
+        run: |
+          gh issue create \
+            --title "[Monitoring] 外形監視で異常を検出: ${MONITOR_BASE_URL}" \
+            --body "定期監視で ${MONITOR_BASE_URL} の外形チェックが失敗しました。\n\n対象: 公開ページと hub API のメタ情報。手動で検証してください。" \
+            --label monitoring

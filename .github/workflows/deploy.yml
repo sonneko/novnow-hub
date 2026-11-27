@@ -1,55 +1,113 @@
 name: Deploy
 
-# メインブランチへの push のうち、デプロイに影響するファイルが変更されたときのみ走らせる。
-# GitHub Pages、Vercel、Cloudflare Pages 等のデプロイ先に合わせて調整すること。
+# M7 §2.1 本番デプロイのパイプライン。
+#
+# 既定構成（Cloudflare Workers + D1）へのデプロイを行う。
+# 本番環境への適用は environment protection による**手動承認**を既定とする。
+# 実際のデプロイ先（Cloudflare アカウント・ドメイン・Secrets）の有効化は
+# アカウント側の操作が必要（REF:deploy/workers-d1/DEPLOY.md を参照）。
+#
+# 代替構成（VPS + Docker）は REF:deploy/vps-docker/DEPLOY.md に手順を用意。
 
 on:
   push:
     branches: [main]
     paths:
-      - 'src/**'
-      - 'public/**'
-      - 'package.json'
-      - 'package-lock.json'
+      - 'deploy/**'
+      - 'server/**'
+      - 'web/**'
+      - 'api/**'
       - '.github/workflows/deploy.yml'
+      - '.github/workflows/monitoring.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: deploy-production
+  cancel-in-progress: false
 
 jobs:
   build:
+    name: Build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      # --- プロジェクト固有のビルドコマンドをここに追加する ---
-      # 例（静的サイト）:
-      # - uses: actions/setup-node@v4
-      # - run: npm ci
-      # - run: npm run build
-      # - uses: actions/upload-pages-artifact@v3
-      #   with:
-      #     path: ./dist
+      - name: Build web (static)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: npm ci
+        run: cd web && npm ci
+      - name: npm run build
+        run: cd web && npm run build
 
-  deploy:
+      - name: Build server (Rust)
+        uses: dtolnay/rust-toolchain@stable
+      - name: cargo build --release
+        run: cd server && cargo build --release --locked
+
+      - name: Upload web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
+          retention-days: 7
+
+      - name: Upload server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-bin
+          path: server/target/release/novnow-hub-server
+          retention-days: 7
+
+  deploy-workers:
+    name: Deploy to Workers + D1
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # 手動承認ゲート。環境保護ルールで承認者を設定するのはアカウント側の操作。
     environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      name: production
+      url: ${{ vars.HUB_PUBLIC_BASE || 'https://novnow.example.com' }}
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check Cloudflare Secrets
+        # デプロイ先のアカウント側で Secrets が未設定ならスキップする。
+        # 実際の有効化はアカウント側の操作が必要（無理に実行しない）。
+        id: secrets
+        run: |
+          if [[ -z "${CF_API_TOKEN:-}" || -z "${CF_ACCOUNT_ID:-}" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Cloudflare の Secrets（CF_API_TOKEN / CF_ACCOUNT_ID）が未設定のためデプロイをスキップ。アカウント側で設定してください（REF:deploy/workers-d1/DEPLOY.md）。"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download artifacts
+        if: steps.secrets.outputs.skip != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          path: ./dist
+
+      - name: Deploy to Cloudflare Workers
+        if: steps.secrets.outputs.skip != 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          command: deploy
+          workingDirectory: ./dist
+        env:
+          # 非secret な公開ベース URL は変数で渡す（秘密はリポジトリに載せない）。
+          HUB_PUBLIC_BASE: ${{ vars.HUB_PUBLIC_BASE || 'https://novnow.example.com' }}

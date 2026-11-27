@@ -1,0 +1,32 @@
+# VPS + Docker の代替構成用 docker-compose（M7 §2.1）。
+#
+# 秘密は `.env`（リポジトリに載せない、REF:.gitignore で除外）から読み込む。
+# `.env.example` を参考にアカウント側で値を設定すること。
+
+services:
+  hub:
+    build:
+      context: ../..
+      dockerfile: deploy/vps-docker/Dockerfile
+    image: novnow-hub:latest
+    container_name: novnow-hub
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # 公開ベース URL（VPS のドメイン／IP に合わせて設定）。
+      HUB_PUBLIC_BASE: ${HUB_PUBLIC_BASE:-http://localhost:8080}
+      HUB_BIND_ADDR: 0.0.0.0
+      HUB_PORT: "8080"
+      # GitHub OAuth（アカウント側で設定。未設定なら認証フローはエラー）。
+      HUB_GITHUB_OAUTH_CLIENT_ID: ${HUB_GITHUB_OAUTH_CLIENT_ID:-}
+      HUB_GITHUB_OAUTH_CLIENT_SECRET: ${HUB_GITHUB_OAUTH_CLIENT_SECRET:-}
+      HUB_GITHUB_OAUTH_REDIRECT_URI: ${HUB_GITHUB_OAUTH_REDIRECT_URI:-}
+      # Webhook 署名検証用の秘密（アカウント側で設定）。
+      HUB_WEBHOOK_SECRET: ${HUB_WEBHOOK_SECRET:-}
+    volumes:
+      # バックアップ対象のデータ永続化（必要に応じてマウント）。
+      - hub-data:/app/data
+
+volumes:
+  hub-data:
