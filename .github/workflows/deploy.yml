@@ -94,11 +94,16 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Download artifacts
+      - name: Build server (Wasm for Workers)
+        if: steps.secrets.outputs.skip != 'true'
+        run: cd server && cargo build --release --target wasm32-unknown-unknown --lib --no-default-features --features wasm --locked
+
+      - name: Download web artifact
         if: steps.secrets.outputs.skip != 'true'
         uses: actions/download-artifact@v4
         with:
-          path: ./dist
+          name: web-dist
+          path: ./deploy/workers-d1/web/dist
 
       - name: Deploy to Cloudflare Workers
         if: steps.secrets.outputs.skip != 'true'
@@ -107,7 +112,7 @@ jobs:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
           command: deploy
-          workingDirectory: ./dist
+          workingDirectory: ./deploy/workers-d1
         env:
           # 非secret な公開ベース URL は変数で渡す（秘密はリポジトリに載せない）。
           HUB_PUBLIC_BASE: ${{ vars.HUB_PUBLIC_BASE || 'https://novnow.example.com' }}

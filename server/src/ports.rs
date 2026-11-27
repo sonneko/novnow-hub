@@ -990,3 +990,39 @@ pub trait JobPort: Send + Sync {
         Box<dyn std::future::Future<Output = Result<Job, PortError>> + Send + '_>,
     >;
 }
+
+// ============================================================================
+// Cloudflare D1（SQLite）バインディング用ポート（M7 §2.1、Worker ランタイム適応）。
+//
+// Phase 1 ではインメモリストア＋GitHub を主backとするため、D1 への実接続は
+// アカウント側の D1 バインディング設定待ち（判断 REF:docs/handoff.md §4 判断 26）。
+// ここではコード側のインターフェースのみを整え、実接続は行わない。
+// ============================================================================
+
+/// Cloudflare D1 データベースへのアクセスポート。
+///
+/// 実接続は Cloudflare アカウント側で D1 データベースを作成し、wrangler.toml の
+/// `[[d1_databases]]` でバインディングを設定した後、アダプター側で実装する。
+/// 本リポジトリでは実接続を行わず、トレイト定義（コード側の準備）に留める。
+pub trait D1Port: Send + Sync {
+    /// SQL を実行し、結果を行のリスト（列名 → 値 のマップ）で返す。
+    ///
+    /// `params` はプレースホルダ（`?`）にバインドする値。
+    fn query(
+        &self,
+        sql: &str,
+        params: &[&dyn std::fmt::Display],
+    ) -> impl std::future::Future<
+        Output = Result<
+            Vec<std::collections::HashMap<String, serde_json::Value>>,
+            PortError,
+        >,
+    > + Send;
+
+    /// SQL を実行し、影響行数を返す。
+    fn execute(
+        &self,
+        sql: &str,
+        params: &[&dyn std::fmt::Display],
+    ) -> impl std::future::Future<Output = Result<u64, PortError>> + Send;
+}
