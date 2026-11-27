@@ -12,10 +12,11 @@
 | 初期マイルストーン | 完了 | プロジェクトセットアップ・ドキュメント管理規則の策定 | `REF:docs/history.md` |
 | M1 仕様策定 | 完了 | 仕様書・API 契約（OpenAPI 3.1）・マイルストーン計画の策定 | `REF:docs/plans.md#m1-specs` |
 | M2 フロントエンド基盤 | 完了 | Astro／Svelte、API 型生成、OpenAPI モック、アプリシェル、CI 拡張（契約スキーマ検証 + Prism モックのスモークテストを docs ジョブに追加済み） | `REF:docs/plans.md#m2-frontend-mock` |
-| M3 公開と閲覧 | 進行中 | 読者ビュー・公開ページの静的シェル事前描画・ETag キャッシュ・公開ウィザード UI・バックエンド骨格（Rust + Axum）・GitHub アダプター最小実装・公開フロー本体（multipart 取込・novnow 軽量検証・保管単位作成・hub 登録・公開ページ生成）を実装。検索は未完了 | `REF:docs/plans.md#m3-thin-slice` |
-| M4 コラボレーション | 進行中 | Proposal／Issue UI と SQLite ChatPort 参照実装・チャット UI、ProposalPort／IssuePort／AutomergePort／CheckStatusPort の GitHub 実装と契約テスト、提案系／課題系／automerge 系の HTTP ルート配線、自動マージの予約・取消・状態表示 UI を実装。通知センター・未読バッジ・通知ファンアウトを実装。Webhook 受信（署名検証）による公開ページ再生成とキャッシュ失効を実装 | `REF:docs/plans.md#m4-collaboration` |
+| M3 公開と閲覧 | 完了 | 読者ビュー・公開ページの静的シェル事前描画・ETag キャッシュ・公開ウィザード UI・バックエンド骨格（Rust + Axum）・GitHub アダプター最小実装・公開フロー本体（multipart 取込・novnow 軽量検証・保管単位作成・hub 登録・公開ページ生成）・プロジェクト一覧・検索（`GET /search/projects`）を実装 | `REF:docs/plans.md#m3-thin-slice` |
+| M4 コラボレーション | 完了 | Proposal／Issue UI と SQLite ChatPort 参照実装・チャット UI、ProposalPort／IssuePort／AutomergePort／CheckStatusPort の GitHub 実装と契約テスト、提案系／課題系／automerge 系の HTTP ルート配線、自動マージの予約・取消・状態表示 UI を実装。通知センター・未読バッジ・通知ファンアウトを実装。Webhook 受信（署名検証）による公開ページ再生成とキャッシュ失効を実装 | `REF:docs/plans.md#m4-collaboration` |
 | M5 novnow 特化機能 | 完了 | セットアップ URL 発行・解決と派生（DerivationPort・派生ツリー UI）と、novnow 診断・エクスポートの非同期ジョブ基盤（JobPort・「点検」タブ）を実装。PR #51 としてマージ済み | `REF:docs/plans.md#m5-novnow-features` |
-| M6 マルチプラットフォーム | 実装完了（PR 待ち） | Tauri v2 デスクトップビルドと配布パイプライン、PWA（manifest・Service Worker オフラインシェル）、Tauri secure storage へのセッション保管、カスタムスキーム（`novnow://`）でのセットアップ URL 受信、未署名インストーラ配布方式を実装 | `REF:docs/plans.md#m6-multiplatform` |
+| M6 マルチプラットフォーム | 完了 | Tauri v2 デスクトップビルドと配布パイプライン、PWA（manifest・Service Worker オフラインシェル）、Tauri secure storage へのセッション保管、カスタムスキーム（`novnow://`）でのセットアップ URL 受信、未署名インストーラ配布方式を実装。PR #52 としてマージ済み | `REF:docs/plans.md#m6-multiplatform` |
+| M7 運用・品質・OSS 公開準備 | 進行中 | 本番デプロイとインフラ運用（§2: デプロイ・監視・バックアップ・鍵ローテーション）を実装。CI 拡張（§3: 契約互換性検査・cargo/npm audit・カバレッジゲート、PR #56 マージ済み）・セキュリティレビュー（§4: トークン暗号化、PR #54/#55 マージ済み）は完了 | `REF:docs/plans.md#m7-ops` |
 <!-- SYNC:END project-status -->
 
 ---
@@ -97,9 +98,9 @@
 
 <a id="m7-ops"></a>
 ### M7: 運用・品質・OSS 公開準備（仕様・設計策定済み）
-- [ ] 本番デプロイ（Workers + D1 を既定、VPS + Docker を代替）と外形監視・バックアップ・鍵ローテーション手順（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）
-- [ ] CI の拡張（契約互換性検査（oasdiff 相当）、`cargo audit`／`npm audit`、カバレッジゲート）（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）
-- [ ] セキュリティレビュー（zip 取込・CSP・トークン暗号化・権限判定）と依存ライセンスの棚卸し（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）
+- [x] 本番デプロイ（Workers + D1 を既定、VPS + Docker を代替）と外形監視・バックアップ・鍵ローテーション手順（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）— 実装済み（`deploy/` の資材と `.github/workflows/deploy.yml`・`monitoring.yml` を整備。外部サービスの有効化はアカウント側の操作）
+- [x] CI の拡張（契約互換性検査（oasdiff 相当）、`cargo audit`／`npm audit`、カバレッジゲート）（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）— PR #56 で完了
+- [x] セキュリティレビュー（zip 取込・CSP・トークン暗号化・権限判定）と依存ライセンスの棚卸し（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）— トークン暗号化は PR #54/#55 で完了
 - [ ] ドキュメント整備（セルフホストガイド・運営ポリシー・CHANGELOG）と初回リリース（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）
 - [ ] 性能目標の実測検証（LCP・API p95・検索）とコスト実測（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）
 

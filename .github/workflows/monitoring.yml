@@ -1,0 +1,40 @@
+# M7 §2.2 外形監視の定期実行ワークフロー。
+#
+# 定期（既定 5 分）で公開ページと hub API の外形をチェックし、
+# 異常時は Issue を作成する。監視は「応答しているか」の外形のみ。
+# 監視先の URL は環境変数 MONITOR_BASE_URL で指定（既定はプレースホルダ）。
+
+name: Monitoring
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  healthcheck:
+    name: Healthcheck
+    runs-on: ubuntu-latest
+    env:
+      MONITOR_BASE_URL: ${{ vars.MONITOR_BASE_URL || 'http://localhost:8080' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Healthcheck
+        run: |
+          set -uo pipefail
+          ./deploy/monitoring/healthcheck.sh "${MONITOR_BASE_URL}"
+          echo "exit=$?"
+
+      - name: Report failure as issue
+        if: failure()
+        run: |
+          gh issue create \
+            --title "[Monitoring] 外形監視で異常を検出: ${MONITOR_BASE_URL}" \
+            --body "定期監視で ${MONITOR_BASE_URL} の外形チェックが失敗しました。\n\n対象: 公開ページと hub API のメタ情報。手動で検証してください。" \
+            --label monitoring

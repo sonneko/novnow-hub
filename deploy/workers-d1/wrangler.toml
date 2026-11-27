@@ -1,0 +1,40 @@
+# Cloudflare Workers + D1 の設定（M7 §2.1、既定構成）。
+#
+# 本ファイルは設定の正であり、実際のデプロイには Cloudflare アカウント側で
+# Worker 名・D1 データベース・ドメイン・Secrets を作成・設定する必要がある
+# （アカウント側の操作）。値はプレースホルダであり、リポジトリに秘密を載せない。
+#
+# デプロイ手順は REF:deploy/workers-d1/DEPLOY.md を参照。
+
+name = "novnow-hub"
+main = "../server/src/main.rs"
+compatibility_date = "2026-01-01"
+
+# Worker が待受するドメイン（Cloudflare 側で割り当てたものを既定とする）。
+# ドメインの取得・DNS 設定はアカウント側の操作。
+# routes で静的公開ページ（web/dist）と API を同一 Worker で捌く想定。
+routes = [
+  { pattern = "novnow.example.com/*", type = "exclusive" },
+]
+
+# 公開ページ（静的）を配信するasset ディレクトリ（ビルド成果物）。
+# デプロイワークフローが web/dist を Worker 配下に配置する。
+assets = { directory = "../web/dist", not_found_handling = "single-page-application" }
+
+# D1（Cloudflare の SQLite）绑定。データベース名はアカウント側で作成。
+# 既定のデータ基盤。Phase 1 のサーバーはインメモリストア＋GitHub を主backと
+# するため、D1 への実接続は後続タスク（判断: REF:docs/handoff.md §4 判断 21）。
+[[d1_databases]]
+binding = "DB"
+database_name = "novnow-hub-db"        # プレースホルダ（アカウント側で作成）
+database_id = "<DATABASE_ID>"          # プレースホルダ（Cloudflare 側で取得）
+
+# 非secret な設定は変数で渡す（秘密は Secrets で別途設定）。
+[vars]
+HUB_PUBLIC_BASE = "https://novnow.example.com"   # プレースホルダ（公開ドメイン）
+HUB_BIND_ADDR = "0.0.0.0"
+HUB_PORT = "8080"
+
+# 秘密（GitHub OAuth・Webhook 署名鍵等）は Secrets で設定する。
+# wrangler secret put HUB_GITHUB_OAUTH_CLIENT_SECRET 等をアカウント側で実行。
+# リポジトリには一切載せない。
