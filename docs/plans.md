@@ -79,10 +79,10 @@
 ### M5: novnow 特化機能（セットアップ URL・派生ツリー・診断）（仕様・設計策定済み）
 - [x] DerivationPort（GitHub Fork 連携 + 派生レコード）と派生ツリー UI（`/derivatives`）（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
 - [x] セットアップ URL 発行と解決（`/projects/{id}/setup`、`/setup/resolve`）（PR #12 で実装済み）（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
-- [ ] novnow アプリ側ハンドラ仕様の追補（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
+- [x] novnow アプリ側ハンドラ仕様の追補（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）。デスクトップ版は OS のカスタムスキーム（`novnow://`）、ブラウザ版は通常の URL でセットアップ URL を受け取る仕様を追補。受信後の取得→配置→初期化検証→エディタ開封の自動処理と、失敗時の失敗工程表示＋手動取得導線を仕様 §3.3・設計 §3.3 に追補。hub 側はセットアップ URL 発行・解決と取得元情報の提供（`ProjectPage.svelte` のブラウザ URL 表示・コピー・手動取得導線）で対応。契約変更なし
 - [x] novnow 診断・エクスポートの非同期ジョブ基盤（JobPort）と実行環境（novnow の WASM 実行、不可なら GitHub Actions 上の novnow CLI）（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
-- [ ] 変更提案差分への novnow 診断差分（新規混入／解消）の付与（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
-- [ ] 公開前検証の本格化（novnow check 相当の診断を必須チェックに連動）（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
+- [x] 変更提案差分への novnow 診断差分（新規混入／解消）の付与（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）。`diff_proposal` で PR の base/head のチェックランを `CheckStatusPort` 経由で取得し、novnow Failure チェックの introduced/resolved を `ProposalDiff.novnowDiagnosticsDelta` に算出（`server/src/adapters/github/mod.rs` の `compute_diagnostics_delta`）。フロントエンド表示は既存を流用。検証: server 側 `cargo build`（警告 0）・`cargo test`・`cargo clippy -D warnings` 通過
+- [x] 公開前検証の本格化（novnow check 相当の診断を必須チェックに連動）（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）。`VerificationService`（`server/src/verification.rs`）が `JobContentPort` 経由でスナップショット取得＋`verify_snapshot` 同期検証を行い、結果を `VerificationStore` に保持。`POST /projects/{id}/verify`（認証必須）・`GET /projects/{id}/verify/latest`（匿名可）を `build_router` に配線（`routes/verify.rs`）。M4 判断 9 で見送りとなった verify 系の配線理由は `docs/handoff.md` 判断 20 に記録。検証: server 側 `cargo build`（警告 0）・`cargo test`（170 件成功）・`cargo clippy -D warnings` 通過
 
 完了条件: セットアップ URL 一発で novnow アプリが作品を開き、診断結果が変更提案フローに乗ること。
 
