@@ -5,22 +5,53 @@ edition = "2021"
 description = "novnow-hub バックエンド（Rust + Axum）。API 契約（api/openapi.yaml）にのみ準拠する。"
 publish = false
 
+[lib]
+name = "novnow_hub_server"
+path = "src/lib.rs"
+# Cloudflare Workers 用の wasm モジュールを出力する（cdylib）。
+# wrangler.toml の `main` にこの wasm ファイルを指定する。
+# rlib も含め、bin ターゲットから lib を参照できるようにする。
+crate-type = ["rlib", "cdylib"]
+
 [[bin]]
 name = "novnow-hub-server"
 path = "src/main.rs"
 
+[features]
+# ネイティブビルド（デフォルト）：tokio + axum + reqwest で HTTP サーバーを起動。
+default = ["native"]
+# Cloudflare Workers (workerd) 上で動作する wasm-bindgen エントリポイント（src/worker.rs）。
+wasm = ["wasm-bindgen", "wasm-bindgen-futures", "web-sys"]
+# ネイティブ専用依存をまとめる。
+native = ["axum", "tokio/full", "reqwest", "rand"]
+
 [dependencies]
-axum = "0.8"
-tokio = { version = "1", features = ["full"] }
+# --- wasm でもネイティブでも共通して使えるクレート ---
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-rand = "0.8"
 sha2 = "0.10"
 base64 = "0.22"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# --- ネイティブ専用（wasm では無効化）---
+axum = { version = "0.8", optional = true }
+tokio = { version = "1", optional = true, features = ["full"] }
+reqwest = { version = "0.12", optional = true, default-features = false, features = ["json", "rustls-tls"] }
+rand = { version = "0.8", optional = true }
+
+# --- wasm 専用（Cloudflare Workers / workerd）---
+wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
+js-sys = { version = "0.3", optional = true }
+web-sys = { version = "0.3", optional = true, features = [
+    "Request",
+    "Response",
+    "Headers",
+    "Url",
+    "Window",
+] }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

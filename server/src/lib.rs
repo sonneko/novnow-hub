@@ -1,46 +1,93 @@
 //! novnow-hub バックエンドのライブラリ本体。
 //!
 //! エントリポイント（`main`）とライブラリ（テスト用）を分ける。
+//!
+//! ビルドターゲットによるモジュールの有効/無効:
+//!   - ネイティブ（デフォルト feature `native`）：axum / tokio / reqwest / rand 等を用いた
+//!     フル機能の HTTP サーバーライブラリ。
+//!   - `wasm32-unknown-unknown`（feature `wasm`）：Cloudflare Workers (workerd) 用に
+//!     `config`・`error`・`worker` のみを公開し、wasm-bindgen エントリポイントを提供。
+//!     `build_router` / `build_app_state` は wasm ではコンパイルされない（axum / tokio /
+//!     reqwest に依存するため）。
 
-pub mod adapters;
-pub mod app_state;
+// --- 共通（ネイティブ / wasm 両方で有効）---
 pub mod config;
-pub mod derivatives;
 pub mod error;
+
+/// Cloudflare Workers 用の wasm-bindgen エントリポイント（wasm ビルド時のみ）。
+#[cfg(target_arch = "wasm32")]
+pub mod worker;
+
+// --- ネイティブ専用（axum / tokio / reqwest / rand 依存）---
+#[cfg(not(target_arch = "wasm32"))]
+pub mod adapters;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod app_state;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod derivatives;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod jobs;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod middleware;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod multipart;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod notifications;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod ports;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod project_index;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod registry;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod routes;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod session;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod verification;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod verify;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod webhook;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod zip_import;
 
+#[cfg(not(target_arch = "wasm32"))]
 use std::sync::Arc;
 
+#[cfg(not(target_arch = "wasm32"))]
 use axum::routing::{delete, get, post};
+#[cfg(not(target_arch = "wasm32"))]
 use axum::Router;
 
+#[cfg(not(target_arch = "wasm32"))]
 use crate::adapters::github::client::{GitHubClient, OAuthConfig, Token};
+#[cfg(not(target_arch = "wasm32"))]
 use crate::adapters::github::{DerivationAdapter, GitHubAdapter};
+#[cfg(not(target_arch = "wasm32"))]
 use crate::app_state::AppState;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::config::Config;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::derivatives::DerivativeStore;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::notifications::NotificationStore;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::registry::ProjectRegistry;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::routes::auth::StateStore;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::session::SessionStore;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::webhook::{LoggingRebuild, WebhookStore};
 
 /// 全ルーターを組み立てる。
 ///
 /// `/api/v1` をネストルータで管理し、`POST /projects` には `require_auth`
 /// ミドルウェアを適用する。`main` とテストの両方で同じ構成を使う。
+///
+/// wasm ビルド（Cloudflare Workers）ではコンパイルされない（axum 依存）。
+#[cfg(not(target_arch = "wasm32"))]
 pub fn build_router(state: AppState) -> Router {
     let api_v1 = Router::new()
         // メタ
@@ -230,6 +277,9 @@ pub fn build_router(state: AppState) -> Router {
 }
 
 /// テスト・実機検証用に AppState を組み立てる。
+///
+/// wasm ビルド（Cloudflare Workers）ではコンパイルされない（axum / tokio / reqwest / adapters 依存）。
+#[cfg(not(target_arch = "wasm32"))]
 pub fn build_app_state(config: Config) -> AppState {
     let client = GitHubClient::new(
         &config.github_api_base,

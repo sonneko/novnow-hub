@@ -3,10 +3,14 @@
 //! 契約 `REF:api/openapi.yaml` の `components/schemas/Problem` に準拠する。
 //! `code` は契約の列挙値のみを使う。
 
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
-use axum::Json;
 use serde::Serialize;
+
+#[cfg(not(target_arch = "wasm32"))]
+use axum::http::StatusCode;
+#[cfg(not(target_arch = "wasm32"))]
+use axum::response::{IntoResponse, Response};
+#[cfg(not(target_arch = "wasm32"))]
+use axum::Json;
 
 /// 契约の `code` 列挙（`Problem.code`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,6 +31,7 @@ pub enum ProblemCode {
     InternalError,
 }
 
+#[allow(dead_code)]
 impl ProblemCode {
     fn as_str(self) -> &'static str {
         match self {
@@ -66,6 +71,7 @@ impl ProblemCode {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn status(self) -> StatusCode {
         match self {
             ProblemCode::ValidationFailed => StatusCode::BAD_REQUEST,
@@ -136,6 +142,7 @@ impl ApiError {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (code, detail) = self.problem();
@@ -153,11 +160,30 @@ impl IntoResponse for ApiError {
 }
 
 /// 追跡 ID（簡易的 ULID 風の不透明文字列）。
+///
+/// wasm（Cloudflare Workers）ビルドでは `rand` を無効化するため、
+// 時刻ベースの簡易 ID を返す。
+///
+/// wasm ビルドでは `ApiError::into_response` がコンパイルされないため未使用になるが、
+// ネイティブビルドで使用される。
+#[allow(dead_code)]
 fn generate_trace_id() -> String {
-    use rand::Rng;
-    let mut rng = rand::thread_rng();
-    let bytes: [u8; 16] = rng.gen();
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        let bytes: [u8; 16] = rng.gen();
+        bytes.iter().map(|b| format!("{b:02x}")).collect()
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        format!("wasm-{nanos}")
+    }
 }
 
 #[cfg(test)]

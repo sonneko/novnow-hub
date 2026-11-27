@@ -98,7 +98,7 @@
 
 <a id="m7-ops"></a>
 ### M7: 運用・品質・OSS 公開準備（仕様・設計策定済み）
-- [x] 本番デプロイ（Workers + D1 を既定、VPS + Docker を代替）と外形監視・バックアップ・鍵ローテーション手順（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）— 実装済み（`deploy/` の資材と `.github/workflows/deploy.yml`・`monitoring.yml` を整備。外部サービスの有効化はアカウント側の操作）
+- [x] 本番デプロイ（Workers + D1 を既定、VPS + Docker を代替）と外形監視・バックアップ・鍵ローテーション手順（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）— 実装済み（`deploy/` の資材と `.github/workflows/deploy.yml`・`monitoring.yml` を整備。サーバーの Worker ランタイム適応（`wasm32-unknown-unknown` / wasm-bindgen エントリポイント、`deploy.yml`/`wrangler.toml` のパス整合）も実装。外部サービスの有効化はアカウント側の操作）
 - [x] CI の拡張（契約互換性検査（oasdiff 相当）、`cargo audit`／`npm audit`、カバレッジゲート）（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）— PR #56 で完了
 - [x] セキュリティレビュー（zip 取込・CSP・トークン暗号化・権限判定）と依存ライセンスの棚卸し（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）— トークン暗号化は PR #54/#55 で完了
 - [ ] ドキュメント整備（セルフホストガイド・運営ポリシー・CHANGELOG）と初回リリース（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）

@@ -7,7 +7,10 @@
 # デプロイ手順は REF:deploy/workers-d1/DEPLOY.md を参照。
 
 name = "novnow-hub"
-main = "../server/src/main.rs"
+# Cloudflare Workers 用の wasm モジュール（サーバーを wasm32-unknown-unknown でビルドした出力）。
+# デプロイワークフロー（.github/workflows/deploy.yml）の wasm ビルドステップで
+# `server/target/wasm32-unknown-unknown/release/novnow_hub_server.wasm` を生成する。
+main = "../../server/target/wasm32-unknown-unknown/release/novnow_hub_server.wasm"
 compatibility_date = "2026-01-01"
 
 # Worker が待受するドメイン（Cloudflare 側で割り当てたものを既定とする）。
@@ -17,9 +20,9 @@ routes = [
   { pattern = "novnow.example.com/*", type = "exclusive" },
 ]
 
-# 公開ページ（静的）を配信するasset ディレクトリ（ビルド成果物）。
-# デプロイワークフローが web/dist を Worker 配下に配置する。
-assets = { directory = "../web/dist", not_found_handling = "single-page-application" }
+# 公開ページ（静的）を配信する asset ディレクトリ（ビルド成果物）。
+# デプロイワークフローが web/dist を workingDirectory (./deploy/workers-d1) 配下に展開する。
+assets = { directory = "./web/dist", not_found_handling = "single-page-application" }
 
 # D1（Cloudflare の SQLite）绑定。データベース名はアカウント側で作成。
 # 既定のデータ基盤。Phase 1 のサーバーはインメモリストア＋GitHub を主backと
