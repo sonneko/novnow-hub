@@ -48,6 +48,7 @@ js-sys = { version = "0.3", optional = true }
 web-sys = { version = "0.3", optional = true, features = [
     "Request",
     "Response",
+    "ResponseInit",
     "Headers",
     "Url",
     "Window",

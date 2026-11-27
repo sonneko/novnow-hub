@@ -20,7 +20,7 @@
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::future_to_promise;
-use web_sys::{Headers, Request, Response};
+use web_sys::{Headers, Request, Response, ResponseInit};
 
 use crate::config::Config;
 use web_sys::js_sys::Promise;
@@ -80,22 +80,26 @@ async fn meta_response() -> Result<Response, JsValue> {
     let headers = Headers::new()?;
     headers.set("content-type", "application/json")?;
 
-    // web-sys 0.3 の `Response::new_with_opt_str` はステータス 200 固定。
-    let response = Response::new_with_opt_str(Some(&body))?;
-    response.headers().set("content-type", "application/json")?;
+    let init = ResponseInit::new();
+    init.set_status(200);
+    init.set_headers(&headers);
+
+    let response = Response::new_with_opt_str_and_init(Some(&body), &init)?;
     Ok(response)
 }
 
-/// not_found レスポンス（web-sys 0.3 ではステータスコードを変更できないため、
-//  body に `not_found` を含めて応答し、クライアント側で解釈する）。
+/// not_found レスポンス（ステータス 404 を返す）。
 fn not_found_response(path: &str) -> Result<Response, JsValue> {
     let body = serde_json::json!({ "error": "not_found", "path": path }).to_string();
 
     let headers = Headers::new()?;
     headers.set("content-type", "application/json")?;
 
-    let response = Response::new_with_opt_str(Some(&body))?;
-    response.headers().set("content-type", "application/json")?;
+    let init = ResponseInit::new();
+    init.set_status(404);
+    init.set_headers(&headers);
+
+    let response = Response::new_with_opt_str_and_init(Some(&body), &init)?;
     Ok(response)
 }
 

@@ -98,11 +98,12 @@ jobs:
         if: steps.secrets.outputs.skip != 'true'
         run: cd server && cargo build --release --target wasm32-unknown-unknown --lib --no-default-features --features wasm --locked
 
-      - name: Download artifacts
+      - name: Download web artifact
         if: steps.secrets.outputs.skip != 'true'
         uses: actions/download-artifact@v4
         with:
-          path: ./
+          name: web-dist
+          path: ./deploy/workers-d1/web/dist
 
       - name: Deploy to Cloudflare Workers
         if: steps.secrets.outputs.skip != 'true'
