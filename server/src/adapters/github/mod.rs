@@ -16,6 +16,9 @@ mod m4_contract_test;
 #[cfg(test)]
 mod m5_derivation_contract_test;
 
+#[cfg(test)]
+mod content_port_test;
+
 use std::sync::Arc;
 
 use std::hash::Hasher;
@@ -212,14 +215,7 @@ impl ContentPort for GitHubAdapter {
             .get_file(&token, shell_id, path)
             .await
             .map_err(|e| map_client_error(&e))?;
-        Ok(FileContent {
-            content: file.content,
-            encoding: match file.encoding {
-                client::FileEncoding::Text => crate::ports::FileEncoding::Text,
-                client::FileEncoding::Base64 => crate::ports::FileEncoding::Base64,
-            },
-            etag: file.sha,
-        })
+        Ok(decode_file_entry(file))
     }
 
     async fn commit_files(
@@ -259,6 +255,58 @@ impl ContentPort for GitHubAdapter {
 }
 
 /// クライアントエラーから PortError への変換（設計 §7.3 の表に準拠）。
+/// GitHub のファイル応答を hub の `FileContent` へ写す。
+///
+/// GitHub の contents API はテキストもバイナリも **base64**（60 文字ごとの
+/// 改行入り）で返す。hub の契約 `FileContent` は `encoding=utf8` のときに
+/// `content`、`encoding=base64` のときに `data` を要求するため、ここで
+/// 一度復号し、UTF-8 として妥当なら `Text`（改行は文書どおり保持）、
+/// そうでなければ `Base64` として扱い、**内容を壊さない**（判断:
+/// `REF:docs/handoff.md` §4 判断 6(b)・28）。
+///
+/// 復号に失敗した場合は外部基盤の応答不正として扱う（黙って文字化けさせない）。
+fn decode_file_entry(file: client::FileEntry) -> FileContent {
+    use base64::engine::general_purpose::STANDARD;
+    use base64::Engine;
+
+    match file.encoding {
+        // テキストで返ってきた場合はそのまま使う。
+        client::FileEncoding::Text => FileContent {
+            content: file.content,
+            encoding: crate::ports::FileEncoding::Text,
+            etag: file.sha,
+        },
+        client::FileEncoding::Base64 => {
+            // GitHub は 60 文字ごとに改行を挿入する。空白類を除いて復号する。
+            let compact: String = file
+                .content
+                .chars()
+                .filter(|c| !c.is_whitespace())
+                .collect();
+            match STANDARD.decode(compact.as_bytes()) {
+                Ok(bytes) => match String::from_utf8(bytes) {
+                    Ok(text) => FileContent {
+                        content: text,
+                        encoding: crate::ports::FileEncoding::Text,
+                        etag: file.sha,
+                    },
+                    Err(e) => FileContent {
+                        content: STANDARD.encode(e.into_bytes()),
+                        encoding: crate::ports::FileEncoding::Base64,
+                        etag: file.sha,
+                    },
+                },
+                // 復号できない応答は「内容を壊さずそのまま返す」。
+                Err(_) => FileContent {
+                    content: file.content,
+                    encoding: crate::ports::FileEncoding::Base64,
+                    etag: file.sha,
+                },
+            }
+        }
+    }
+}
+
 pub(crate) fn map_client_error(e: &client::ClientError) -> PortError {
     match e {
         client::ClientError::NotFound => PortError::NotFound,

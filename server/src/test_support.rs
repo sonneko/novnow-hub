@@ -516,6 +516,19 @@ async fn get_contents(State(mock): State<MockGitHub>, req: Request<Body>) -> Res
         });
         return json_ok(body);
     }
+    // 存在しないパス: GitHub と同じく 404 を返す（ファイルでもディレクトリでも
+    // 無い場合）。ここで空配列を返すと、アダプターは「空ディレクトリ」として
+    // 成功扱いしてしまい、存在しないパスの 404 を検証できない。
+    let is_dir = files.keys().any(|p| p.starts_with(&format!("{content_path}/")));
+    if !is_dir {
+        return (
+            StatusCode::NOT_FOUND,
+            axum::Json(serde_json::json!({
+                "message": "Not Found",
+            })),
+        )
+            .into_response();
+    }
     // ディレクトリ: 配下のファイルを集約して entry 一覧を返す。
     let prefix = format!("{content_path}/");
     let mut entries = Vec::new();
@@ -546,10 +559,20 @@ async fn get_contents(State(mock): State<MockGitHub>, req: Request<Body>) -> Res
 }
 
 /// 最小限の base64 エンコード（テスト用）。
+///
+/// GitHub の contents API は 60 文字ごとに改行を挟んだ base64 を返すため、
+/// モックも同じ形にそろえる（アダプターが改行を除いて復号できることの検証も
+/// 兼ねる）。
 fn base64_encode(data: &[u8]) -> String {
     use base64::engine::general_purpose::STANDARD;
     use base64::Engine;
-    STANDARD.encode(data)
+    let encoded = STANDARD.encode(data);
+    encoded
+        .as_bytes()
+        .chunks(60)
+        .map(|chunk| String::from_utf8_lossy(chunk).into_owned())
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 // ============================================================================

@@ -8,6 +8,7 @@ use crate::config::Config;
 use crate::derivatives::SharedDerivativeStore;
 use crate::jobs::SharedJobPort;
 use crate::registry::SharedProjectRegistry;
+use crate::releases::SharedReleaseStore;
 use crate::routes::auth::StateStore;
 use crate::session::SharedSessionStore;
 use crate::notifications::SharedNotificationStore;
@@ -44,4 +45,9 @@ pub struct AppState {
     pub jobs: SharedJobPort,
     /// 公開前検証（novnow 点検）の同期検証サービス（設計 §6.1）。
     pub verification: SharedVerificationService,
+    /// リリース（版）レコードの hub 管理ストア（契約 `createRelease`）。
+    ///
+    /// 判断（`REF:docs/handoff.md` §4 判断 28）により、登録簿と同じく
+    /// インメモリで保持する。
+    pub releases: SharedReleaseStore,
 }

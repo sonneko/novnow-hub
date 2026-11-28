@@ -1,9 +1,14 @@
 pub mod auth;
 pub mod collab;
+pub mod contents;
 pub mod derivatives;
 pub mod jobs;
 pub mod meta;
 pub mod notifications;
 pub mod projects;
+pub mod reading;
+pub mod releases;
+pub mod setup;
+pub mod shared;
 pub mod verify;
 pub mod webhook;

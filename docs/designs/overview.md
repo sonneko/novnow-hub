@@ -148,7 +148,7 @@ Phase 1 は 1 hub プロジェクト = 1 GitHub リポジトリ（所有者は�
 
 ### 6.1 プロジェクトページ
 
-状態: 実装中（読者ビューと公開ページの静的シェル事前描画・ETag キャッシュは PR #19 で実装済み。本文を返す `GET /projects/{id}/reading` はサーバー未配線。REF:docs/plans.md#m3-thin-slice, `REF:docs/handoff.md` §4 判断 27）
+状態: 実装中（読者ビューと公開ページの静的シェル事前描画・ETag キャッシュは PR #19 で実装済み。本文を返す `GET /projects/{projectId}/reading` は配線済みで、詳細メタ情報の `GET /projects/{projectId}` は未配線。REF:server/src/routes/reading.rs, REF:docs/plans.md#m3-thin-slice, `REF:docs/handoff.md` §4 判断 28）
 
 Astro の動的ルート + Svelte アイランド（インタラクション部分のみ）。公開ページの本文データは `/projects/{id}/reading` で取得し、OGP（タイトル・説明・作者・ライセンス）は SSR でメタタグ化する。設定資料タブは `materials/` 公開フラグをプロジェクト設定として持ち、既定は非公開。
 
@@ -160,7 +160,7 @@ Astro の動的ルート + Svelte アイランド（インタラクション部�
 
 ### 6.3 ブラウザでそのまま読む
 
-状態: 実装中（読者ビューの事前描画とブラウザ側 ETag キャッシュは PR #19 で実装済み。CDN／Workers キャッシュ等の完成形は未実装、REF:docs/plans.md#m2-frontend-mock, REF:docs/plans.md#m3-thin-slice）
+状態: 実装中（読者ビューの事前描画とブラウザ側 ETag キャッシュは PR #19 で実装済み。注釈除去と CDN／Workers キャッシュ等の完成形は未実装、REF:server/src/routes/reading.rs, REF:docs/plans.md#m2-frontend-mock, REF:docs/plans.md#m3-thin-slice）
 
 読者ビューは novnow 本文を注釈除去済み HTML として事前生成（公開・再生成時）し、CDN／Workers のキャッシュに乗せる。テーマは `prefers-color-scheme` 追従 + 手動切替、文字サイズは端末内（localStorage 相当）保存。JS 無効でも本文が読めるよう、本文部分は静的 HTML を正とする。
 
@@ -170,7 +170,7 @@ Astro の動的ルート + Svelte アイランド（インタラクション部�
 
 ### 7.1 URL ワンクリックセットアップ
 
-状態: 実装中（フロントエンドのセットアップ URL 発行・解決 UI は PR #12 で実装済み。ネイティブサーバーの `GET /projects/{id}/setup`・`GET /setup/resolve` は未配線（判断 27）、REF:docs/plans.md#m5-novnow-features）
+状態: 実装完了（フロントエンドのセットアップ URL 発行・解決 UI は PR #12 で実装済み。ネイティブサーバーの `GET /projects/{projectId}/setup`・`GET /setup/resolve` を匿名可で配線。REF:server/src/routes/setup.rs, REF:docs/plans.md#m5-novnow-features）
 
 セットアップ URL は `https://<hub>/setup/{projectId}?via=web|desktop` 形式で、`GET /projects/{projectId}/setup` が返すペイロード（取得元・tarball URL／浅い clone URL・検証結果・推奨 novnow 版）を novnow アプリが解釈する。デスクトップ版はカスタムスキーム（`novnow://setup?…`）で受け、ブラウザ版は Web アプリへクエリを渡す。URL に認証情報は含めない。失敗時のフォールバックとして GitHub 上のプロジェクトページへ遷移できる導線を常に表示する。
 
