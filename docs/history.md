@@ -196,7 +196,7 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
 
 ### [HIST:MILESTONE:M3-PUBLISH-FLOW] 2026-11-23 M3 公開フロー本体を実装（multipart 取込 → 軽量検証 → 保管単位作成 → hub 登録 → 公開ページ生成）
 [HIST-TAG: category=MILESTONE id=M3-PUBLISH-FLOW topics=m3,publish,multipart,verify,registry,published-url]
-- **ブランチ**: `arena/3f2aec93-novnow-hub`（`main` @ `c279c64` = PR #41 マージコミット）。**マージは指示待ち（未マージ）**。
+- **ブランチ**: `arena/3f2aec93-novnow-hub`（`main` @ `c279c64` = PR #41 マージコミット）。
 - **作業**: `docs/plans.md` の M3「公開フロー: zip 取込 → novnow 軽量検証 → 保管単位作成 → hub 登録 → 公開ページ生成」を実装。M3 完了条件「非エンジニアが zip をアップロードして公開でき、第三者が URL を開いて本文を読める」のバックエンド本体。
 - **変更内容**:
   - `server/src/multipart.rs`（新規）: multipart/form-data パースを純粋 Rust で自前実装（boundary ベース、外部 crate 依存なし、判断 `docs/handoff.md` §4 判断 4）。テキストフィールドとファイルパートの両方を扱う。
@@ -217,7 +217,7 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
 - **ドキュメント同期**: `docs/designs/m3.md` §2.1・§2.2 の状態を「実装完了」に更新、novnow 軽量検証の具体的仕様を追記。`docs/specifications/m3.md` §2.1 に軽量検証の定義を追記。判断記録は `docs/handoff.md` §4 判断 5 に追記。`api/openapi.yaml` は変更なし。
 
 [HIST-TAG: category=PR-FIX id=M3-PUBLISH-FLOW-FIX-PR42 topics=m3,pr42,zip,toml,binary,cleanup]
-- **ブランチ**: `arena/3f2aec93-novnow-hub`（PR #42、M3 公開フロー本体）。**マージは指示待ち（未マージ）**。
+- **ブランチ**: `arena/3f2aec93-novnow-hub`（PR #42、M3 公開フロー本体）。
 - **作業**: PR #42 に対する 5 件の修正指示を実装。
 - **変更内容**:
   - **修正1（zip ディレクトリ entry）**: `server/src/zip_import/mod.rs` の `import_zip` がディレクトリ entry（末尾 `/`、または Unix モードのディレクトリ）を `files` ではなく `dirs` に分類。ノイズ（`__MACOSX/`・`.DS_Store`）は除外。`server/src/verify.rs` の `verify_snapshot(files, dirs)` が必須ディレクトリをディレクトリ entry も含めて判定し、空の `contents/` を受理。偽名テストを廃止、`real_zip_with_dir_entries_passes_full_verify` を追加（ディレクトリ entry 含む本物 zip を `import_zip` → `verify_snapshot` まで通す）。
@@ -233,7 +233,7 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
 - **ドキュメント同期**: `docs/designs/m3.md` §2.1 にディレクトリ entry・複数行 TOML・`schema_version` トップレベルのみ・バイナリエンコーディング・クリーンアップの記述を追記。判断記録は `docs/handoff.md` §4 判断 6 に追記。`docs/plans.md` の M3 行を更新。`api/openapi.yaml` は変更なし。
 
 [HIST-TAG: category=MILESTONE id=M3-PROJECT-LIST-SEARCH topics=m3,list,search,cursor,index]
-- **ブランチ**: `arena/3f2aec93-novnow-hub`（`main` @ `f81e797` = PR #42 マージコミット）。**マージは指示待ち（未マージ）**。
+- **ブランチ**: `arena/3f2aec93-novnow-hub`（`main` @ `f81e797` = PR #42 マージコミット）。
 - **作業**: M3 の残件「プロジェクト一覧・検索の最小実装（軽量インデックス、カーソルページネーション）」を実装。`docs/plans.md` の M3 で唯一の未チェック項目。
 - **変更内容**:
   - `server/src/project_index.rs`（新規）: 一覧・検索の軽量インデックス（純粋関数）。ソート（更新順・新着順・派生数順）、キーワード・ライセンス・タグの絞り込み、カーソルページネーション（`nextCursor`、総件数は返さない）を実装。公開作品のみ対象。
@@ -251,7 +251,7 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
 ### [HIST:MILESTONE:M4-COLLAB-PORTS] 2026-11-24 M4 コラボレーションポートの GitHub 実装と契約テスト（PR #44）
 
 [HIST-TAG: category=MILESTONE id=M4-COLLAB-PORTS topics=m4,proposal,issue,automerge,check,ports,github,contract-test]
-- **ブランチ**: `arena/m4-collab-ports-novnow-hub`（`main` @ `604a1ad` = PR #43 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチ `arena/3f2aec93-novnow-hub` への push は行わない。
+- **ブランチ**: `arena/m4-collab-ports-novnow-hub`（`main` @ `604a1ad` = PR #43 マージコミット）。マージ済みブランチ `arena/3f2aec93-novnow-hub` への push は行わない。
 - **作業**: M4 の最初の項目「ProposalPort／IssuePort／AutomergePort／CheckStatusPort の GitHub 実装と契約テスト」を実装。仕様 `docs/specifications/m4.md`、設計 `docs/designs/m4.md`、計画書 `docs/plans.md#m4-collaboration`、API 契約 `api/openapi.yaml` に準拠。
 - **変更内容**:
   - `server/src/ports.rs`: 4 ポート（`ProposalPort`／`IssuePort`／`AutomergePort`／`CheckStatusPort`）と hub ドメイン型（`Proposal`／`Issue`／`Comment`／`ProposalDiff`／`ProposalFile`／`AutomergeState`／`CheckStatus`／`MergeResult`／`ReviewVerdict` 等）を定義。GitHub の概念は hub 語彙のみで記述。
@@ -268,7 +268,7 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
 ### [HIST:MILESTONE:M4-COLLAB-ROUTES] 2026-11-24 M4 コラボレーションの HTTP ルート配線と PR #44 フォローアップ修正
 
 [HIST-TAG: category=MILESTONE id=M4-COLLAB-ROUTES topics=m4,routes,http,proposal,issue,automerge,followup,clippy]
-- **ブランチ**: `arena/m4-collab-routes-novnow-hub`（`main` @ `9ce75ba` = PR #44 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチへの push は行わない。
+- **ブランチ**: `arena/m4-collab-routes-novnow-hub`（`main` @ `9ce75ba` = PR #44 マージコミット）。マージ済みブランチへの push は行わない。
 - **作業**: M4 の 2 項目「4 ポートの HTTP ルート配線」と PR #44 レビュー由来のフォローアップ修正を実装。API 契約 `api/openapi.yaml` に準拠。
 - **変更内容**:
   - `server/src/routes/collab.rs`（新規）: 提案系 9・自動マージ 3・課題系 7 のハンドラを実装。`projectId`→`shell_id` 解決（未登録は 404）・`map_port_error`・`resolve_limit`／`resolve_cursor`／`paginate`（オフセット）等のヘルパーと camelCase のリクエスト／レスポンス型を定義。
@@ -287,7 +287,7 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
 ### [HIST:MILESTONE:M4-AUTOMERGE-UI] 2026-11-24 M4 自動マージの予約・取消・状態表示 UI（PR #45 ルート使用）
 
 [HIST-TAG: category=MILESTONE id=M4-AUTOMERGE-UI topics=m4,automerge,ui,proposal,frontend,vitest]
-- **ブランチ**: `arena/m4-automerge-ui-novnow-hub`（`main` @ `d375ca7` = PR #45 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチへの push は行わない。
+- **ブランチ**: `arena/m4-automerge-ui-novnow-hub`（`main` @ `d375ca7` = PR #45 マージコミット）。マージ済みブランチへの push は行わない。
 - **作業**: M4 残件「自動マージの予約・取消・状態表示 UI」を実装。仕様 `docs/specifications/m4.md`、設計 `docs/designs/m4.md` §4.1、計画書 `docs/plans.md#m4-collaboration`、API 契約 `api/openapi.yaml` に準拠（契約を正）。
 - **変更内容**:
   - `web/src/lib/api/types.ts`: `AutomergeState` 型を追加（契約スキーマの直接参照）。
@@ -305,7 +305,7 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
 ### [HIST:MILESTONE:M4-NOTIFICATIONS] 2026-11-24 M4 通知センター・未読バッジ・ドメインイベントからの通知ファンアウト（PR #46 マージコミット起点）
 
 [HIST-TAG: category=MILESTONE id=M4-NOTIFICATIONS topics=m4,notifications,badge,fanout,backend,frontend,vitest,cargo]
-- **ブランチ**: `arena/m4-notifications-novnow-hub`（`main` @ `7455b4c` = PR #46 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチへの push は行わない。
+- **ブランチ**: `arena/m4-notifications-novnow-hub`（`main` @ `7455b4c` = PR #46 マージコミット）。マージ済みブランチへの push は行わない。
 - **作業**: M4 残件「通知センターと未読バッジ、ドメインイベントからの通知ファンアウト」を実装。仕様 `docs/specifications/m4.md`、設計 `docs/designs/m4.md` §6、計画書 `docs/plans.md#m4-collaboration`、API 契約 `api/openapi.yaml` に準拠（**権威の順位は API 契約を正**）。
 - **変更内容（server）**:
   - `server/src/ports.rs`: 通知型（`NotificationKind` 列挙 9 種・`as_str()`、`Notification` 型）と `NotificationPort` trait（`list_notifications`/`mark_read`/`emit`）を追加。
@@ -334,7 +334,7 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
 ### [HIST:MILESTONE:M4-WEBHOOK] 2026-11-24 M4 GitHub Webhook 受信（署名検証）による公開ページ再生成とキャッシュ失効（PR #47 マージコミット起点）
 
 [HIST-TAG: category=MILESTONE id=M4-WEBHOOK topics=m4,webhook,hmac,signature,rebuild,cache,backend,cargo]
-- **ブランチ**: `arena/m4-webhook-novnow-hub`（`main` @ `117150a` = PR #47 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチへの push は行わない。
+- **ブランチ**: `arena/m4-webhook-novnow-hub`（`main` @ `117150a` = PR #47 マージコミット）。マージ済みブランチへの push は行わない。
 - **作業**: M4 残件「GitHub Webhook 受信（署名検証）による公開ページ再生成とキャッシュ失効」を実装。仕様 `docs/specifications/m4.md` §7、設計 `docs/designs/m4.md` §7.1、計画書 `docs/plans.md#m4-collaboration`、API 契約 `api/openapi.yaml` に準拠（**権威の順位は API 契約を正**）。
 - **変更内容（server）**:
   - `server/src/webhook.rs`: HMAC-SHA256 署名の生成・検証（定数時間比較、`sha2` で手実装）、`WebhookStore`（再生成ジョブの起票・状態遷移・`retry` による手動再実行）、`LoggingRebuild`（既定の `RebuildPort` 実装）、`receive_webhook`（署名検証→イベント解析→プロジェクト解決→ジョブ起票）と `run_job`（非同期ジョブ実行）を新規作成。
@@ -355,7 +355,7 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
 ### [HIST:MILESTONE:M4-WEBHOOK-SIG-FIX] 2026-11-24 M4 Webhook 署名形式の不具合修正（base64 → 16 進、PR #48 レビュー由来）
 
 [HIST-TAG: category=MILESTONE id=M4-WEBHOOK-SIG-FIX topics=m4,webhook,signature,hmac,hex,fix,backend,cargo]
-- **ブランチ**: `arena/m4-webhook-signature-fix-novnow-hub`（`main` @ `4f00630` = PR #48 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチへの push は行わない。
+- **ブランチ**: `arena/m4-webhook-signature-fix-novnow-hub`（`main` @ `4f00630` = PR #48 マージコミット）。マージ済みブランチへの push は行わない。
 - **作業**: PR #48 レビューで見つかった Webhook 署名形式の不具合を修正。PR #48 では `sign`/`verify_signature` を `sha256=<base64>` 形式で生成・検証していたが、GitHub が実際に送る `X-Hub-Signature-256` は **`sha256=<16 進ダイジェスト>`** 形式である（GitHub 公式ドキュメント「Validating webhook deliveries」: "GitHub uses an HMAC hex digest"）。base64 形式のままでは本物の GitHub Webhook がすべて 401 で拒否され本番で動かないため、16 進形式に修正した。
 - **変更内容（server）**:
   - `server/src/webhook.rs`: `sign`/`verify_signature` を **16 進形式**（`sha256=<hex>`）に変更。`to_hex`/`from_hex` ヘルパーを追加し、base64 依存（`base64` クレートの import）を除去。base64 形式は受け付けない。
@@ -373,7 +373,7 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
 ### [HIST:MILESTONE:M5-DERIVATION] 2026-11-24 M5 DerivationPort（GitHub Fork 連携 + 派生レコード）と派生ツリー UI
 
 [HIST-TAG: category=MILESTONE id=M5-DERIVATION topics=m5,derivation,fork,derivative-tree,port,adapter,backend,web]
-- **ブランチ**: `arena/m5-derivation-novnow-hub`（`main` @ `aa91725` = PR #49 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチへの push は行わない。セットアップ URL（PR #12 実装済み）を含まず**派生のみを 1 つの PR**。JobPort・診断差分・公開前検証の本格化はスコープ外。
+- **ブランチ**: `arena/m5-derivation-novnow-hub`（`main` @ `aa91725` = PR #49 マージコミット）。マージ済みブランチへの push は行わない。セットアップ URL（PR #12 実装済み）を含まず**派生のみを 1 つの PR**。JobPort・診断差分・公開前検証の本格化はスコープ外。
 - **作業**: M5「novnow 特化機能」の最初の項目。`DerivationPort`（`createDerivative`/`listDerivatives`/`getDerivative`/`getDerivationTree`）を hub ドメイン型で定義し、Phase 1 の GitHub 実装は Fork を代理操作するアダプターとする。派生ツリー UI（`/derivatives`）を実装。
 - **変更内容（server）**:
   - `server/src/ports.rs`: `DerivativePolicy`（`allowed`/`allowed-with-conditions`/`disallowed`、未知は `Disallowed`）・`Derivative`・`DeriveRequest`・`DeriveAccepted`・`JobStatus`・`DerivationPort` を追加。GitHub の語彙はポートの背後に隠す。
@@ -400,7 +400,7 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
 ### [HIST:MILESTONE:M5-JOBPORT] 2026-11-25 M5 JobPort（novnow 診断・エクスポートの非同期ジョブ基盤）
 
 [HIST-TAG: category=MILESTONE id=M5-JOBPORT topics=m5,jobport,diagnostics,export,queue,backend,web]
-- **ブランチ**: `arena/m5-jobport-novnow-hub`（`main` @ `18e957a` = PR #50 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチへの push は行わない。**診断・エクスポートのジョブ基盤のみを 1 つの PR**。診断差分（§5）・公開前検証の本格化（§6）はスコープ外。
+- **ブランチ**: `arena/m5-jobport-novnow-hub`（`main` @ `18e957a` = PR #50 マージコミット）。マージ済みブランチへの push は行わない。**診断・エクスポートのジョブ基盤のみを 1 つの PR**。診断差分（§5）・公開前検証の本格化（§6）はスコープ外。
 - **作業**: M5「novnow 特化機能」の JobPort 項目。`JobPort`（`createJob`/`getJob`/`listJobs`/`cancelJob`）を hub ドメイン型で定義し、重い処理をキュー化・同時実行数制限・完了通知する実行基盤を実装。診断の最小実装として既存の M3 軽量検証を再利用。HTTP ルート 3 件と Web「点検」タブを実装。
 - **変更内容（server）**:
   - `server/src/ports.rs`: `JobKind`（`verify`/`diagnostics`/`export`）・`JobState`（`Pending`/`Running`/`Succeeded`/`Failed`/`Cancelled`）・`ExportFormat`・`DiagnosticItem`・`DiagnosticsResult`・`ExportResult`・`JobResult`・`Job`・`CreateJobRequest`・`JobPort` を追加。GitHub の概念（GitHub Actions 等）はポートの背後に隠す。
@@ -429,7 +429,7 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
 ### [HIST:MILESTONE:M6-MULTIPLATFORM] 2026-11-25 M6 マルチプラットフォーム（Tauri v2 デスクトップビルド・PWA）
 
 [HIST-TAG: category=MILESTONE id=M6-MULTIPLATFORM topics=m6,tauri,pwa,serviceworker,manifest,securestorage,uri-scheme,desktop,distribution]
-- **ブランチ**: `arena/m6-multiplatform-novnow-hub`（`main` @ `b7cc8b3` = PR #51 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチへの push は行わない。**マルチプラットフォーム全体を 1 つの PR**。
+- **ブランチ**: `arena/m6-multiplatform-novnow-hub`（`main` @ `b7cc8b3` = PR #51 マージコミット）。マージ済みブランチへの push は行わない。**マルチプラットフォーム全体を 1 つの PR**。
 - **作業**: M6「マルチプラットフォーム（Tauri・PWA）」。Web アプリと同一コードベースの Tauri v2 デスクトップビルド、PWA（マニフェスト・Service Worker オフラインシェル）、Tauri secure storage へのセッション保管、カスタムスキーム（`novnow://`）でのセットアップ URL 受信、インストーラ配布方式の決定と実装を実現。
 - **変更内容（Tauri / デスクトップ）**:
   - `src-tauri/src/lib.rs`（新規）: `SecureStorage`（`app_data_dir` 配下のファイルベース）による `session_get`/`session_set`/`session_delete`（アプリ私有データ領域への保存、平文を一般の場所に露出しない）。`handle_setup_url` コマンド（`novnow://` 受信 → WebView を `/setup/resolve/?u=<url>` へ遷移）。`register_uri_scheme_protocol("novnow", ...)` でカスタムスキーム受信ハンドラを登録、`tauri::generate_handler!` で公開。当初は `iota_stronghold` を使用したが CI でコンパイル失敗、`keyring` もコンパイル失敗したため依存関係ゼロのファイルベース実装に切り替え（PR #52 フォローアップ）。
@@ -466,7 +466,7 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
 
 ### [HIST:MILESTONE:M7-DOCS-RELEASE] 2026-11-27 M7 §5 ドキュメント整備と初回リリース準備（PR 作成待ち）
 [HIST-TAG: category=MILESTONE id=M7-DOCS-RELEASE topics=m7,docs,release,changelog,self-host,operating-policy,v0.1.0]
-- **ブランチ**: `arena/m7-docs-release-novnow-hub`（`main` @ `4e57d0a` = PR #59 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチへの push は行わない。
+- **ブランチ**: `arena/m7-docs-release-novnow-hub`（`main` @ `4e57d0a` = PR #59 マージコミット）。マージ済みブランチへの push は行わない。
 - **作業**: M7 §5（ドキュメント整備と初回リリース準備）を実施。
   - **§5.1 セルフホストガイド**: `docs/self-host-guide.md` を新規作成。Workers + D1 を既定構成、VPS + Docker を代替構成としてデプロイ手順、環境変数、GitHub OAuth/Webhook 設定、アカウント側操作を明記。
   - **§5.2 運営ポリシー**: `docs/operating-policy.md` を新規作成。公開基準・削除基準・著作権対応を定義。
@@ -478,7 +478,7 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
 
 ### [HIST:MILESTONE:M7-PERFORMANCE-MEASUREMENT] 2026-11-28 M7 §6 性能目標の実測検証とコスト実測（測定結果記録済み・実際のブラウザ/サーバー/本番実測は未実施）
 [HIST-TAG: category=MILESTONE id=M7-PERFORMANCE-MEASUREMENT topics=m7,performance,measurement,lcp,p95,cost,v0.1.0]
-- **ブランチ**: `arena/m7-performance-monitoring-novnow-hub`（`main` @ `a6e37e0` = PR #60 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチへの push は行わない。
+- **ブランチ**: `arena/m7-performance-monitoring-novnow-hub`（`main` @ `a6e37e0` = PR #60 マージコミット）。マージ済みブランチへの push は行わない。
 - **作業**: M7 §6（性能目標の実測検証とコスト実測）を実施。
   - **測定結果ファイル**: `docs/performance-measurement.md` を新規作成。測定対象・目標値・測定環境・制約・実測結果・未測定項目と理由・コスト試算・目標達成状況のまとめ・改善案を記録。
   - **実測可能な項目**: Web ビルド成果物のファイルサイズ（HTML 8–9.6 KB/ページ、JS/CSS 総計約 200 KB、ビルド出力総計 389 KB）、ローカルプレビュー サーバー応答時間（`/` 7.3 ms、`/reading` 1.6 ms、`/projects` 1.3 ms、`/setup/resolve` 1.5 ms）。
@@ -487,3 +487,15 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
   - **目標達成状況**: 全 4 項目（LCP・API p95・月間可用性・運用コスト）は「未測定（推定：達成見込み）」。
 - **ドキュメント同期**: `docs/designs/m7.md` §6.1・§6.2 の状態を「実装完了」に更新し、`REF:docs/performance-measurement.md` を参照。`docs/plans.md` の M7 §6 チェックボックスをチェック済みに更新し、後続タスク（実際のブラウザ/サーバー/本番実測）をチェックボックスで記録。`docs/handoff.md` のブランチ・PR・現在の状態を更新（`arena/m7-performance-monitoring-novnow-hub` / `main` a6e37e0）。
 - **検証**: `python3 docs/script/verify-docs.py` 通過。`api/openapi.yaml` は変更なし（契約の正として不変）。`server/`、`web/` のソースコードは変更なし（`web/dist/` はビルド成果物のためコミット対象外）。
+
+### [HIST:REFACTOR:M7-DOC-SYNC] 2026-11-28 M7 完了後のドキュメントとソースの同期網羅チェック
+[HIST-TAG: category=REFACTOR id=M7-DOC-SYNC topics=docs,sync,status,api,routes,plans,handoff,cleanup]
+- **ブランチ**: `arena/9dc6b7a0-novnow-hub`（`main` @ `c8b97ca` = PR #61 マージコミット）。コンテキストを断ち切った新セッションで、`docs/` の全ドキュメントと `server/`・`web/`・`src-tauri/`・`api/openapi.yaml`・`deploy/`・`.github/workflows/` を全件照合した。修正はドキュメントのみ（`api/openapi.yaml` とソースは不変）。
+- **設計書の実装状態の是正**: `docs/designs/api.md` §5.1〜§5.12 の状態行を `server/src/lib.rs` の `build_router` と突き合わせて修正（認証・プロジェクト・提案・課題・自動マージ・通知・検証・ジョブは実装済み、`/users/*`・`/projects/{id}/tree|file|commit|releases`・`/search/users`・`/notifications/settings`・`/setup/resolve`・`/projects/{id}/setup` は未配線）。§3.1〜§3.4 も実装範囲に合わせた。`docs/designs/overview.md` は §5.1・§5.3・§7.2・§7.4・§7.5・§8.1〜§8.3・§8.5・§9.1 の状態を実装済み範囲へ更新。`docs/designs/m3.md` §3.1・§5 はフロントエンド実装済み・サーバー未配線として「実装中」に、§4.2 の状態行から実装していない「作品種別」を除去。`docs/designs/m4.md` §1.1・§2.1・§2.2・§3.1・§4.1、`docs/designs/m5.md` §1.1・§3.1・§3.2、`docs/designs/m7.md` §1.1・§5.1〜§5.3・§7.1 を同様に是正。
+- **plans.md / handoff.md の状態の食い違い**: 「進捗サマリは §5 完了・進行中、チェックリストは §5 未チェック」の矛盾を解消し、M7 の §4 セキュリティレビューを「トークン暗号化のみ完了」に、§5 を「ドキュメント整備は PR #60 で完了・初回リリースは別途指示待ち」に修正。マイルストーン見出しの「（仕様・設計策定済み）」を完了済みの M3・M4・M5 で修正。完了済みの「PR の作成とマージ待ち（`arena/m7-docs-release-novnow-hub`）」行を削除（PR #60 はマージ済み）。`docs/handoff.md` のブランチ・PR・現在の状態・次セッション手順を現在の状態（#1〜#61 マージ済み）に書き換え、旧ブランチ名 `arena/e1a89d1a-novnow-hub` を是正。
+- **履歴の重複除去**: `docs/history.md` の 14 箇所に残っていた「マージは指示待ち（未マージ）」を削除した。いずれも `git log` 上はマージ済み（PR #41〜#51・#59・#60 のマージコミットが存在）であり、追記時点の途中状態が残っていたもの。`git log` がマージの事実を保持するため重複記録と判断した（追記専用の履歴の内容自体は削除していない）。
+- **設計書からの履歴の分離**: `docs/designs/m6.md` §5.2 にあった PR #52 の障害原因特定・修正の長文（約 2.2 KB）を要約し、詳細は本ファイルの `M6-MULTIPLATFORM` エントリを参照する形にした（ドキュメント整理規則「歴史的情報は history.md へ」に従う）。
+- **README・開発者ガイドの是正**: `README.md` の「現在のステータス」を M1〜M6 完了・M7 進行中に、ディレクトリ構成を `server/`・`deploy/`・`CHANGELOG.md` 等を含む現行構成に、試せることの一覧（点検・通知・`/derivatives/?projectId=` の修正）と「未実装」から削除した項目（自動マージ・通知センター・検索）を修正。`docs/developers.md` §3 のディレクトリ構成を現行の `server/`・`deploy/`・`.github/workflows/` に更新し、§2.2 の復旧コマンド（`cache/toolchain` と `cache/rust-toolchain` の違い）、§4.1 の `verify.sh` の実行内容を実装どおりに修正。`web/README.md` の Tauri 節（「IPC コマンドやバンドルは未設定」）を現状（IPC 3 コマンド実装済み・`--bundles`）に修正。`GUIDE.md` の REF 例が実在しないパス（`src/main.rs`・`src/core/model.rs`）とアンカー（`#milestone-2`）を指していたため実在のパスに修正。
+- **契約にあるが未配線のエンドポイントを記録**: `api/openapi.yaml`（45 パス）と `build_router` の差分を `REF:docs/handoff.md` §4 判断 27 に記録した（ソース側の未実装。本タスクではドキュメントのみ修正し、実装は後続タスク）。VPS + Docker 構成で静的公開ページを配信する経路が無いこと、Workers の wasm が `GET /api/v1/meta` のみを応答することも同判断に記録し、`REF:docs/self-host-guide.md`・`REF:deploy/workers-d1/DEPLOY.md`・`REF:docs/release-notes-v0.1.0.md` の既知の制限事項に反映した。
+- **ドキュメント間の食い違い**: `docs/specifications/m7.md` §1.1 が他ドキュメントを参照していた（`plans.md` の「将来の拡張点」は存在しない節）ため、参照を除去。`REF:docs/self-host-guide.md` の Workers 用 Secrets に `CF_ACCOUNT_ID` を追加（`REF:.github/workflows/deploy.yml` が要求）し、環境変数一覧に `REF:server/src/config.rs` の未記載変数を追加。`CHANGELOG.md` と `REF:docs/release-notes-v0.1.0.md` の「M1 から M7 まで完了・一般公開できる状態」を実態（M1〜M6 完了・M7 進行中）に修正し、タグ計画の基点を PR #60 から PR #61（`c8b97ca`）に修正。
+- **検証**: `python3 docs/script/verify-docs.py` 通過。全 Markdown の `REF:` 参照と相対リンクを機械走査し、参照切れ 0 件を確認。`api/openapi.yaml`・`server/`・`web/`・`src-tauri/` は変更なし。
