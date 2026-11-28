@@ -474,3 +474,16 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
   - **§5.3 リリースノート草案**: `docs/release-notes-v0.1.0.md` を新規作成。v0.1.0 の概要・主な変更・既知の制限事項・タグ計画を記録。タグ作成・GitHub Release の作成・リリースの公開は行わず、別途指示を待つ。
 - **ドキュメント同期**: `docs/plans.md` の M7 進捗サマリとチェックボックス、`docs/handoff.md` のブランチ・PR・現在の状態を更新。`docs/designs/m7.md` §5.1〜§5.3 の状態は「未実装・実装計画済み」のまま（実装は docs のみで設計書の変更は不要）。
 - **検証**: `python3 docs/script/verify-docs.py` 通過。`api/openapi.yaml` は変更なし（契約の正として不変）。`server/`、`web/` のソースコードは変更なし。
+
+
+### [HIST:MILESTONE:M7-PERFORMANCE-MEASUREMENT] 2026-11-28 M7 §6 性能目標の実測検証とコスト実測（測定結果記録済み・実際のブラウザ/サーバー/本番実測は未実施）
+[HIST-TAG: category=MILESTONE id=M7-PERFORMANCE-MEASUREMENT topics=m7,performance,measurement,lcp,p95,cost,v0.1.0]
+- **ブランチ**: `arena/m7-performance-monitoring-novnow-hub`（`main` @ `a6e37e0` = PR #60 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチへの push は行わない。
+- **作業**: M7 §6（性能目標の実測検証とコスト実測）を実施。
+  - **測定結果ファイル**: `docs/performance-measurement.md` を新規作成。測定対象・目標値・測定環境・制約・実測結果・未測定項目と理由・コスト試算・目標達成状況のまとめ・改善案を記録。
+  - **実測可能な項目**: Web ビルド成果物のファイルサイズ（HTML 8–9.6 KB/ページ、JS/CSS 総計約 200 KB、ビルド出力総計 389 KB）、ローカルプレビュー サーバー応答時間（`/` 7.3 ms、`/reading` 1.6 ms、`/projects` 1.3 ms、`/setup/resolve` 1.5 ms）。
+  - **未測定項目と理由**: LCP の実際のブラウザ実測（Chrome/Lighthouse 未インストールのため不可）、API p95 の実際のサーバー実測（Rust ツールチェーン未インストールのためサーバーのビルド・起動不可）、月間可用性の本番実測（本番環境未デプロイのため）、コストの実際の使用量実測（本番環境未デプロイのため）。これらは推定値として記録し、実測値・推定値・未測定を明確に区別。
+  - **コスト試算（推定）**: GitHub Actions（パブリックリポジトリ無料）・Cloudflare Workers 無料枠・D1 無料枠に基づき、月額約 ¥0〜¥2,000（ドメイン費含む）と見積もり。月額数千円以下というコスト制約に収まると推定（実績値ではない）。
+  - **目標達成状況**: 全 4 項目（LCP・API p95・月間可用性・運用コスト）は「未測定（推定：達成見込み）」。
+- **ドキュメント同期**: `docs/designs/m7.md` §6.1・§6.2 の状態を「実装完了」に更新し、`REF:docs/performance-measurement.md` を参照。`docs/plans.md` の M7 §6 チェックボックスをチェック済みに更新し、後続タスク（実際のブラウザ/サーバー/本番実測）をチェックボックスで記録。`docs/handoff.md` のブランチ・PR・現在の状態を更新（`arena/m7-performance-monitoring-novnow-hub` / `main` a6e37e0）。
+- **検証**: `python3 docs/script/verify-docs.py` 通過。`api/openapi.yaml` は変更なし（契約の正として不変）。`server/`、`web/` のソースコードは変更なし（`web/dist/` はビルド成果物のためコミット対象外）。
