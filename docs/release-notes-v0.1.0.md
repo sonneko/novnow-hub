@@ -9,7 +9,7 @@
 
 ## 対象コミット
 
-- `main` の最新コミット `4e57d0a`（Merge pull request #59 from sonneko/arena/m7-worker-adapt-novnow-hub）に `git tag v0.1.0` を打つ計画。
+- PR #60 マージ後の `main` 最新コミットに `git tag v0.1.0` を打つ計画。
 
 ## 概要
 
@@ -47,7 +47,7 @@ novnow-hub の OSS としての初回リリース。M1 から M7 までのマイ
 
 ## タグ計画
 
-- `git tag v0.1.0` を `main`（`4e57d0a`）に打つ。
+- `git tag v0.1.0` を PR #60 マージ後の `main` 最新コミットに打つ。
 - タグの作成・GitHub Release の作成・リリースの公開は行わず、別途指示を待つ。
 - 以降のリリースはセマンティックバージョニングに従い、`v0.1.1`（パッチ）・`v0.2.0`（マイナー）等とする（`CHANGELOG.md` 参照）。
 

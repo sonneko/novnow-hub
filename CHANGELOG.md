@@ -17,7 +17,7 @@ novnow-hub の OSS としての初回リリースに向けた準備版。M1 か�
 - **M7 §2.2 外形監視**（PR #58）
   - ヘルスチェックスクリプト `deploy/monitoring/healthcheck.sh` と手順 `deploy/monitoring/MONITORING.md`。
   - 定期実行ワークフロー `.github/workflows/monitoring.yml`（既定 5 分間隔、異常時は Issue 作成）。
-  - `MONITOR_BASE_URL` 未設定または localhost プレースホルダ時は監視を休止し、成功終了するよう修正（PR #59、マージコミット `4e57d0a`）。
+  - `MONITOR_BASE_URL` 未設定または localhost プレースホルダ時は監視を休止し、成功終了するよう修正（PR #58、マージコミット `fa55cee`）。
 - **M7 §2.1 後続：サーバーの Worker ランタイム適応と deploy.yml のパス整合**（PR #59、マージコミット `4e57d0a`）
   - サーバー（Rust + Axum）を Cloudflare Workers (workerd) 上で動作するよう適応。`wasm32-unknown-unknown` 向け `[lib] crate-type = ["rlib", "cdylib"]` と `wasm` feature（`wasm-bindgen` / `js-sys` / `web-sys`）を追加。
   - `server/src/worker.rs` に wasm-bindgen の `fetch` エントリポイントを実装（`GET /api/v1/meta` 対応）。
@@ -34,7 +34,7 @@ novnow-hub の OSS としての初回リリースに向けた準備版。M1 か�
 
 ### 変更
 
-- **M6 マルチプラットフォーム**（PR #51/#52）
+- **M6 マルチプラットフォーム**（PR #52）
   - Tauri v2 による Web と同一コードベースのデスクトップビルド（Linux/Win/macOS）と配布パイプライン `.github/workflows/desktop.yml`（未署名インストーラ）。
   - PWA 化（`manifest.json`・Service Worker オフラインシェル・インストール済みアプリとしてのオフライン閲覧）。
   - Tauri secure storage へのセッション保管抽象化、カスタムスキーム `novnow://` のセットアップ URL 受信。
@@ -77,7 +77,7 @@ novnow-hub の OSS としての初回リリースに向けた準備版。M1 か�
 
 ## タグ計画
 
-- 初回リリース時に `git tag v0.1.0` を `main` の最新コミット（`4e57d0a`）に打ち、GitHub Release を作成する。
+- 初回リリース時に `git tag v0.1.0` を PR #60 マージ後の `main` の最新コミットに打ち、GitHub Release を作成する。
 - タグの作成・GitHub Release の作成・リリースの公開は本リポジトリでは行わず、別途指示を待つ。
 - 以降のリリースは `v0.1.1`（パッチ）・`v0.2.0`（マイナー）等、変更の程度に応じて判断する。
 
