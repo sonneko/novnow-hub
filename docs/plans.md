@@ -107,6 +107,10 @@
   - [x] CHANGELOG（`CHANGELOG.md`）を作成（PR #60）
   - [x] リリースノート草案（`docs/release-notes-v0.1.0.md`、M7 §5.3、v0.1.0）を作成（PR #60。タグ・GitHub Release は作成せず、別途指示待ち）
   - [ ] 初回リリース（タグ `v0.1.0` の作成・GitHub Release の公開は別途指示待ち）
+- [x] 契約にある読み取り系エンドポイントの配線（仕様: REF:docs/specifications/api.md、設計: REF:docs/designs/api.md、契約: REF:api/openapi.yaml）— ドキュメント同期チェックで判明した未配線（判断 27）のうち、読者・セットアップ系の 6 経路（`GET /projects/{projectId}/tree`・`/file`・`/reading`・`/setup`、`GET /setup/resolve`、`POST /projects/{projectId}/releases`）を匿名可／認証必須の契約どおりに `build_router` へ配線。`projectId`→保管単位の解決は既存の `ProjectRegistry` パターンを再利用し、応答に保管基盤の語彙を漏らさない。あわせて `ContentPort` のファイル読み取りを「GitHub の base64（改行入り）を復号し、UTF-8 妥当なら `utf8`、不正バイトなら `base64`」に修正。契約は変更しない。判断は `REF:docs/handoff.md` §4 判断 28
+  - [x] 配線: `server/src/routes/contents.rs`（tree・file）、`server/src/routes/reading.rs`（reading）、`server/src/routes/setup.rs`（setup・setup/resolve）、`server/src/routes/releases.rs` と `server/src/releases.rs`（releases）
+  - [x] 検証: `cargo build`（警告 0）・`cargo test`（218 件成功）・`cargo clippy --locked --all-targets -- -D warnings` 通過。実サーバー起動（別プロセスの保管基盤代役）で 6 経路すべて 200／201 を実測し、未登録 404・不正入力 400・未認証 401・契約に無い `GET /releases` 405 も確認
+  - [ ] 契約に残る未配線: `GET /projects/{projectId}`（詳細）、`PUT /projects/{projectId}/file`、`POST /projects/{projectId}/commit`、`GET|PATCH /projects/{projectId}`（更新・取り下げ）、`/users/*`、`/search/users`、`GET|PATCH /notifications/settings`（後続タスク）
 - [x] 性能目標の実測検証（LCP・API p95・検索）とコスト実測（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）— 実測可能項目の測定と記録は PR #61 で完了。実際のブラウザ/サーバー/本番実測は後続タスク
   - [x] 測定結果記録（`docs/performance-measurement.md`、M7 §6.1・§6.2）
   - [ ] LCP 実際のブラウザ実測（Chrome/Lighthouse 未インストールのため未実施、後続タスク）

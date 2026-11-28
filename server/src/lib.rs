@@ -40,6 +40,8 @@ pub mod project_index;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod registry;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod releases;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod routes;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod session;
@@ -74,6 +76,8 @@ use crate::derivatives::DerivativeStore;
 use crate::notifications::NotificationStore;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::registry::ProjectRegistry;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::releases::ReleaseStore;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::routes::auth::StateStore;
 #[cfg(not(target_arch = "wasm32"))]
@@ -267,6 +271,46 @@ pub fn build_router(state: AppState) -> Router {
                     state.clone(),
                     middleware::require_auth,
                 )),
+        )
+        // 作品の読み取り（公開。契約 `getTree`・`getFile`・`getReadingView`）。
+        .merge(
+            Router::new()
+                .route(
+                    "/projects/{projectId}/tree",
+                    get(routes::contents::get_tree),
+                )
+                .route(
+                    "/projects/{projectId}/file",
+                    get(routes::contents::get_file),
+                )
+                .route(
+                    "/projects/{projectId}/reading",
+                    get(routes::reading::get_reading),
+                ),
+        )
+        // セットアップ URL の発行・解決（公開。契約 `getSetupInfo`・`resolveSetupUrl`）。
+        .merge(
+            Router::new()
+                .route(
+                    "/projects/{projectId}/setup",
+                    get(routes::setup::get_setup),
+                )
+                .route("/setup/resolve", get(routes::setup::resolve)),
+        )
+        // リリース作成（認証必須、契約 `createRelease`）。
+        //
+        // 契約は `POST /projects/{projectId}/releases` のみを定義し、一覧取得の
+        // `GET` は持たないため、契約に無い `GET` は配線しない（判断 28）。
+        .merge(
+            Router::new()
+                .route(
+                    "/projects/{projectId}/releases",
+                    post(routes::releases::create_release),
+                )
+                .route_layer(axum::middleware::from_fn_with_state(
+                    state.clone(),
+                    middleware::require_auth,
+                )),
         );
 
     Router::new()
@@ -329,6 +373,8 @@ pub fn build_app_state(config: Config) -> AppState {
         verification_store,
     ));
 
+    let releases = Arc::new(ReleaseStore::new());
+
     AppState {
         config: config.clone(),
         sessions: Arc::new(SessionStore::new(config.clone())),
@@ -344,11 +390,15 @@ pub fn build_app_state(config: Config) -> AppState {
         derivation,
         jobs,
         verification,
+        releases,
     }
 }
 
 #[cfg(test)]
 pub(crate) mod test_support;
+
+#[cfg(test)]
+mod reader_routes_test;
 
 #[cfg(test)]
 mod tests {

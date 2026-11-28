@@ -131,15 +131,15 @@ slug 生成はタイトルを NFKC 正規化→小文字化→連続記号の圧
 
 ### 5.3 プロジェクト（projects）
 
-状態: 実装中（一覧 `GET /projects`・作成 `POST /projects`・`GET /search/projects` は実装済み。詳細・版・リリース系は未配線。REF:server/src/routes/projects.rs, REF:server/src/registry.rs, REF:server/src/project_index.rs, REF:api/openapi.yaml）
+状態: 実装中（一覧 `GET /projects`・作成 `POST /projects`・`GET /search/projects`・リリース作成 `POST /projects/{projectId}/releases` は実装済み。詳細 `GET /projects/{projectId}`・更新・取り下げは未配線。REF:server/src/routes/projects.rs, REF:server/src/routes/releases.rs, REF:server/src/releases.rs, REF:server/src/registry.rs, REF:server/src/project_index.rs, REF:api/openapi.yaml）
 
 作成系は zip 取込（`multipart/form-data`、上限 50MB）と `archive_url` 指定（`{"source":{"kind":"archive_url","url":"…"}}`、hub がその URL から zip を取得）の 2 経路とする。外部ソースの指定に保管基盤の種別を含めないことで、契約から GitHub の語彙を排除する。取込時は展開→検証→保管単位作成→原子コミット→DB 登録の順で、途中失敗は作成済み保管単位の削除補償を行う。`GET /projects` は表示順 `updated_at DESC, id DESC` でカーソルページネーション。`DELETE /projects/{id}` は hub 側の `visibility='archived'` への論理削除で、GitHub のリポジトリは消さない。
 
 ### 5.4 ファイル内容（contents）
 
-状態: 未実装・実装計画済み（`tree`・`file`・`commit` は契約定義済みだがネイティブサーバーの `build_router` に未配線。Git Data API を用いるポートは `REF:server/src/ports.rs` に定義済み。判断: `REF:docs/handoff.md` §4 判断 27、REF:api/openapi.yaml）
+状態: 実装中（読み取りの `GET /projects/{projectId}/tree`・`GET /projects/{projectId}/file` は実装済み。書き込みの `PUT /projects/{projectId}/file`・`POST /projects/{projectId}/commit` は未配線。REF:server/src/routes/contents.rs, REF:server/src/adapters/github/mod.rs, REF:server/src/ports.rs, REF:api/openapi.yaml）
 
-`tree` はパス一覧 + 種別 + サイズ + blob 単位の ETag を返す（1 万ファイルを超える場合はトランケートし `truncated: true`）。`file` はテキスト（UTF-8 妥当）なら `content` 文字列、不正バイトを含む場合は `encoding: "base64"` へ自動切替。`commitFiles` は GitHub の Git Data API（blob → tree → commit → ref 更新）で複数ファイルを原子的にコミットし、ref の先端が読み取り時から動いていた場合は再取得して 1 回だけリトライ、それ以上は `conflict`。
+`tree` はパス一覧 + 種別 + サイズ + blob 単位の ETag を返す（1 万ファイルを超える場合はトランケートし `truncated: true`）。`file` はテキスト（UTF-8 妥当）なら `content` 文字列、不正バイトを含む場合は `encoding: "base64"` へ自動切替。`commitFiles` は GitHub の Git Data API（blob → tree → commit → ref 更新）で複数ファイルを原子的にコミットし、ref の先端が読み取り時から動いていた場合は再取得して 1 回だけリトライ、それ以上は `conflict`。**実装（読み取り）**: `tree` は保存単位の 1 階層分を返し、全階層を平坦化しない（契約例で `dir` と `dir/配下` が併存するため）。契約に `limit` が無いため `truncated` は常に `false`、ディレクトリの `size` は不明時 `0`。`file` は GitHub の contents API が返す base64（改行入り）を復号し、UTF-8 妥当なら `encoding: "utf8"` で `content`、不正バイトを含むなら base64 を保ったまま `encoding: "base64"` で `data` と `mime`（拡張子から推定）を返す。判断は `REF:docs/handoff.md` §4 判断 28。
 
 ### 5.5 変更提案（proposals）
 
@@ -179,15 +179,15 @@ IssuePort 越しに GitHub Issues を操作する。hub 側は一覧の投影（
 
 ### 5.11 novnow 特化機能（novnow）
 
-状態: 実装中（`verify`・`verify/latest`・`diagnostics`・`jobs/{jobId}`・`exports` は実装済み。`reading`（読者ビュー本文）は未配線。REF:server/src/routes/verify.rs, REF:server/src/verification.rs, REF:server/src/routes/jobs.rs, REF:api/openapi.yaml）
+状態: 実装中（`verify`・`verify/latest`・`diagnostics`・`jobs/{jobId}`・`exports`・`reading`（読者ビュー本文）は実装済み。注釈の除去は未実装。REF:server/src/routes/verify.rs, REF:server/src/verification.rs, REF:server/src/routes/jobs.rs, REF:server/src/routes/reading.rs, REF:api/openapi.yaml）
 
-`verify` は zip 相当のスナップショットに対して必須パス・UTF-8・`schema_version` を検査し、`verification` レコードとして保存する。`diagnostics`・`exports` は非同期ジョブ（`jobs` テーブル）として受け、`JobPort.enqueue` へ委譲する。`reading` は本文を注釈除去済みの読者表現（HTML 片または構造化ブロック配列）で返し、CDN キャッシュのキーにプロジェクトの ETag を含める。M3 時点では `reading` のみ同期実装し、残りは M5 で投入する。
+`verify` は zip 相当のスナップショットに対して必須パス・UTF-8・`schema_version` を検査し、`verification` レコードとして保存する。`diagnostics`・`exports` は非同期ジョブ（`jobs` テーブル）として受け、`JobPort.enqueue` へ委譲する。`reading` は本文を読者表現（構造化ブロック配列）で返し、CDN キャッシュのキーにプロジェクトの ETag を含める。M3 時点では `reading` のみ同期実装し、残りは M5 で投入する。**実装**: `contents/` 配下の本文ファイル（`.cnov`・`.md`・`.txt`）をパス順に連結し、`#` 見出し→`heading`、記号のみの区切り行→`scene_break`、その他の非空行→`paragraph` という行単位の最小写像で `blocks` を組み立てる。novnow 本文の構文仕様は本リポジトリ外のため、`speaker` を要する `dialogue` の生成と注釈（コメント）の除去は行わず、独自の本文記法を発明しない（判断は `REF:docs/handoff.md` §4 判断 28。注釈除去は既知の残課題）。`etag` は連結後本文の SHA-256 hex とし、内容が変われば必ず変わる（フロントの ETag キャッシュの鍵）。
 
 ### 5.12 セットアップ（setup）
 
-状態: 未実装・実装計画済み（`GET /projects/{id}/setup`・`GET /setup/resolve` は契約定義済み・フロントエンド接続済みだがネイティブサーバーの `build_router` に未配線。判断: `REF:docs/handoff.md` §4 判断 27、REF:api/openapi.yaml）
+状態: 実装完了（`GET /projects/{projectId}/setup`・`GET /setup/resolve` を匿名可で配線。REF:server/src/routes/setup.rs, REF:api/openapi.yaml）
 
-`GET /projects/{id}/setup` は `{ projectId, slug, snapshotVersion, acquisition: { kind: "archive" | "git", url, ref }, novnow: { minVersion }, displayHints }` を返す。`GET /setup/resolve?u=…` は公開ページのセットアップ URL を解釈し、同じペイロードを返す（アプリが公開 URL から出発できるようにするため）。`acquisition.url` は認証不要の公開 tarball（archive 相当）を既定とし、私設の場合は短期失効トークン付き URL を発行する。いずれの場合も hub のセッションをアプリへ渡さない。
+`GET /projects/{id}/setup` は `{ projectId, slug, snapshotVersion, acquisition: { kind: "archive" | "git", url, ref }, novnow: { minVersion }, displayHints }` を返す。`GET /setup/resolve?u=…` は公開ページのセットアップ URL を解釈し、同じペイロードを返す（アプリが公開 URL から出発できるようにするため）。`acquisition.url` は認証不要の公開 tarball（archive 相当）を既定とし、私設の場合は短期失効トークン付き URL を発行する。いずれの場合も hub のセッションをアプリへ渡さない。**実装**: `slug` はタイトルから機械生成（`slugify`）、`snapshotVersion` は更新日時（UTC・`YYYY-MM-DD`）、`novnow.minVersion` は hub が受理する novnow 形式の下限（`HUB_MINIMUM_CLIENT_VERSION`）、`acquisition` は `kind: "archive"`・`url` は `{HUB_PUBLIC_BASE}/archives/{projectId}.zip`・`ref` は既定分岐名。`resolve` は発行済みのセットアップ URL（`…/projects/{projectId}/setup`）と公開ページ URL（`…/reading/?projectId=…`）の双方を解釈し、プロジェクトを特定できない URL は `400`、未登録は `404`。判断は `REF:docs/handoff.md` §4 判断 28。
 
 ---
 
