@@ -16,7 +16,7 @@
 | M4 コラボレーション | 完了 | Proposal／Issue UI と SQLite ChatPort 参照実装・チャット UI、ProposalPort／IssuePort／AutomergePort／CheckStatusPort の GitHub 実装と契約テスト、提案系／課題系／automerge 系の HTTP ルート配線、自動マージの予約・取消・状態表示 UI を実装。通知センター・未読バッジ・通知ファンアウトを実装。Webhook 受信（署名検証）による公開ページ再生成とキャッシュ失効を実装 | `REF:docs/plans.md#m4-collaboration` |
 | M5 novnow 特化機能 | 完了 | セットアップ URL 発行・解決と派生（DerivationPort・派生ツリー UI）と、novnow 診断・エクスポートの非同期ジョブ基盤（JobPort・「点検」タブ）を実装。PR #51 としてマージ済み | `REF:docs/plans.md#m5-novnow-features` |
 | M6 マルチプラットフォーム | 完了 | Tauri v2 デスクトップビルドと配布パイプライン、PWA（manifest・Service Worker オフラインシェル）、Tauri secure storage へのセッション保管、カスタムスキーム（`novnow://`）でのセットアップ URL 受信、未署名インストーラ配布方式を実装。PR #52 としてマージ済み | `REF:docs/plans.md#m6-multiplatform` |
-| M7 運用・品質・OSS 公開準備 | 進行中 | 本番デプロイとインフラ運用（§2）・CI 拡張（§3）・セキュリティレビュー（§4）は完了。ドキュメント整備（§5.1 セルフホストガイド・§5.2 運営ポリシー・CHANGELOG）・初回リリース（§5.3 リリースノート草案 v0.1.0・タグ計画）は PR 作成待ち（`arena/m7-docs-release-novnow-hub`） | `REF:docs/plans.md#m7-ops` |
+| M7 運用・品質・OSS 公開準備 | 進行中 | 本番デプロイとインフラ運用（§2）・CI 拡張（§3）・セキュリティレビュー（§4）・ドキュメント整備（§5.1〜§5.3）は完了。性能目標の実測検証とコスト実測（§6）は測定結果記録済み（`arena/m7-performance-monitoring-novnow-hub`）。実際のブラウザ/サーバー/本番実測は環境制約により未実施、後続タスク。 | `REF:docs/plans.md#m7-ops` |
 <!-- SYNC:END project-status -->
 
 ---
@@ -108,7 +108,12 @@
   - [x] リリースノート草案（`docs/release-notes-v0.1.0.md`、M7 §5.3、v0.1.0）を作成（タグ・GitHub Release は作成せず、別途指示待ち）
   - [ ] 初回リリース（タグ `v0.1.0` の作成・GitHub Release の公開は別途指示待ち）
   - [ ] PR の作成とマージ待ち（`arena/m7-docs-release-novnow-hub` → `main`）
-- [ ] 性能目標の実測検証（LCP・API p95・検索）とコスト実測（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）
+- [x] 性能目標の実測検証（LCP・API p95・検索）とコスト実測（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）
+  - [x] 測定結果記録（`docs/performance-measurement.md`、M7 §6.1・§6.2）
+  - [ ] LCP 実際のブラウザ実測（Chrome/Lighthouse 未インストールのため未実施、後続タスク）
+  - [ ] API p95 実際のサーバー実測（Rust ツールチェーン未インストールのため未実施、後続タスク）
+  - [ ] 月間可用性実際の本番実測（本番環境未デプロイのため未実施、後続タスク）
+  - [ ] コスト実際の使用量実測（本番環境未デプロイのため未実施、後続タスク）
 
 完了条件: OSS として一般公開できる状態。
 
