@@ -55,7 +55,7 @@ docs/
 
 - **フロントエンド**: Astro + Svelte + TypeScript（strict）、パッケージマネージャは npm。API クライアントは契約（`REF:api/openapi.yaml`）から生成する（`openapi-typescript` + `openapi-fetch` を第一候補）
 - **デスクトップ**: Tauri v2（Web と同一コードベース）
-- **バックエンド**（別リポジトリまたは別 crate）: Rust + Axum + SQLite（候補。Phase 1 は GitHub アダプターを実装）
+- **バックエンド**: Rust + Axum（`server/` crate。Phase 1 は GitHub アダプター実装、インメモリストア。D1/SQLite 永続化は後続）
 - **契約検証**: `python3 -m pip install openapi-spec-validator` で `REF:api/openapi.yaml` を検証する
 - **ランタイム**: Node.js LTS（フロントエンド）、Rust stable（バックエンド）
 - **ビルドツール**: Vite（Astro 内蔵）、Cargo
@@ -70,9 +70,8 @@ Arena サンドボックスには初期状態で目的のツールチェーン�
 
 1. **ツールチェーンの展開**:
    ```bash
-   bash scripts/bootstrap-toolchain.sh   # 汎用スクリプト（プロジェクト側で調整）
-   # または
-   bash dependencies/rust/bootstrap-rust.sh   # Rust 用
+   bash scripts/bootstrap-toolchain.sh        # ツールチェーン一式（cache/toolchain ブランチから展開）
+   bash dependencies/rust/bootstrap-rust.sh   # Rust のみ（cache/rust-toolchain ブランチから展開）
    ```
 2. **各コマンド実行時の環境有効化**:
    `bash` ツール呼び出しは毎回新しいシェルで起動するため、コマンドを実行する際は必ず先頭に環境有効化コマンドを付ける。
@@ -87,27 +86,52 @@ Arena サンドボックスには初期状態で目的のツールチェーン�
 ```text
 novnow-hub/
 ├── api/
-│   └── openapi.yaml           # API 契約の唯一の正（OpenAPI 3.1）
+│   └── openapi.yaml           # API 契約の唯一の正（OpenAPI 3.1、info.version = 1.0.0、45 パス）
+├── server/                    # バックエンド crate（Rust + Axum。M3 で導入）
+│   ├── Cargo.toml             # ネイティブ（tokio/axum/reqwest）と wasm（wasm-bindgen）の feature 分岐
+│   └── src/
+│       ├── lib.rs             # build_router / build_app_state（実装済み HTTP ルートの正）
+│       ├── main.rs            # ネイティブのエントリポイント
+│       ├── worker.rs          # Cloudflare Workers 用 fetch エントリポイント（GET /api/v1/meta のみ）
+│       ├── ports.rs           # ポート（Identity/Storage/Content/Proposal/Issue/Automerge/Check/Notification/Rebuild/Derivation/Job/D1）
+│       ├── adapters/github/   # GitHub アダプター（REST クライアント・写像・Webhook 解析・契約テスト）
+│       ├── routes/            # HTTP ルート（meta/auth/projects/collab/notifications/derivatives/jobs/verify/webhook）
+│       ├── verify.rs          # novnow 軽量検証、zip_import/ は zip 展開
+│       ├── jobs.rs            # 非同期ジョブ基盤（JobPort）
+│       └── ...                # registry・project_index・notifications・derivatives・webhook・session 等
 ├── web/                       # Astro + Svelte + TypeScript フロントエンド（M2 で導入）
-├── src-tauri/                 # Tauri v2（Web と同一コードベース）（M2 で雛形導入）
+│   ├── src/pages/             # Astro ルート（index・projects・reading・publish・collaboration・derivatives・inspection・notifications・setup）
+│   ├── src/components/        # Svelte コンポーネント（pages/ と shell/）
+│   ├── src/lib/               # API クライアント・i18n・links・reader-cache・session-storage・sw-strategy 等
+│   ├── server/                # 開発用 SQLite チャット API（npm run chat:dev、:4011）
+│   └── public/                # manifest.json・sw.js・sw-strategy.js・icons/
+├── src-tauri/                 # Tauri v2（Web と同一コードベース。M6 で導入）
 ├── docs/
 │   ├── developers.md          # 本書（固定の開発者情報・ドキュメント規則）
-│   ├── handoff.md             # セッション引き継ぎ情報
+│   ├── handoff.md             # セッション引き継ぎ情報（§4 に実装判断の記録）
 │   ├── plans.md               # 計画・進行中マイルストーン
 │   ├── history.md             # 過去の仕様改訂・意思決定・完了履歴（追記専用）
-│   ├── script/
-│   │   └── verify-docs.py     # ドキュメント管理規則・重複・REF 検査スクリプト
-│   ├── specifications/        # 純粋な仕様書（overview.md / api.md）
-│   └── designs/               # 対応する設計書（overview.md / api.md）
-├── scripts/
-│   ├── bootstrap-toolchain.sh # サンドボックス用ツールチェーン展開
-│   └── verify.sh              # コミット前の一括検証スクリプト
-├── mocks/                     # モックのシード・フィクスチャ（既定パス。未導入: モックは web/ の Prism・msw で代替中）
-├── Cargo.toml / crates/       # バックエンド（別途開発。導入時に追記）
-└── tests/                     # テスト
+│   ├── self-host-guide.md     # セルフホスト手順（M7 §5.1）
+│   ├── operating-policy.md    # 運営ポリシー（M7 §5.2）
+│   ├── release-notes-v0.1.0.md# リリースノート草案（M7 §5.3）
+│   ├── performance-measurement.md # 性能測定結果（M7 §6）
+│   ├── add-dependencies.md    # 外部依存の取得手順
+│   ├── script/                # verify-docs.py・check-openapi-compat.py・check-cargo-audit.py・smoke-mock.sh
+│   ├── specifications/        # 純粋な仕様書（overview/api/m3〜m7）
+│   └── designs/               # 対応する設計書（overview/api/m3〜m7）
+├── deploy/                    # 本番デプロイ資材（M7 §2）
+│   ├── workers-d1/            # 既定構成（Cloudflare Workers + D1）
+│   ├── vps-docker/            # 代替構成（VPS + Docker + nginx）
+│   ├── monitoring/            # 外形監視（healthcheck.sh・MONITORING.md）
+│   └── backup/                # バックアップ・鍵ローテーション
+├── scripts/                   # bootstrap-toolchain.sh（サンドボックス復旧）・verify.sh（コミット前一括検証）
+├── dependencies/              # サンドボックス用ツールチェーン退避の取得手順（テンプレート由来）
+├── .github/workflows/         # ci.yml・desktop.yml・deploy.yml・monitoring.yml・lockfile.yml 等
+├── CHANGELOG.md               # リリース単位の変更履歴
+└── GUIDE.md                   # 仕様駆動開発の進め方（テンプレート解説）
 ```
 
-`web/`・`src-tauri/`・`mocks/`・`api/` の新規パスは本 M1 で確定した構成。バックエンドが同一リポジトリに来るか別リポジトリかは M3 の開始時に確定し、確定後に本節を更新する。
+`mocks/` は未導入で、モックは `web/` の Prism モック（`npm run mock`、:4010）と `web/src/test/` の手書きフィクスチャで代替している（詳細は `REF:docs/plans.md#m2-frontend-mock`）。
 
 ---
 
@@ -115,11 +139,14 @@ novnow-hub/
 
 ### 4.1 `bash scripts/verify.sh`（コミット前の必須検証）
 
-コミット・プッシュ前に必ず実行し、すべて通ることを確認する。
+コミット・プッシュ前に必ず実行し、すべて通ることを確認する。実行内容は次のとおり（`scripts/verify.sh` の実装を正とする）。
 
 1. `python3 docs/script/verify-docs.py`（ドキュメント規則・重複・`REF:` リンク検査）
-2. 言語固有の静的解析・フォーマットチェック
-3. テストの実行
+2. `npm --prefix web run check`（API 型の生成物差分チェック + Vitest + `astro check`）
+3. `npm --prefix web run build`（`--quick` 指定時は省略）
+4. 冒頭で `$HOME/build/env.sh` があれば読み込み、サンドボックスのツールチェーンを有効化する
+
+サーバー（`server/`）の検証はこのスクリプトに含まれないため、Rust ツールチェーンがある環境では `cargo build --locked --all-targets`・`cargo test --locked --all-targets`・`cargo clippy --locked --all-targets -- -D warnings` を別途実行する（CI の `rust` ジョブと同じ）
 
 ### 4.2 `python3 docs/script/verify-docs.py`（ドキュメント規則検査）
 

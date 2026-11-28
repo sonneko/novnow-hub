@@ -57,8 +57,8 @@ specifications/*.md > designs/*.md > ソースコード
 ドキュメント間の相互参照はすべて `REF:` プレフィックスを付ける：
 
 ```markdown
-実装は `REF:src/main.rs` にある。
-詳細は `REF:docs/plans.md#milestone-2` を参照。
+実装は `REF:server/src/lib.rs` にある。
+詳細は `REF:docs/plans.md#m3-thin-slice` を参照。
 ```
 
 これにより、`docs/script/verify-docs.py` で参照先の存在を機械的に検証できる。
@@ -82,7 +82,7 @@ specifications/*.md > designs/*.md > ソースコード
 ```markdown
 ### 3.1 データモデル
 
-状態: 実装完了（REF:src/core/model.rs）
+状態: 実装完了（REF:server/src/ports.rs）
 
 実装の詳細...
 ```
