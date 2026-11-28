@@ -499,3 +499,12 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
 - **契約にあるが未配線のエンドポイントを記録**: `api/openapi.yaml`（45 パス）と `build_router` の差分を `REF:docs/handoff.md` §4 判断 27 に記録した（ソース側の未実装。本タスクではドキュメントのみ修正し、実装は後続タスク）。VPS + Docker 構成で静的公開ページを配信する経路が無いこと、Workers の wasm が `GET /api/v1/meta` のみを応答することも同判断に記録し、`REF:docs/self-host-guide.md`・`REF:deploy/workers-d1/DEPLOY.md`・`REF:docs/release-notes-v0.1.0.md` の既知の制限事項に反映した。
 - **ドキュメント間の食い違い**: `docs/specifications/m7.md` §1.1 が他ドキュメントを参照していた（`plans.md` の「将来の拡張点」は存在しない節）ため、参照を除去。`REF:docs/self-host-guide.md` の Workers 用 Secrets に `CF_ACCOUNT_ID` を追加（`REF:.github/workflows/deploy.yml` が要求）し、環境変数一覧に `REF:server/src/config.rs` の未記載変数を追加。`CHANGELOG.md` と `REF:docs/release-notes-v0.1.0.md` の「M1 から M7 まで完了・一般公開できる状態」を実態（M1〜M6 完了・M7 進行中）に修正し、タグ計画の基点を PR #60 から PR #61（`c8b97ca`）に修正。
 - **検証**: `python3 docs/script/verify-docs.py` 通過。全 Markdown の `REF:` 参照と相対リンクを機械走査し、参照切れ 0 件を確認。`api/openapi.yaml`・`server/`・`web/`・`src-tauri/` は変更なし。
+
+### [HIST:MILESTONE:READER-ENDPOINT-WIRING] 2026-11-28 契約の読者・セットアップ系 6 経路をネイティブサーバーへ配線
+[HIST-TAG: category=MILESTONE id=READER-ENDPOINT-WIRING topics=api,routes,contents,reading,setup,releases,contentport,openapi]
+- **ブランチ**: `arena/9dc6b7a0-novnow-hub`（`main` @ `214c930` = PR #62 マージコミット）。PR #63 として作成（マージはユーザー指示待ち）。
+- **背景**: 判断 27 で記録した「契約にあるがサーバー未配線」のエンドポイントのうち、読者・セットアップ系 6 経路（`GET /projects/{projectId}/tree`・`/file`・`/reading`・`/setup`、`GET /setup/resolve`、`POST /projects/{projectId}/releases`）を配線した。契約 `api/openapi.yaml` は不変。
+- **契約との差分**: 契約の `/projects/{projectId}/releases` は `post` のみで `get` を持たないため、当初スコープの「`GET /releases`」は契約に存在しない。契約を変更せず `POST` のみを実装し、契約外の `GET` は追加しなかった（判断 28(a)）。
+- **`ContentPort::read_file` のバグ修正**: GitHub の contents API はテキストも base64（60 文字ごとの改行入り）で返すが、既存実装は base64 文字列をそのまま `content` として返し `encoding: base64` と誤写像していた（`POST /projects` の検証経路を通らないため露見していなかった）。改行を除いて復号し、UTF-8 妥当なら `utf8`、不正バイトを含むなら `base64`（`data`＋拡張子からの `mime` 推定）を返すよう修正し、内容を壊さない（判断 6(b) の踏襲。判断 28(c)）。
+- **reading の本文写像**: novnow 本文の構文仕様は本リポジトリ外のため、hub 独自の本文記法を発明せず、`contents/` の本文ファイルをパス順に連結して行単位の最小写像（`heading`／`paragraph`／`scene_break`）で `blocks` を構築。`speaker` を要する `dialogue` の生成と注釈（コメント）の除去は未実装（既知の残課題）。`etag` は連結後本文の SHA-256 hex（判断 28(e)）。
+- **検証**: `cargo build`（警告 0）・`cargo test` 218 件成功・`cargo clippy -D warnings` 通過。実サーバーを起動し、別プロセスの保管基盤代役へ向けて OAuth 交換 → `POST /projects` → 6 経路を実 HTTP で検証（200/201、未登録 404、不正入力 400、未認証 401、契約外 `GET` 405）。`python3 docs/script/verify-docs.py` 通過。判断の詳細は `REF:docs/handoff.md` §4 判断 28。
