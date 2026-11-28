@@ -45,25 +45,25 @@
 <a id="api-auth"></a>
 ### 3.1 GitHub OAuth によるサインイン
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m3-thin-slice）
+状態: 実装完了（REF:server/src/routes/auth.rs, REF:server/src/adapters/github/client.rs）
 
 認可コード + PKCE フロー。バックエンド（別リポジトリで開発）は `/auth/github/start` で `state`（CSRF 対策、10 分 TTL、使い捨て）と `code_challenge` を発行・短期保存して GitHub の認可 URL へリダイレクトする。`callback` で code を交換し、`IdentityPort.exchangeCodeForIdentity` へ渡す。アクセストークンの交換・保管はアダプター層に閉じ込め、ユースケース層は hub の利用者像だけを受け取る。
 
 ### 3.2 セッションとトークン
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m3-thin-slice）
+状態: 実装完了（セッションはインメモリ実装。`sessions` テーブルへの永続化は未実装。REF:server/src/session.rs）
 
 セッションは不透明乱数（256bit）+ サーバ照合（JWT にしない）を既定とし、`sessions` テーブル（id／user_id／refresh_hash／expires_at／revoked_at／created_at）に保持する。アクセストークンは 1 時間、更新トークンは 30 日・ローテーション・旧トークンの再利用検知（再利用時は当該利用者の全セッションを失効）を実装する。Tauri 側は secure storage（Keychain／Credential Manager）、ブラウザ側はメモリ + 必要最小限の永続化とする。
 
 ### 3.3 認可モデル
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m3-thin-slice）
+状態: 実装中（Bearer 認証の `require_auth` ミドルウェアは実装済み。Phase 1 の GitHub 権限マッピングと 5 分キャッシュは未実装。REF:server/src/middleware.rs）
 
 認可判定はミドルウェア（Axum の `FromRef` + カスタム extractor）で一箇所に集約し、ハンドラからの直接判定を禁止する。Phase 1 は GitHub 権限を `owner`／`collaborator`／`reader` へマップし、プロジェクトごとの判定結果を 5 分キャッシュする。Phase 2 では `AuthorizationPort`（`resolveRole(userId, projectId)`）へ差し替えられる構造とする。非公開対象への reader アクセスは 404 で応答する位置づけとする（存在秘匿ポリシー）。
 
 ### 3.4 サインアウトとトークン失効
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m3-thin-slice）
+状態: 実装中（`POST /auth/logout` によるセッション失効と `DELETE /auth/account`（退会）は実装済み。退会時の匿名化・`revokeGrant` は未実装。REF:server/src/routes/auth.rs）
 
 失効は `sessions.revoked_at` の更新 + インメモリ／KV のセッションキャッシュの無効化で行う。退会はトランザクションでセッション全失効・利用者の匿名化・`IdentityPort.revokeGrant`（GitHub の許可取消し API）を実行する。GitHub 側リポジトリは利用者資産として残置する旨を退会フローの画面で明記する。
 
@@ -119,43 +119,43 @@ slug 生成はタイトルを NFKC 正規化→小文字化→連続記号の圧
 
 ### 5.1 認証（auth）
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m3-thin-slice, REF:api/openapi.yaml）
+状態: 実装完了（REF:server/src/routes/auth.rs, REF:server/src/session.rs, REF:server/src/middleware.rs, REF:api/openapi.yaml）
 
 `start`／`callback` はリダイレクトを返す GET、`refresh`／`logout`／`account` は JSON POST/DELETE。`callback` は成功時にクライアントのコールバック URL（SPA ルート）へ `#session=…` ではなく一時コードを付けて返し、SPA が直後に `refresh` でセッションを得る形にすると、トークンを URL 履歴に残さずに済む。
 
 ### 5.2 ユーザー（users）
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m3-thin-slice, REF:api/openapi.yaml）
+状態: 未実装・実装計画済み（`GET /users/me`・`/users/{handle}`・`/users/me/projects` は契約定義済みだがネイティブサーバーの `build_router` に未配線。判断: `REF:docs/handoff.md` §4 判断 27、REF:api/openapi.yaml）
 
 `users/me` はセッションから利用者を引いて返す。`handle` は一意索引を持ち、初回は GitHub の login を正規化（小文字）して採用、変更は許可（`profile_handle_history` を保持して旧 handle のリンクを 301 で案内）。`users/{handle}` の公開像は bio とアイコン・公開作品数のみを返し、所属情報は返さない。
 
 ### 5.3 プロジェクト（projects）
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m3-thin-slice, REF:api/openapi.yaml）
+状態: 実装中（一覧 `GET /projects`・作成 `POST /projects`・`GET /search/projects` は実装済み。詳細・版・リリース系は未配線。REF:server/src/routes/projects.rs, REF:server/src/registry.rs, REF:server/src/project_index.rs, REF:api/openapi.yaml）
 
 作成系は zip 取込（`multipart/form-data`、上限 50MB）と `archive_url` 指定（`{"source":{"kind":"archive_url","url":"…"}}`、hub がその URL から zip を取得）の 2 経路とする。外部ソースの指定に保管基盤の種別を含めないことで、契約から GitHub の語彙を排除する。取込時は展開→検証→保管単位作成→原子コミット→DB 登録の順で、途中失敗は作成済み保管単位の削除補償を行う。`GET /projects` は表示順 `updated_at DESC, id DESC` でカーソルページネーション。`DELETE /projects/{id}` は hub 側の `visibility='archived'` への論理削除で、GitHub のリポジトリは消さない。
 
 ### 5.4 ファイル内容（contents）
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m3-thin-slice, REF:api/openapi.yaml）
+状態: 未実装・実装計画済み（`tree`・`file`・`commit` は契約定義済みだがネイティブサーバーの `build_router` に未配線。Git Data API を用いるポートは `REF:server/src/ports.rs` に定義済み。判断: `REF:docs/handoff.md` §4 判断 27、REF:api/openapi.yaml）
 
 `tree` はパス一覧 + 種別 + サイズ + blob 単位の ETag を返す（1 万ファイルを超える場合はトランケートし `truncated: true`）。`file` はテキスト（UTF-8 妥当）なら `content` 文字列、不正バイトを含む場合は `encoding: "base64"` へ自動切替。`commitFiles` は GitHub の Git Data API（blob → tree → commit → ref 更新）で複数ファイルを原子的にコミットし、ref の先端が読み取り時から動いていた場合は再取得して 1 回だけリトライ、それ以上は `conflict`。
 
 ### 5.5 変更提案（proposals）
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m4-collaboration, REF:api/openapi.yaml）
+状態: 実装完了（REF:server/src/routes/collab.rs, REF:server/src/adapters/github/mod.rs, REF:web/src/components/pages/ProposalsPage.svelte, REF:api/openapi.yaml）
 
 ProposalPort 越しに GitHub PR を操作する。`openProposal` は head/base の分岐名を受け、GitHub の PR を作成して、番号・差分統計・初期チェック一覧を返す。`diff` は GitHub の diff を取得し、novnow 診断差分（M5 以降）をマージして返す。承認は PR review（APPROVE／DISMISS）へ写像し、`requiredApprovals` は GitHub の branch protection と hub の予約条件の小さくない方（厳しい方）を採用する。
 
 ### 5.6 自動マージ（automerge）
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m4-collaboration, REF:api/openapi.yaml）
+状態: 実装完了（境界の予約・取消・状態取得は `REF:server/src/routes/collab.rs`。cron 定期評価は未実装で、予約は GitHub の auto-merge をそのまま用いる。REF:web/src/components/pages/ProposalDetailPage.svelte, REF:api/openapi.yaml）
 
 `PUT .../automerge` は GitHub の `enablePullRequestAutoMerge`（GraphQL）を第一選択、無効な環境では hub の cron による定期評価（5 分間隔）へ自動フォールバックする。予約レコードは `automerge_reservations` テーブルに保持し、評価は「必要承認数到達 ∧ 必須チェック緑 ∧ 競合なし ∧ 作者以外の承認」の論理積で行う。発火・失敗・取消しの各イベントを通知種別 `proposal_*` として発行する。
 
 ### 5.7 課題（issues）
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m4-collaboration, REF:api/openapi.yaml）
+状態: 実装完了（REF:server/src/routes/collab.rs, REF:server/src/adapters/github/mod.rs, REF:web/src/components/pages/IssuesPage.svelte, REF:api/openapi.yaml）
 
 IssuePort 越しに GitHub Issues を操作する。hub 側は一覧の投影（number／title／state／labels／assignee／updated_at）のみをキャッシュし、正は都度 GitHub から取得する。本文中の `Closes #N` を解析して提案との紐付けを自動設定する。テンプレートは `.github/ISSUE_TEMPLATE` 相当の機構を hub 設定として持ち、hub UI から選択させる。
 
@@ -167,25 +167,25 @@ IssuePort 越しに GitHub Issues を操作する。hub 側は一覧の投影（
 
 ### 5.9 検索（search）
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m3-thin-slice, REF:api/openapi.yaml）
+状態: 実装中（`GET /search/projects` はインメモリ軽量インデックスで実装済み。`GET /search/users` は未配線。REF:server/src/project_index.rs, REF:server/src/routes/projects.rs, REF:api/openapi.yaml）
 
 `search_index` テーブルへの SQL 検索。正規化は NFKC + casefold + かなの区別なし畳み込み（任意）。タグは複数指定時 AND。ソートは `relevance`（前方一致優先→更新日）と `updated` の 2 種。インデックス更新はプロジェクトの作成・更新・可視性変更の各トランザクションのコミット後に非同期投入する。
 
 ### 5.10 通知（notifications）
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m4-collaboration, REF:api/openapi.yaml）
+状態: 実装中（`GET /notifications`・`POST /notifications/read` は実装済み。`GET`/`PATCH /notifications/settings` は未配線。REF:server/src/routes/notifications.rs, REF:server/src/notifications.rs, REF:web/src/components/pages/NotificationsPage.svelte, REF:api/openapi.yaml）
 
 通知は `notifications` テーブルに永続化し、`X-Unread-Count` ヘッダをレスポンスに常時付与する。`POST /notifications/read` は `{"ids": [...]}` または `{"all": true}` を受ける。種別ごとのチャネル設定は `notification_settings`（user_id／kind／channel／enabled）で管理する。配信ワーカー（ファンアウト）はプロセス内または cron でよく、外部 MQ は導入しない（コスト制約）。
 
 ### 5.11 novnow 特化機能（novnow）
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m5-novnow-features, REF:api/openapi.yaml）
+状態: 実装中（`verify`・`verify/latest`・`diagnostics`・`jobs/{jobId}`・`exports` は実装済み。`reading`（読者ビュー本文）は未配線。REF:server/src/routes/verify.rs, REF:server/src/verification.rs, REF:server/src/routes/jobs.rs, REF:api/openapi.yaml）
 
 `verify` は zip 相当のスナップショットに対して必須パス・UTF-8・`schema_version` を検査し、`verification` レコードとして保存する。`diagnostics`・`exports` は非同期ジョブ（`jobs` テーブル）として受け、`JobPort.enqueue` へ委譲する。`reading` は本文を注釈除去済みの読者表現（HTML 片または構造化ブロック配列）で返し、CDN キャッシュのキーにプロジェクトの ETag を含める。M3 時点では `reading` のみ同期実装し、残りは M5 で投入する。
 
 ### 5.12 セットアップ（setup）
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m5-novnow-features, REF:api/openapi.yaml）
+状態: 未実装・実装計画済み（`GET /projects/{id}/setup`・`GET /setup/resolve` は契約定義済み・フロントエンド接続済みだがネイティブサーバーの `build_router` に未配線。判断: `REF:docs/handoff.md` §4 判断 27、REF:api/openapi.yaml）
 
 `GET /projects/{id}/setup` は `{ projectId, slug, snapshotVersion, acquisition: { kind: "archive" | "git", url, ref }, novnow: { minVersion }, displayHints }` を返す。`GET /setup/resolve?u=…` は公開ページのセットアップ URL を解釈し、同じペイロードを返す（アプリが公開 URL から出発できるようにするため）。`acquisition.url` は認証不要の公開 tarball（archive 相当）を既定とし、私設の場合は短期失効トークン付き URL を発行する。いずれの場合も hub のセッションをアプリへ渡さない。
 

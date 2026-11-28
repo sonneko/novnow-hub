@@ -16,7 +16,7 @@
 | M4 コラボレーション | 完了 | Proposal／Issue UI と SQLite ChatPort 参照実装・チャット UI、ProposalPort／IssuePort／AutomergePort／CheckStatusPort の GitHub 実装と契約テスト、提案系／課題系／automerge 系の HTTP ルート配線、自動マージの予約・取消・状態表示 UI を実装。通知センター・未読バッジ・通知ファンアウトを実装。Webhook 受信（署名検証）による公開ページ再生成とキャッシュ失効を実装 | `REF:docs/plans.md#m4-collaboration` |
 | M5 novnow 特化機能 | 完了 | セットアップ URL 発行・解決と派生（DerivationPort・派生ツリー UI）と、novnow 診断・エクスポートの非同期ジョブ基盤（JobPort・「点検」タブ）を実装。PR #51 としてマージ済み | `REF:docs/plans.md#m5-novnow-features` |
 | M6 マルチプラットフォーム | 完了 | Tauri v2 デスクトップビルドと配布パイプライン、PWA（manifest・Service Worker オフラインシェル）、Tauri secure storage へのセッション保管、カスタムスキーム（`novnow://`）でのセットアップ URL 受信、未署名インストーラ配布方式を実装。PR #52 としてマージ済み | `REF:docs/plans.md#m6-multiplatform` |
-| M7 運用・品質・OSS 公開準備 | 進行中 | 本番デプロイとインフラ運用（§2）・CI 拡張（§3）・セキュリティレビュー（§4）・ドキュメント整備（§5.1〜§5.3）は完了。性能目標の実測検証とコスト実測（§6）は測定結果記録済み（`arena/m7-performance-monitoring-novnow-hub`）。実際のブラウザ/サーバー/本番実測は環境制約により未実施、後続タスク。 | `REF:docs/plans.md#m7-ops` |
+| M7 運用・品質・OSS 公開準備 | 進行中 | §2 本番デプロイ・外形監視・バックアップ・鍵ローテーション、§3 CI 拡張、§5 ドキュメント整備（セルフホストガイド・運営ポリシー・CHANGELOG・リリースノート草案）、§6 測定結果の記録は完了（PR #58〜#61）。§4 セキュリティレビューはトークン暗号化のみ完了、残項目は未実施。§5.3 初回リリース（タグ・GitHub Release）と §6 の実測は後続タスク。 | `REF:docs/plans.md#m7-ops` |
 <!-- SYNC:END project-status -->
 
 ---
@@ -53,7 +53,7 @@
 完了条件: モックに接続した読者ビューとプロジェクトページがローカルで動くこと。**達成済み**（CI の docs ジョブで Prism モックのスモークテストとして検証: `docs/script/smoke-mock.sh` がモックを起動し、読者ビュー・プロジェクトページが接続する主要パス（/meta、/projects/{id}、/projects/{id}/reading、/projects/{id}/tree、/projects/{id}/setup）が 2xx を返すことを確認）。
 
 <a id="m3-thin-slice"></a>
-### M3: 薄いスライス — 公開と閲覧（Phase 1 最小）（仕様・設計策定済み）
+### M3: 薄いスライス — 公開と閲覧（Phase 1 最小）（完了）
 - [x] バックエンド骨格（Rust + Axum、API 契約にのみ準拠）: `GET /meta`、認証（GitHub OAuth + PKCE）、セッション、認可ミドルウェア（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）— 実装済み。配置箇所は仕様・設計に未定だったため新規 crate `server/` に配置（PR 本文に記録）。実機検証: `GET /api/v1/meta` が 200 で契約どおりの応答、認証エンドポイントも契約どおり。单元テスト 11 件成功。
 - [x] GitHub アダプターの最小実装（保管単位の作成、原子コミット、ツリー／ファイル取得、ETag）（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）— 実装済み。GitHub アクセスは `adapters/github/` 配下に閉じ込め、ポート経由で差し替え可能。契約スキーマ・型は `api/openapi.yaml` と `docs/designs/api.md` §7 に準拠。
 - [x] 公開フロー: zip 取込 → novnow 軽量検証 → 保管単位作成 → hub 登録 → 公開ページ生成（仕様: REF:docs/specifications/m3.md、設計: REF:docs/designs/m3.md）— 実装済み。multipart/form-data パース（純粋 Rust 自前実装）、`POST /projects` ルート（`require_auth` 経由）、novnow 軽量検証（novnow 本体の仕様 §4.2・§4.3 と同一）、保管単位作成（ポート経由）、インメモリ hub 登録（ProjectRegistry）、公開ページ URL 生成（`{HUB_PUBLIC_BASE}/reading/?projectId=…`）。PR #42 で 5 件修正（zip ディレクトリ entry をファイル化しない・バイナリは Base64 で壊さない・保管単位作成後の失敗時は削除・複数行 TOML 値を読める・`schema_version` 検査はトップレベルのみ）。`cargo build`（警告 0）・`cargo test`（69 件）・`cargo clippy -D warnings` 通過。実機検証: サーバ起動で認証ゲート 401・`/meta` 200 を確認。
@@ -65,7 +65,7 @@
 完了条件: 非エンジニアが zip をアップロードして公開でき、第三者が URL を開いて本文を読めること（本番相当環境）。
 
 <a id="m4-collaboration"></a>
-### M4: コラボレーション（変更提案・課題・自動マージ・チャット・通知）（仕様・設計策定済み）
+### M4: コラボレーション（変更提案・課題・自動マージ・チャット・通知）（完了）
 - [x] ProposalPort／IssuePort／AutomergePort／CheckStatusPort の GitHub 実装と契約テスト（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）。`server/src/ports.rs` に 4 ポートと hub ドメイン型を定義し、`server/src/adapters/github/client.rs` に GitHub REST API（Pull Requests／Issues／Check Runs／Auto-merge）の呼び出しを追加、`server/src/adapters/github/mod.rs` に GitHub 実装を追加。ローカル mock GitHub API サーバー（axum）による契約テスト 5 件を追加（GitHub 応答形状→hub 型の写像と発信リクエストの REST 契約一致を検証）。検証: `cargo build` 警告 0・`cargo test` 97 件成功・`cargo clippy -D warnings` 通過（PR #44 としてマージ済み）
 - [x] 4 ポートの HTTP ルート配線（提案系・課題系・automerge 系）と PR #44 レビュー由来のフォローアップ修正（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md、契約: REF:api/openapi.yaml）。`server/src/routes/collab.rs` を作成し、`build_router` に提案 9・自動マージ 3・課題 7 のルートを登録（読み取りは公開、書き込みは `require_auth`）。`projectId`→`shell_id` 解決・カーソルページネーションを実装。フォローアップ修正として `list_proposals` の二段絞り込みと `get_automerge_state` の状態判定、`map_pr` の承認済み判定を追加し契約テストを拡張。CheckStatusPort の verify 系（`/verify`、`/verify/latest`、`/diagnostics`、`/jobs/{jobId}`）は novnow 妥当性検証で別責務のため配線見送り（判断記録: `REF:docs/handoff.md` 判断 9）。ルート統合テスト 11 件を追加。検証: `cargo build` 警告 0・`cargo test` 110 件成功（うち統合 11・契約 7）・`cargo clippy -D warnings` 通過（PR #45 としてマージ済み）
 - [x] 変更提案 UI（一覧・詳細・差分・レビュー）と課題 UI（PR #16 で実装済み）（仕様: REF:docs/specifications/m4.md、設計: REF:docs/designs/m4.md）
@@ -77,7 +77,7 @@
 完了条件: 派生 → 変更提案 → 承認 → 自動マージ → 通知、の一連の流れが本番環境で確認できること。
 
 <a id="m5-novnow-features"></a>
-### M5: novnow 特化機能（セットアップ URL・派生ツリー・診断）（仕様・設計策定済み）
+### M5: novnow 特化機能（セットアップ URL・派生ツリー・診断）（完了）
 - [x] DerivationPort（GitHub Fork 連携 + 派生レコード）と派生ツリー UI（`/derivatives`）（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
 - [x] セットアップ URL 発行と解決（`/projects/{id}/setup`、`/setup/resolve`）（PR #12 で実装済み）（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）
 - [x] novnow アプリ側ハンドラ仕様の追補（仕様: REF:docs/specifications/m5.md、設計: REF:docs/designs/m5.md）。デスクトップ版は OS のカスタムスキーム（`novnow://`）、ブラウザ版は通常の URL でセットアップ URL を受け取る仕様を追補。受信後の取得→配置→初期化検証→エディタ開封の自動処理と、失敗時の失敗工程表示＋手動取得導線を仕様 §3.3・設計 §3.3 に追補。hub 側はセットアップ URL 発行・解決と取得元情報の提供（`ProjectPage.svelte` のブラウザ URL 表示・コピー・手動取得導線）で対応。契約変更なし
@@ -97,18 +97,17 @@
 完了条件: デスクトップアプリがセットアップ URL 経由で作品を開き、Web と同一の操作体系であること。
 
 <a id="m7-ops"></a>
-### M7: 運用・品質・OSS 公開準備（仕様・設計策定済み）
-- [x] 本番デプロイ（Workers + D1 を既定、VPS + Docker を代替）と外形監視・バックアップ・鍵ローテーション手順（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）— 実装済み（`deploy/` の資材と `.github/workflows/deploy.yml`・`monitoring.yml` を整備。サーバーの Worker ランタイム適応（`wasm32-unknown-unknown` / wasm-bindgen エントリポイント、`deploy.yml`/`wrangler.toml` のパス整合）も実装。外部サービスの有効化はアカウント側の操作）
+### M7: 運用・品質・OSS 公開準備（進行中）
+- [x] 本番デプロイ（Workers + D1 を既定、VPS + Docker を代替）と外形監視・バックアップ・鍵ローテーション手順（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）— PR #58/#59 で完了（`deploy/` の資材と `.github/workflows/deploy.yml`・`monitoring.yml` を整備。サーバーの Worker ランタイム適応（`wasm32-unknown-unknown` / wasm-bindgen エントリポイント、`deploy.yml`/`wrangler.toml` のパス整合）も実装。外部サービスの有効化はアカウント側の操作）
 - [x] CI の拡張（契約互換性検査（oasdiff 相当）、`cargo audit`／`npm audit`、カバレッジゲート）（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）— PR #56 で完了
-- [x] セキュリティレビュー（zip 取込・CSP・トークン暗号化・権限判定）と依存ライセンスの棚卸し（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）— トークン暗号化は PR #54/#55 で完了
-- [ ] ドキュメント整備（セルフホストガイド・運営ポリシー・CHANGELOG）と初回リリース（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）
-  - [x] セルフホストガイド（`docs/self-host-guide.md`、M7 §5.1）を作成
-  - [x] 運営ポリシー（`docs/operating-policy.md`、M7 §5.2）を作成
-  - [x] CHANGELOG（`CHANGELOG.md`）を作成
-  - [x] リリースノート草案（`docs/release-notes-v0.1.0.md`、M7 §5.3、v0.1.0）を作成（タグ・GitHub Release は作成せず、別途指示待ち）
+- [ ] セキュリティレビュー（zip 取込・CSP・トークン暗号化・権限判定）と依存ライセンスの棚卸し（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）— トークン暗号化は PR #54/#55 で完了。zip 取込のパス traversal 対策・権限判定は実装済みだが、CSP と依存ライセンスの棚卸しは未実施
+- [ ] ドキュメント整備（セルフホストガイド・運営ポリシー・CHANGELOG）と初回リリース（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）— ドキュメント整備は PR #60 で完了。初回リリースは別途指示待ち
+  - [x] セルフホストガイド（`docs/self-host-guide.md`、M7 §5.1）を作成（PR #60）
+  - [x] 運営ポリシー（`docs/operating-policy.md`、M7 §5.2）を作成（PR #60）
+  - [x] CHANGELOG（`CHANGELOG.md`）を作成（PR #60）
+  - [x] リリースノート草案（`docs/release-notes-v0.1.0.md`、M7 §5.3、v0.1.0）を作成（PR #60。タグ・GitHub Release は作成せず、別途指示待ち）
   - [ ] 初回リリース（タグ `v0.1.0` の作成・GitHub Release の公開は別途指示待ち）
-  - [ ] PR の作成とマージ待ち（`arena/m7-docs-release-novnow-hub` → `main`）
-- [x] 性能目標の実測検証（LCP・API p95・検索）とコスト実測（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）
+- [x] 性能目標の実測検証（LCP・API p95・検索）とコスト実測（仕様: REF:docs/specifications/m7.md、設計: REF:docs/designs/m7.md）— 実測可能項目の測定と記録は PR #61 で完了。実際のブラウザ/サーバー/本番実測は後続タスク
   - [x] 測定結果記録（`docs/performance-measurement.md`、M7 §6.1・§6.2）
   - [ ] LCP 実際のブラウザ実測（Chrome/Lighthouse 未インストールのため未実施、後続タスク）
   - [ ] API p95 実際のサーバー実測（Rust ツールチェーン未インストールのため未実施、後続タスク）

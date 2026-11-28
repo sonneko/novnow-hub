@@ -56,7 +56,7 @@ npm run build        # 静的ファイルを dist/ に生成
 
 ```sh
 npm run tauri -- dev
-npm run tauri -- build
+npm run tauri -- build --bundles
 ```
 
-Tauri CLI は npm で管理します。IPC コマンドやプラグイン、配布用バンドルは未設定です。
+Tauri CLI は npm で管理します。IPC コマンド（`session_get`/`session_set`/`session_delete`・`handle_setup_url`）と配布用バンドルは設定済みで、ビルド成果物は CI（`.github/workflows/desktop.yml`、Linux/Win/macOS）で生成します。署名は GitHub Actions の secrets が設定されている場合のみ有効になり、未設定時は未署名でビルドされます（詳細は `REF:docs/self-host-guide.md` と `REF:docs/designs/m6.md` §5）。

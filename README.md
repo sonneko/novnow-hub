@@ -5,20 +5,22 @@ novnow 形式の作品を公開・共有する Web プラットフォーム。�
 - ソフトウェアとして OSS 公開（MIT License）を前提とし、サーバー費用は最小限に抑える設計
 - フロントエンド: Astro + Svelte + TypeScript（Tauri でマルチプラットフォーム化）
 - Phase 1 は GitHub を土台（公開プロジェクト＝GitHub リポジトリ）。ただし GitHub 依存はポート／アダプターの背後に隔離され、API 契約とフロントエンドは GitHub を知らない（`REF:docs/specifications/api.md` と `REF:docs/handoff.md` 参照）
-- バックエンドは別途開発（Rust + Axum + SQLite 等を候補）。フロントエンドは API 契約（OpenAPI 3.1）のみに依存する
+- バックエンドは `server/` crate（Rust + Axum、ネイティブと Cloudflare Workers 用 wasm の両ターゲット）。フロントエンドは API 契約（OpenAPI 3.1）のみに依存する
 
 ## 現在のステータス
 
-M2（フロントエンド基盤とモック接続）は CI 拡張を残してほぼ完了。M3・M4 は進行中で、M3 の読者ビュー／公開ページキャッシュと M4 のコラボレーション UI・チャットの SQLite 参照実装を追加済み。未完了項目の詳細は `REF:docs/plans.md` を参照。
+M1〜M6 は完了。M7（運用・品質・OSS 公開準備）は §2（本番デプロイ・外形監視・バックアップ・鍵ローテーション）・§3（CI 拡張）・§5（ドキュメント整備）・§6（測定結果の記録）が完了し、§4 の残項目（CSP・依存ライセンスの棚卸し）と §5.3 の初回リリース（タグ・GitHub Release）、§6 の実測が後続タスク。API 契約（`api/openapi.yaml`、45 パス）のうち一部のエンドポイントはサーバー未配線で、公開済みのデプロイ URL はまだ存在しない。進捗の詳細は `REF:docs/plans.md` と `REF:docs/handoff.md` を参照。
 
 ## ドキュメント
 
 - ユーザーから見える振る舞いの仕様: `docs/specifications/overview.md`
 - API 契約の仕様: `docs/specifications/api.md`（機械可読な契約は `api/openapi.yaml`）
 - 実装設計: `docs/designs/overview.md` / `docs/designs/api.md`
+- セルフホストの手順: `docs/self-host-guide.md`
 - 開発計画と進捗: `docs/plans.md`
 - 開発者向け固定情報（規則・環境）: `docs/developers.md`
 - 変更履歴・意思決定アーカイブ: `docs/history.md`
+- 変更履歴（リリース単位）: `CHANGELOG.md`
 
 ## 開発の進め方
 
@@ -26,7 +28,7 @@ M2（フロントエンド基盤とモック接続）は CI 拡張を残して�
 
 ## 試し方
 
-この段階ではバックエンドは未導入で、モック API（OpenAPI 契約から応答を生成する Prism）と組み合わせてフロントエンドのみ試せる。**公開済みのデプロイ URL はまだ存在しない**ため、以下の手順はローカル環境のみで有効である。
+公開済みのデプロイ URL はまだ存在しないため、以下の手順はローカル環境のみで有効である。ネイティブサーバー（`server/`）はビルドに Rust ツールチェーンが必要で、デプロイされたインスタンスも未提供のため、**フロントエンドはモック API（OpenAPI 契約から応答を生成する Prism）に接続して試す**。
 
 ### 前提条件
 
@@ -69,10 +71,12 @@ npm run chat:dev
 - **公開フロー（ウィザード UI）**: `/publish`（非エンジニア向け 4 ステップの公開ウィザード画面）
 - **変更提案・課題**: `/collaboration/proposals/?projectId=<id>`、`/collaboration/issues/?projectId=<id>`
 - **チャット**: `/collaboration/chat/?projectId=<id>`（SQLite バックのチャット API を使う場合は別途 `npm run chat:dev` を起動）
-- **派生作品一覧**: `/derivatives`
-- **セットアップ URL 解決**: `/setup/resolve?u=<URL>`
+- **派生作品一覧**: `/derivatives/?projectId=<id>`
+- **点検（診断ジョブ）**: `/inspection/?projectId=<id>`
+- **通知センター**: `/notifications/`
+- **セットアップ URL 解決**: `/setup/resolve/?u=<URL>`
 
-未実装（この段階では試せない）: ログイン（GitHub OAuth）・バックエンド連携の公開実体・自動マージ・通知センター・検索。
+モック API では契約の example 応答が返るだけで、実データの公開・保存は行われない。ログイン（GitHub OAuth）・実データの永続化・Webhook による再生成はモックでは動作しないため、ネイティブサーバー（`server/`）のビルドと起動が必要である。
 
 ## ライセンス
 

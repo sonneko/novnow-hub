@@ -12,14 +12,14 @@
 4. **Secrets の設定**（リポジトリには載せない）：
    - `HUB_GITHUB_OAUTH_CLIENT_ID` / `HUB_GITHUB_OAUTH_CLIENT_SECRET` / `HUB_GITHUB_OAUTH_REDIRECT_URI`（GitHub OAuth 設定）
    - `HUB_WEBHOOK_SECRET`（Webhook 署名検証用の HMAC 鍵）
-5. **GitHub リポジトリの Secrets**（`.github/settings/secrets`）にデプロイ用の Cloudflare API トークン（`CF_API_TOKEN`）を登録。
+5. **GitHub リポジトリの Secrets**（`.github/settings/secrets`）にデプロイ用の Cloudflare API トークン（`CF_API_TOKEN`）とアカウント ID（`CF_ACCOUNT_ID`）を登録。
 
 ## デプロイの流れ
 
 1. **コード変更を main にマージ**。`REF:.github/workflows/deploy.yml` が `main` への push で起動する。
 2. **ビルド**: web（`web/dist`）とサーバー（Rust バイナリ）をビルドする。
 3. **手動承認**: `production` environment の保護ルールで承認者を設定し、デプロイジョブの承認を待つ（設計 §2.1 の「手動承認」）。
-4. **デプロイ**: 承認後に Worker へデプロイし、D1 に接続する。
+4. **デプロイ**: 承認後に Worker へデプロイする。**D1 への実接続は未実装**であり、現時点では wasm エントリポイントが応答するのは `GET /api/v1/meta` のみ（`REF:server/src/worker.rs`）。`web/dist` は `wrangler.toml` の `assets` が配信する。
 5. **検証**: 公開ドメインの `/api/v1/meta` と公開ページが 200 で応答することを確認（`REF:deploy/monitoring/healthcheck.sh` で自動化）。
 
 ## ロールバック

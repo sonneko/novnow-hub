@@ -33,6 +33,8 @@ Workers + D1 を既定構成、VPS + Docker を代替構成とする（仕様: `
 4. **デプロイ**：承認後に Worker へデプロイする。`wrangler.toml` の `main` は wasm 出力パス（`server/target/wasm32-unknown-unknown/release/novnow_hub_server.wasm`）、`assets.directory` は `./web/dist`（ワークフローが `web-dist` アーティファクトを `./deploy/workers-d1/web/dist` に展開）を参照する。
 5. **検証**：公開ドメインの `/api/v1/meta` と公開ページが 200 で応答することを確認（`REF:deploy/monitoring/healthcheck.sh` で自動化）。
 
+**現時点の Worker ランタイムの実装範囲（重要）**: wasm エントリポイント（`REF:server/src/worker.rs`）が応答するのは `GET /api/v1/meta` のみで、それ以外の API パスは 404 を返す。認証・公開・コラボレーション等の API は未対応であり、D1 への実接続も未実装である（判断: `REF:docs/handoff.md` §4 判断 26）。Workers + D1 構成で全機能を動かすには、wasm 側の HTTP クライアント実装（GitHub API アクセス）と D1 永続化の実装が後続タスクとして必要になる。
+
 ### ロールバック
 
 - デプロイは Git の履歴に依存するため、**前回の正常なマージコミットへ戻す**ことでロールバックできる。
@@ -65,8 +67,10 @@ Workers + D1 を既定構成、VPS + Docker を代替構成とする（仕様: `
    cd deploy/vps-docker
    docker compose up -d --build
    ```
-4. **nginx を設定・起動**：`deploy/vps-docker/nginx/novnow-hub.conf` を `/etc/nginx/sites-available/` に配置し、サイトを有効化。TLS 証明書を `/etc/nginx/certs/` に配置（プレースホルダ `novnow.example.com.fullchain.pem` / `novnow.example.com.key` を実際の証明書に置き換える）。
+4. **nginx を設定・起動**：`deploy/vps-docker/nginx/novnow-hub.conf` を nginx の設定ディレクトリ（例 `/etc/nginx/conf.d/`）に配置し、サイトを有効化する。`docker-compose.yml` は nginx サービスを含まないため、nginx はホスト側で別途起動し、ホストから `hub:8080`（または公開したポート）へ到達できるようにする。TLS 証明書は設定中の `/etc/nginx/certs/` に配置し、プレースホルダ `novnow.example.com.fullchain.pem` / `novnow.example.com.key` を実際の証明書に置き換える。
 5. **検証**：公開ドメインの `/api/v1/meta` と公開ページが 200 で応答することを確認（`REF:deploy/monitoring/healthcheck.sh` で自動化）。
+
+**現時点の VPS 構成の制約（重要）**: サーバーバイナリ（`server/`）は API のみを配信し、公開ページ（静的 HTML）を配信するルートを持たない。Docker イメージは `web/dist` を `/app/web-dist` に配置するが、サーバーはこれを配信しないため、公開ページの配信経路は未整備である（nginx 設定も `location /` をサーバーへ逆プロキシしている）。また、契約にある `GET /setup/resolve`・`GET /projects/{id}/setup`・`GET /projects/{id}/reading` 等はネイティブサーバーに未配線であり、VPS 構成では該当機能が 404 になる（判断: `REF:docs/handoff.md` §4 判断 27）。上記は後続タスクとして記録し、本ガイドでは制約として明示する。
 
 ### ロールバック
 
@@ -77,7 +81,7 @@ Workers + D1 を既定構成、VPS + Docker を代替構成とする（仕様: `
 
 | 変数 | 意味 | 既定値 | 設定先 |
 |---|---|---|---|
-| `HUB_PUBLIC_BASE` | 公開ページのベース URL（`publishedUrl` 生成に使用） | `https://novnow.example.com`（Workers）/ `http://localhost:8080`（Docker） | wrangler.toml `[vars]` / Docker `.env` |
+| `HUB_PUBLIC_BASE` | 公開ページのベース URL（`publishedUrl` 生成に使用） | `https://novnow.example.com`（wrangler.toml `[vars]`）/ `http://localhost:8080`（docker-compose の既定） | wrangler.toml `[vars]` / Docker `.env` |
 | `HUB_BIND_ADDR` | サーバー待受アドレス | `0.0.0.0` | wrangler.toml `[vars]` / Docker `.env` |
 | `HUB_PORT` | 待受ポート | `8080` | wrangler.toml `[vars]` / Docker `.env` |
 | `HUB_GITHUB_OAUTH_CLIENT_ID` | GitHub OAuth クライアント ID | （未設定） | GitHub Secrets / Docker `.env` |
@@ -86,6 +90,13 @@ Workers + D1 を既定構成、VPS + Docker を代替構成とする（仕様: `
 | `HUB_WEBHOOK_SECRET` | Webhook 署名検証用 HMAC 鍵 | （未設定） | GitHub Secrets / Docker `.env` |
 | `CF_API_TOKEN` | Cloudflare API トークン（デプロイ用） | （未設定） | GitHub Secrets |
 | `CF_ACCOUNT_ID` | Cloudflare アカウント ID | （未設定） | GitHub Secrets |
+| `HUB_CONTRACT_VERSION` | `/api/v1/meta` が返す契約版 | `1.0.0`（`api/openapi.yaml` の `info.version` と一致させる） | 環境変数 |
+| `HUB_MINIMUM_CLIENT_VERSION` | 最小クライアント版 | `1.0.0` | 環境変数 |
+| `HUB_GITHUB_API_BASE` | GitHub API のベース URL | `https://api.github.com` | 環境変数 |
+| `HUB_GITHUB_AUTH_BASE` | GitHub 認証のベース URL | `https://github.com` | 環境変数 |
+| `HUB_ACCESS_TOKEN_TTL_SECS` | アクセストークン有効秒数 | `3600` | 環境変数 |
+| `HUB_REFRESH_TOKEN_TTL_SECS` | 更新トークン有効秒数 | `2592000`（30 日） | 環境変数 |
+| `HUB_READ_TIMEOUT_SECS` / `HUB_WRITE_TIMEOUT_SECS` / `HUB_COMMIT_TIMEOUT_SECS` | 読み取り／書き込み／コミットのタイムアウト秒数 | `5` / `30` / `120` | 環境変数 |
 
 ## GitHub 連携の設定
 
