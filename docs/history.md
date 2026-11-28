@@ -462,3 +462,15 @@ grep -n -i '\[HIST-TAG:.*topics=.*<keyword>' docs/history.md
   - Tauri デスクトップビルド: サンドボックス環境では実行不可（crates.io 到達不可・`tauri`/`iota_stronghold` 未ベンダー・webkit2gtk/gtk3/pkg-config 未導入）。**CI の `.github/workflows/desktop.yml` の実行結果で Linux/Win/macOS のビルドを検証**（理由と CI 確認方法を記録）。
   - **CI フォローアップ（PR #52）**: 初回の Desktop ワークフローが 3 プラットフォーム全て「Build desktop app」で失敗。原因をソース・ドキュメントで特定し修正: (a) `stronghold = "2"` は誤クレート（IOTA Stronghold の実クレートは `iota_stronghold` 2.1.0）に修正、(b) `Stronghold` の `read_from`/`write_to`/`delete` 不存在 → `store()` 経由の `Store`（同期 `insert`/`get`/`delete`）に修正、(c) `register_uri_scheme_protocol` の返り値は Tauri v2 で `http::Response`（`Result` ではない）→ 空の 200 応答に修正し `http = "1"` 追加、(d) `custom-protocol` フィーチャーは v2 で不要（無視）なので未定義に整理、(e) `bundle.icon` に `icon.png` のみでは Windows が `icon.ico` 不在で失敗 → `tauri icon` で標準アイコン一式を生成し `32x32.png`/`128x128.png`/`128x128@2x.png`/`icon.icns`/`icon.ico` を登録。(f) **上記修正後も全 3 プラットフォームで失敗継続 → アノテーション可視化で真因を特定**: ジョブログ本文はサインイン必須で取得不可だったため、`desktop.yml` のビルドステップを「ログをファイル保存＋失敗時に末尾を `::error::` アノテーション出力」に変更し、check-runs API で実エラー文を読んだ。**(f1) `tauri build --bundle` の引数誤り**: 約 45 秒で終了する最初の失敗のアノテーションは `error: unexpected argument '--bundle' found` / `tip: a similar argument exists: '--bundles'`（clap 引数エラー・コンパイル未実行）。tauri build の有効引数は `--bundles`（複数形）→ 3 ジョブ共通で修正。**(f2) `tauri::State` の lifetime 欠落**: `--bundles` 修正後はコンパイル進捗後、`error[E0726]: implicit elided lifetime not allowed here`（`src/lib.rs:79`、`state: tauri::State<SecureStorage>`）で失敗。Tauri v2 の `tauri::State<T>` は `tauri::State<'_, T>` を要求 → 3 コマンドで `'_` 追加。セッション保管は IOTA Stronghold（`iota_stronghold`）・`keyring` を排除し、**依存関係ゼロのファイルベース実装**（`app_data_dir` 配下）で要件の核心を満たす（OS キーチェーンへの保存は後続）。修正の正しさは CI の Desktop ワークフロー再実行で検証。
   - `python3 docs/script/verify-docs.py` → 実行検証。
+
+
+### [HIST:MILESTONE:M7-DOCS-RELEASE] 2026-11-27 M7 §5 ドキュメント整備と初回リリース準備（PR 作成待ち）
+[HIST-TAG: category=MILESTONE id=M7-DOCS-RELEASE topics=m7,docs,release,changelog,self-host,operating-policy,v0.1.0]
+- **ブランチ**: `arena/m7-docs-release-novnow-hub`（`main` @ `4e57d0a` = PR #59 マージコミット）。**マージは指示待ち（未マージ）**。マージ済みブランチへの push は行わない。
+- **作業**: M7 §5（ドキュメント整備と初回リリース準備）を実施。
+  - **§5.1 セルフホストガイド**: `docs/self-host-guide.md` を新規作成。Workers + D1 を既定構成、VPS + Docker を代替構成としてデプロイ手順、環境変数、GitHub OAuth/Webhook 設定、アカウント側操作を明記。
+  - **§5.2 運営ポリシー**: `docs/operating-policy.md` を新規作成。公開基準・削除基準・著作権対応を定義。
+  - **CHANGELOG**: `CHANGELOG.md` を新規作成。M1 から M7 までの変更履歴、バージョン表記、タグ計画（v0.1.0）を記録。
+  - **§5.3 リリースノート草案**: `docs/release-notes-v0.1.0.md` を新規作成。v0.1.0 の概要・主な変更・既知の制限事項・タグ計画を記録。タグ作成・GitHub Release の作成・リリースの公開は行わず、別途指示を待つ。
+- **ドキュメント同期**: `docs/plans.md` の M7 進捗サマリとチェックボックス、`docs/handoff.md` のブランチ・PR・現在の状態を更新。`docs/designs/m7.md` §5.1〜§5.3 の状態は「未実装・実装計画済み」のまま（実装は docs のみで設計書の変更は不要）。
+- **検証**: `python3 docs/script/verify-docs.py` 通過。`api/openapi.yaml` は変更なし（契約の正として不変）。`server/`、`web/` のソースコードは変更なし。
