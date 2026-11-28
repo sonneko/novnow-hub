@@ -114,7 +114,7 @@ Phase 1 は GitHub アダプター群 + hub 管理ストア（チャット・通
 
 ### 5.1 新規公開フロー
 
-状態: 実装中（公開ウィザード UI は PR #8 で実装済み。バックエンドの保管・検証・公開フロー本体は未実装、REF:docs/plans.md#m3-thin-slice）
+状態: 実装完了（公開ウィザード UI は PR #8、バックエンドの zip 取込・軽量検証・保管単位作成・hub 登録・公開ページ生成は PR #42 で実装済み。REF:server/src/routes/projects.rs, REF:server/src/verify.rs, REF:docs/plans.md#m3-thin-slice）
 
 UI は 4 画面。API は `POST /projects` に集約し、multipart または JSON（ソース指定）で受ける。サーバ側の処理順は (1) 入力検証 → (2) novnow 検証（§5.3 相当・バックエンド側で再検証）→ (3) 保管単位作成 → (4) 原子コミット → (5) hub 登録と検索インデックス投入 → (6) 公開ページの事前描画。失敗箇所ごとに補償手順を定義し、リトライは冪等キーで吸収する。
 
@@ -126,7 +126,7 @@ Phase 1 は 1 hub プロジェクト = 1 GitHub リポジトリ（所有者は�
 
 ### 5.3 novnow 形式の検証
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m3-thin-slice, REF:docs/plans.md#m5-novnow-features）
+状態: 実装中（M3 の軽量検証（必須ファイル・必須ディレクトリ・UTF-8・`schema_version`）は実装済み。novnow 本体の完全な診断（`novnow check` 相当）との統合は未実装。REF:server/src/verify.rs, REF:docs/plans.md#m3-thin-slice）
 
 検証は novnow 本体の診断（`novnow check` 相当）を WASM（novnow rust api を wasm32-wasi 等へビルド）または別プロセスで実行する想定。Phase 1 の M3 では必須ファイルの存在・UTF-8 妥当性・`project.toml` の `schema_version` 上限のみを軽量チェッカーで実装し、完全な診断は M5 で novnow 本体と統合する。結果は検証 API と公開ウィザードの両方に同一の表現で返す。
 
@@ -148,19 +148,19 @@ Phase 1 は 1 hub プロジェクト = 1 GitHub リポジトリ（所有者は�
 
 ### 6.1 プロジェクトページ
 
-状態: 実装中（読者ビューと公開ページの静的シェル事前描画・ETag キャッシュは PR #19 で実装済み。バックエンド・検索は未実装、REF:docs/plans.md#m3-thin-slice）
+状態: 実装中（読者ビューと公開ページの静的シェル事前描画・ETag キャッシュは PR #19 で実装済み。本文を返す `GET /projects/{id}/reading` はサーバー未配線。REF:docs/plans.md#m3-thin-slice, `REF:docs/handoff.md` §4 判断 27）
 
 Astro の動的ルート + Svelte アイランド（インタラクション部分のみ）。公開ページの本文データは `/projects/{id}/reading` で取得し、OGP（タイトル・説明・作者・ライセンス）は SSR でメタタグ化する。設定資料タブは `materials/` 公開フラグをプロジェクト設定として持ち、既定は非公開。
 
 ### 6.2 一覧と検索
 
-状態: 実装中（一覧画面の表示・ソート・タグ・ライセンス絞り込みは実装済み。軽量インデックス検索は未実装、REF:docs/plans.md#m3-thin-slice, REF:docs/plans.md#m5-novnow-features）
+状態: 実装完了（一覧画面の表示・ソート・タグ・ライセンス絞り込みと、バックエンドの軽量インデックス検索（`GET /search/projects`）を実装。REF:docs/plans.md#m3-thin-slice）
 
-一覧は hub 側の軽量インデックステーブル（`search_index`: title／description／tags／author／updated_at）への SQL 検索。並び替えは新着・更新・派生数の 3 種のみ。検索 API は `/search/projects` に集約し、全文検索は `LIKE` 相当の部分一致 + 正規化（NFKC・小文字化）までとする。ページネーションはカーソル（`updatedAt + id` の複合キーを Base64URL 化）で、総件数は返さない。現時点で実装済みなのはフロントエンドの一覧表示（`REF:web/src/components/pages/ProjectsPage.svelte`）のみで、検索インデックス自体は未実装である。
+一覧は hub 側の軽量インデックステーブル（`search_index`: title／description／tags／author／updated_at）への SQL 検索。並び替えは新着・更新・派生数の 3 種のみ。検索 API は `/search/projects` に集約し、全文検索は `LIKE` 相当の部分一致 + 正規化（NFKC・小文字化）までとする。ページネーションはカーソル（`updatedAt + id` の複合キーを Base64URL 化）で、総件数は返さない。検索インデックスは DB テーブルではなくインメモリ登録簿のスナップショットを走査する `REF:server/src/project_index.rs` で実装し（DB 導入時に差し替え可能）、フロントエンドは `REF:web/src/components/pages/ProjectsPage.svelte` で一覧表示・カーソル展開・取得済みページ内のフィルタを担う。
 
 ### 6.3 ブラウザでそのまま読む
 
-状態: 実装中（読者ビューの事前描画と ETag キャッシュは PR #19 で実装済み。CDN／Workers キャッシュ等の完成形は未実装、REF:docs/plans.md#m2-frontend-mock, REF:docs/plans.md#m3-thin-slice）
+状態: 実装中（読者ビューの事前描画とブラウザ側 ETag キャッシュは PR #19 で実装済み。CDN／Workers キャッシュ等の完成形は未実装、REF:docs/plans.md#m2-frontend-mock, REF:docs/plans.md#m3-thin-slice）
 
 読者ビューは novnow 本文を注釈除去済み HTML として事前生成（公開・再生成時）し、CDN／Workers のキャッシュに乗せる。テーマは `prefers-color-scheme` 追従 + 手動切替、文字サイズは端末内（localStorage 相当）保存。JS 無効でも本文が読めるよう、本文部分は静的 HTML を正とする。
 
@@ -170,13 +170,13 @@ Astro の動的ルート + Svelte アイランド（インタラクション部�
 
 ### 7.1 URL ワンクリックセットアップ
 
-状態: 実装中（セットアップ URL 発行・解決は PR #12 で実装済み。派生・診断等は未実装、REF:docs/plans.md#m5-novnow-features）
+状態: 実装中（フロントエンドのセットアップ URL 発行・解決 UI は PR #12 で実装済み。ネイティブサーバーの `GET /projects/{id}/setup`・`GET /setup/resolve` は未配線（判断 27）、REF:docs/plans.md#m5-novnow-features）
 
 セットアップ URL は `https://<hub>/setup/{projectId}?via=web|desktop` 形式で、`GET /projects/{projectId}/setup` が返すペイロード（取得元・tarball URL／浅い clone URL・検証結果・推奨 novnow 版）を novnow アプリが解釈する。デスクトップ版はカスタムスキーム（`novnow://setup?…`）で受け、ブラウザ版は Web アプリへクエリを渡す。URL に認証情報は含めない。失敗時のフォールバックとして GitHub 上のプロジェクトページへ遷移できる導線を常に表示する。
 
 ### 7.2 派生作品の作成（フォーク）
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m5-novnow-features）
+状態: 実装完了（REF:server/src/derivatives.rs, REF:server/src/adapters/github/derivation.rs, REF:server/src/routes/derivatives.rs）
 
 `POST /projects/{projectId}/derive` → DerivationPort.deriveProject。Phase 1 は GitHub Fork API（非同期）を用い、fork 完了をポーリングで確認してから hub に `derivation` レコード（parent_id／child_id／depth）を作成する。ライセンスが派生非許可の場合は 409 を返す。非同期処理のため、派生作成も `202 Accepted + jobId` を返し、完了を通知で知らせる。
 
@@ -188,13 +188,13 @@ Astro の動的ルート + Svelte アイランド（インタラクション部�
 
 ### 7.4 派生ツリーの可視化
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m5-novnow-features）
+状態: 実装完了（REF:web/src/components/pages/DerivativesPage.svelte, REF:server/src/derivatives.rs）
 
 `derivations` テーブル（parent_id／child_id／depth／created_at）から再帰 CTE または反復クエリで木を構築し、`/projects/{id}/derivatives` で全深度を JSON 配列で返す。UI は Svelte のツリーコンポーネントで、孫以下は遅延展開とする。原作者通知は `derivative_created` 種別の通知を初回公開時に発行する。
 
 ### 7.5 novnow 診断・エクスポート連携
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m5-novnow-features）
+状態: 実装完了（診断は M3 軽量検証を再利用した非同期ジョブとして実装。REF:server/src/jobs.rs, REF:server/src/routes/jobs.rs, REF:web/src/components/pages/InspectionPage.svelte）
 
 診断・エクスポートは非同期ジョブ（`jobs` テーブル: kind／status／payload／result／created_at）として実行する。Phase 1 のジョブ基盤は Workers の cron トリガまたは GitHub Actions ワークフローを呼び出す形を候補とし、実行環境に依存しないよう `JobPort`（enqueue／status／result）に切り出す。novnow 本体の診断は WASM 化を第一候補、実行不可の場合は GitHub Actions 上の `novnow` CLI を後段に置く。結果 JSON はハブが正規化して保存し、クライアントへ `/jobs/{id}` で返す。
 
@@ -204,19 +204,19 @@ Astro の動的ルート + Svelte アイランド（インタラクション部�
 
 ### 8.1 変更提案（プルリクエスト）とレビュー
 
-状態: 実装中（変更提案 UI と課題 UI は PR #16 で実装済み。自動マージ等は未実装、REF:docs/plans.md#m4-collaboration）
+状態: 実装完了（UI は PR #16、ProposalPort の GitHub 実装と HTTP ルート配線は PR #44/#45 で実装済み。REF:server/src/routes/collab.rs, REF:web/src/components/pages/ProposalsPage.svelte）
 
 ProposalPort を介して GitHub PR を操作する。UI は「提案一覧／詳細／差分／会話」の 4 ビュー。差分は unified diff をサーバで整形し、行単位コメント（Review threads）は GitHub の pull request review comments に写像する。会話の同期は読み取り専用の都度取得 + 書き込み時の即時反映で行い、リアルタイム性は要求しない。
 
 ### 8.2 自動マージ
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m4-collaboration）
+状態: 実装完了（予約・取消・状態表示。REF:server/src/routes/collab.rs, REF:web/src/components/pages/ProposalDetailPage.svelte）
 
 AutomergePort.reserveAutomerge → GitHub の GraphQL `enablePullRequestAutoMerge`（または hub の cron による定期マージ。GitHub 側の auto-merge が使える設定では前者を既定）。予約条件は DB にも保存し、`requiredApprovals`・`requiredChecks[]`・`requireNoConflicts` を評価する条件式は hub 側で一箇所に実装し、GitHub 側設定と二重管理しない。状態遷移は `reserved → armed → merged | failed | canceled` を許可し、`failed` 時は理由を通知する。
 
 ### 8.3 課題（Issue）
 
-状態: 実装中（課題 UI は PR #16 で実装済み。自動マージ等は未実装、REF:docs/plans.md#m4-collaboration）
+状態: 実装完了（UI は PR #16、IssuePort の GitHub 実装と HTTP ルート配線は PR #44/#45 で実装済み。REF:server/src/routes/collab.rs, REF:web/src/components/pages/IssuesPage.svelte）
 
 IssuePort を介して GitHub Issues を操作する。ラベルの正は GitHub 側に置き、hub は一覧表示用の投影（id／number／title／state／labels／assignee）だけを保持する。課題→提案の紐付けは本文先頭の `Closes #N` 相当の規約文字列として表現し、hub が解釈して `linkedProposalNumber` を自動設定する。
 
@@ -228,7 +228,7 @@ ChatPort は hub 管理ストアに実装する（Phase 1 から GitHub を使�
 
 ### 8.5 CI（マージ前検証）
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m4-collaboration, REF:docs/plans.md#m5-novnow-features）
+状態: 実装中（`CheckStatusPort` の GitHub 実装・提案差分への novnow 診断差分の付与・`/verify` 系の配線は実装済み。hub 管理チェック（`novnow.verify`）の GitHub Actions 登録は未実装。REF:server/src/ports.rs, REF:server/src/routes/verify.rs, REF:docs/plans.md#m5-novnow-features）
 
 CheckStatusPort で GitHub Checks／Commit Statuses を読み、hub 管理チェック（`novnow.verify`）は M5 で GitHub Actions 上の `novnow check` をワークフロー呼び出し（`workflow_dispatch`）または hub ジョブで登録する。必須チェックの登録可否はプロジェクト設定（`require_novnow_check`）で持つ。結果は 5 分間キャッシュし、自動マージ条件評価に用いる。
 
@@ -238,7 +238,7 @@ CheckStatusPort で GitHub Checks／Commit Statuses を読み、hub 管理チェ
 
 ### 9.1 通知センター
 
-状態: 未実装・実装計画済み（REF:docs/plans.md#m4-collaboration）
+状態: 実装完了（REF:server/src/notifications.rs, REF:server/src/routes/notifications.rs, REF:web/src/components/pages/NotificationsPage.svelte）
 
 `notifications` テーブル（id／user_id／kind／project_id／payload JSON／read_at／created_at）。発火元はドメインイベント（`DerivativeCreated`／`ProposalMerged`／`JobFinished` 等）で、イベントの発行はユースケース層で行い、永続化とファンアウトを `NotificationService` に集約する。一覧はカーソル、`POST /notifications/read` で一括既読。未読数はヘッダで常時配信（`X-Unread-Count`）し、フロントエンドがバッジに使う。
 
